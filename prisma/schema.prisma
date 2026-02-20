@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String      @id @default(cuid())
+  role         String      @default("STUDENT")
+  deltaBalance Float       @default(100000.0) // Initial balance
+  marginLimit  Float       @default(0.0)
+  portfolios   Portfolio[]
+  transactions Transaction[]
+}
+
+model Asset {
+  id           String      @id @default(cuid())
+  symbol       String      @unique
+  type         String
+  supplyPool   Float
+  demandPool   Float
+  basePrice    Float
+  portfolios   Portfolio[]
+  transactions Transaction[]
+}
+
+model Portfolio {
+  id                String  @id @default(cuid())
+  userId            String
+  assetId           String
+  quantity          Float
+  averageEntryPrice Float
+  isShortPosition   Boolean @default(false)
+  user              User    @relation(fields: [userId], references: [id])
+  asset             Asset   @relation(fields: [assetId], references: [id])
+
+  @@unique([userId, assetId, isShortPosition])
+}
+
+model Transaction {
+  id        String          @id @default(cuid())
+  userId    String
+  assetId   String
+  type      String
+  amount    Float // Quantity traded
+  price     Float // Execution price per unit
+  fee       Float // 0.5% fee
+  timestamp DateTime        @default(now())
+  user      User            @relation(fields: [userId], references: [id])
+  asset     Asset           @relation(fields: [assetId], references: [id])
+}
+
+// Enums removed for SQLite compatibility
