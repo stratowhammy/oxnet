@@ -32,6 +32,18 @@ type User = {
     portfolios: PortfolioItem[];
 };
 
+type NewsStory = {
+    id: string;
+    headline: string;
+    context: string;
+    targetSector: string;
+    targetSpecialty: string;
+    impactScope: string;
+    direction: string;
+    intensityWeight: number;
+    publishedAt: Date;
+};
+
 // --- Mock Data Generator (moved from TradingInterface) ---
 function generateData(count: number, basePrice: number): Candle[] {
     let date = new Date();
@@ -60,15 +72,17 @@ const orderSchema = z.object({
     quantity: z.number().positive(),
 });
 
-export default function Dashboard({ initialUser, initialAssets }: { initialUser: User, initialAssets: Asset[] }) {
+export default function Dashboard({ initialUser, initialAssets, initialNews }: { initialUser: User, initialAssets: Asset[], initialNews: NewsStory[] }) {
     // --- State: Layout & Selection ---
     const [selectedAssetId, setSelectedAssetId] = useState<string>(initialAssets[0]?.id || '');
     const [searchTerm, setSearchTerm] = useState('');
     const [filterSector, setFilterSector] = useState('All');
+    const [selectedNews, setSelectedNews] = useState<NewsStory | null>(null);
 
     // --- State: Data ---
     const [user, setUser] = useState<User>(initialUser);
     const [assets, setAssets] = useState<Asset[]>(initialAssets);
+    const [news, setNews] = useState<NewsStory[]>(initialNews);
 
     // Derived
     const selectedAsset = useMemo(() => assets.find(a => a.id === selectedAssetId), [assets, selectedAssetId]);
@@ -103,8 +117,27 @@ export default function Dashboard({ initialUser, initialAssets }: { initialUser:
     // --- Effects: Chart Data ---
     useEffect(() => {
         if (!selectedAsset) return;
-        // Mock fetch new data for selected asset
-        const data = generateData(200, selectedAsset.basePrice);
+
+        let data: Candle[] = [];
+
+        // If the asset has actual price history, we map it into 15m intervals ideally
+        // Since we are mocking the chart, we can map the 15m price records here.
+        // @ts-ignore
+        if (selectedAsset.priceHistory && selectedAsset.priceHistory.length > 0) {
+            // @ts-ignore
+            data = selectedAsset.priceHistory.map(ph => {
+                return {
+                    time: new Date(ph.timestamp).getTime() / 1000 as import('lightweight-charts').Time,
+                    open: ph.price,
+                    high: ph.price, // It's just a snapshot, so open=high=low=close for this tick
+                    low: ph.price,
+                    close: ph.price
+                };
+            });
+        } else {
+            data = generateData(200, selectedAsset.basePrice);
+        }
+
         setChartData(data);
     }, [selectedAsset]);
 
@@ -259,7 +292,33 @@ export default function Dashboard({ initialUser, initialAssets }: { initialUser:
             </aside>
 
             {/* --- Main Content --- */}
-            <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+
+                {/* --- News Ticker --- */}
+                {news.length > 0 && (
+                    <div className="h-10 border-b border-gray-800 bg-black flex items-center overflow-hidden">
+                        <div className="bg-blue-600 text-white font-bold text-xs uppercase px-4 h-full flex items-center z-10 shrink-0 shadow-lg">
+                            Live News
+                        </div>
+                        <div className="flex-1 overflow-hidden whitespace-nowrap pl-4 flex items-center">
+                            <div className="inline-block animate-[ticker_60s_linear_infinite]">
+                                {news.map(n => (
+                                    <span
+                                        key={n.id}
+                                        onClick={() => setSelectedNews(n)}
+                                        className="text-gray-300 hover:text-white cursor-pointer mr-12 text-sm transition-colors cursor-pointer"
+                                    >
+                                        <span className={`mr-2 font-mono font-bold ${n.direction === 'UP' ? 'text-green-500' : 'text-red-500'}`}>
+                                            [{n.targetSector}]
+                                        </span>
+                                        {n.headline}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Header: Portfolio Summary */}
                 <header className="h-16 border-b border-gray-800 flex items-center justify-between px-6 bg-gray-900">
                     <div>
@@ -284,6 +343,26 @@ export default function Dashboard({ initialUser, initialAssets }: { initialUser:
                         <>
                             {/* Asset Header & Chart (Col 8) */}
                             <div className="col-span-12 lg:col-span-8 flex flex-col gap-6">
+
+                                {/* Active Positions Widget (Horizontal Strip) */}
+                                {user.portfolios.length > 0 && (
+                                    <div className="bg-gray-900 rounded-xl p-4 shadow-sm border border-gray-800 flex gap-4 overflow-x-auto hide-scrollbar">
+                                        {user.portfolios.map(p => {
+                                            const currentVal = p.quantity * p.asset.basePrice;
+                                            const isProfitable = currentVal >= (p.quantity * p.averageEntryPrice);
+                                            return (
+                                                <div key={p.assetId} className="min-w-[150px] flex-shrink-0 border-r border-gray-800 pr-4 last:border-0 cursor-pointer hover:bg-gray-800 p-2 rounded transition-colors" onClick={() => setSelectedAssetId(p.assetId)}>
+                                                    <div className="text-white font-bold text-sm">{p.asset.symbol}</div>
+                                                    <div className="text-xs text-gray-400 mb-1">{p.quantity} shares</div>
+                                                    <div className={`font-mono flex justify-between text-sm ${isProfitable ? 'text-green-400' : 'text-red-400'}`}>
+                                                        Δ {currentVal.toFixed(2)}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
                                 {/* Asset Info Card */}
                                 <div className="bg-gray-900 rounded-xl p-6 shadow-sm border border-gray-800">
                                     <div className="flex justify-between items-start mb-4">
@@ -430,6 +509,57 @@ export default function Dashboard({ initialUser, initialAssets }: { initialUser:
                     )}
                 </div>
             </main>
+
+            {/* --- News Overlay Modal --- */}
+            {selectedNews && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <div className="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl max-w-2xl w-full p-8 relative">
+                        <button
+                            onClick={() => setSelectedNews(null)}
+                            className="absolute top-4 right-4 text-gray-400 hover:text-white"
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+
+                        <div className="flex gap-2 text-sm mb-4">
+                            <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded border border-gray-700">{selectedNews.targetSector}</span>
+                            <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded border border-gray-700">{selectedNews.targetSpecialty}</span>
+                            <span className={`px-2 py-1 rounded border font-bold ${selectedNews.direction === 'UP' ? 'bg-green-900/30 text-green-400 border-green-800' : 'bg-red-900/30 text-red-400 border-red-800'}`}>
+                                {selectedNews.direction} IMPACT
+                            </span>
+                        </div>
+
+                        <h2 className="text-2xl font-bold text-white mb-6 leading-tight">
+                            {selectedNews.headline}
+                        </h2>
+
+                        <div className="prose prose-invert prose-blue max-w-none">
+                            <p className="text-gray-300 text-lg leading-relaxed">
+                                {selectedNews.context}
+                            </p>
+                        </div>
+
+                        <div className="mt-8 pt-6 border-t border-gray-800 flex justify-between items-center text-sm text-gray-500">
+                            <span>Intensity Level: {selectedNews.intensityWeight} / 5</span>
+                            <span>Published: {new Date(selectedNews.publishedAt).toLocaleString()}</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <style jsx global>{`
+                @keyframes ticker {
+                    0% { transform: translateX(100%); }
+                    100% { transform: translateX(-100%); }
+                }
+                .hide-scrollbar::-webkit-scrollbar {
+                    display: none;
+                }
+                .hide-scrollbar {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                }
+            `}</style>
         </div>
     );
 }

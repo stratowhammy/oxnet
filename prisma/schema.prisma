@@ -8,27 +8,28 @@ datasource db {
 }
 
 model User {
-  id           String      @id @default(cuid())
-  role         String      @default("STUDENT")
-  deltaBalance Float       @default(100000.0) // Initial balance
-  marginLimit  Float       @default(0.0)
+  id           String        @id @default(cuid())
+  role         String        @default("STUDENT")
+  deltaBalance Float         @default(100000.0) // Initial balance
+  marginLimit  Float         @default(0.0)
   portfolios   Portfolio[]
   transactions Transaction[]
 }
 
 model Asset {
-  id          String        @id @default(cuid())
-  symbol      String        @unique
-  name        String // Added name field
-  type        String
-  sector      String // Added sector field
-  niche       String // Added niche field
-  description String // Added description field
-  supplyPool  Float
-  demandPool  Float
-  basePrice   Float
-  portfolios  Portfolio[]
+  id           String         @id @default(cuid())
+  symbol       String         @unique
+  name         String // Added name field
+  type         String
+  sector       String // Added sector field
+  niche        String // Added niche field
+  description  String // Added description field
+  supplyPool   Float
+  demandPool   Float
+  basePrice    Float
+  portfolios   Portfolio[]
   transactions Transaction[]
+  priceHistory PriceHistory[]
 }
 
 model Portfolio {
@@ -45,16 +46,39 @@ model Portfolio {
 }
 
 model Transaction {
-  id        String          @id @default(cuid())
+  id        String   @id @default(cuid())
   userId    String
   assetId   String
   type      String
   amount    Float // Quantity traded
   price     Float // Execution price per unit
   fee       Float // 0.5% fee
-  timestamp DateTime        @default(now())
-  user      User            @relation(fields: [userId], references: [id])
-  asset     Asset           @relation(fields: [assetId], references: [id])
+  timestamp DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  asset     Asset    @relation(fields: [assetId], references: [id])
 }
 
 // Enums removed for SQLite compatibility
+
+model NewsStory {
+  id                  String   @id @default(cuid())
+  headline            String
+  context             String
+  targetSector        String
+  targetSpecialty     String
+  impactScope         String
+  direction           String
+  intensityWeight     Int
+  competitorInversion Boolean
+  publishedAt         DateTime @default(now())
+}
+
+model PriceHistory {
+  id        String   @id @default(cuid())
+  assetId   String
+  price     Float
+  timestamp DateTime @default(now())
+  asset     Asset    @relation(fields: [assetId], references: [id])
+
+  @@index([assetId, timestamp])
+}

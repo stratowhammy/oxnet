@@ -1,0 +1,5 @@
+- Role: Financial News Engine.
+- Output Format: Raw JSON array.
+- Required Data Fields: Headline, Context, Target_Sector, Target_Specialty, Impact_Scope, Direction, Intensity_Weight (Integer 1-5), Competitor_Inversion (Boolean).
+- Educational Constraint: News contexts must explain economic rationale using terminology appropriate for high school students.
+- Logic: Exact string alignment with existing sectors/specializations required.

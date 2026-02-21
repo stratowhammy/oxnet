@@ -4,9 +4,20 @@ import prisma from "@/lib/db";
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
-  // Fetch assets
+  // Fetch assets with their price history
   const assets = await prisma.asset.findMany({
-    orderBy: { symbol: 'asc' }
+    orderBy: { symbol: 'asc' },
+    include: {
+      priceHistory: {
+        orderBy: { timestamp: 'asc' }
+      }
+    }
+  });
+
+  // Fetch all news stories
+  const news = await prisma.newsStory.findMany({
+    orderBy: { publishedAt: 'desc' },
+    take: 50 // Keep the ticker lightweight
   });
 
   // Fetch demo user (hardcoded for now to 'demo-user-1')
@@ -46,7 +57,7 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen bg-gray-950">
-      <Dashboard initialUser={user} initialAssets={assets} />
+      <Dashboard initialUser={user} initialAssets={assets} initialNews={news} />
     </main>
   );
 }
