@@ -58,7 +58,7 @@ async function recordPriceHistories() {
         data: historyCreates
     });
 
-    // Reset memory tracker for the next 15-minute window
+    // Reset memory tracker for the next 5-minute window
     currentCandles = {};
 
     console.log(`Recorded snapshot for ${assets.length} assets.`);
@@ -191,7 +191,7 @@ async function executeSyntheticTrade(asset, userId, action, quantity) {
     }
 }
 
-// 4. Sinusoidal Market Movements (Every 3 Mins)
+// 4. Sinusoidal Market Movements (Every 1 Min)
 async function applySinusoidalMovements() {
     // console.log(`[${new Date().toISOString()}] Applying sinusoidal market forces...`);
     const assets = await prisma.asset.findMany();
@@ -284,14 +284,111 @@ async function checkMarginCalls() {
     }
 }
 
+// 5. Conditional Order Engine (TP / SL)
+async function checkConditionalOrders() {
+    // console.log(`[${new Date().toISOString()}] Checking Conditional Orders...`);
+
+    // Find any portfolio with a TP or SL set
+    const activeConditions = await prisma.portfolio.findMany({
+        where: {
+            OR: [
+                { takeProfitPrice: { not: null } },
+                { stopLossPrice: { not: null } }
+            ]
+        },
+        include: { asset: true, user: true }
+    });
+
+    for (const p of activeConditions) {
+        let shouldExecute = false;
+        const currentPrice = p.asset.basePrice;
+
+        if (p.isShortPosition) {
+            // For shorts, TP is below entry, SL is above entry
+            if (p.takeProfitPrice !== null && currentPrice <= p.takeProfitPrice) shouldExecute = true;
+            if (p.stopLossPrice !== null && currentPrice >= p.stopLossPrice) shouldExecute = true;
+        } else {
+            // For longs, TP is above entry, SL is below entry
+            if (p.takeProfitPrice !== null && currentPrice >= p.takeProfitPrice) shouldExecute = true;
+            if (p.stopLossPrice !== null && currentPrice <= p.stopLossPrice) shouldExecute = true;
+        }
+
+        if (shouldExecute) {
+            console.log(`[CONDITIONAL TRIGGER] Executing TP/SL for User ${p.userId} on Asset ${p.asset.symbol}`);
+            const k = p.asset.supplyPool * p.asset.demandPool;
+            let newSupply, newDemand, proceeds, fee;
+            const executionPrice = currentPrice;
+
+            if (p.isShortPosition) {
+                // Covering Short = User *buys* from pool
+                newSupply = Math.max(0.001, p.asset.supplyPool - p.quantity);
+                newDemand = k / newSupply;
+
+                // When they shorted, they gained delta. To close, they must pay back the current value.
+                const notionalCost = p.quantity * executionPrice;
+                fee = notionalCost * 0.005;
+                proceeds = -notionalCost - fee; // Delta adjustment
+
+            } else {
+                // Selling Long = User *sells* to pool
+                newSupply = p.asset.supplyPool + p.quantity;
+                newDemand = k / newSupply;
+
+                const returnAmount = p.quantity * executionPrice;
+                fee = returnAmount * 0.005;
+                proceeds = returnAmount - fee;
+            }
+
+            // Pay back margin loan if any
+            let loanToPay = 0;
+            let deltaToAdd = proceeds;
+            if (!p.isShortPosition && p.user.marginLoan > 0) {
+                // If they are selling a long and have a loan, pay it off first
+                loanToPay = Math.min(Math.max(0, proceeds), p.user.marginLoan); // Don't pay negative proceeds towards loan
+                deltaToAdd = proceeds - loanToPay;
+            } else if (p.isShortPosition && proceeds < 0) {
+                // If covering short requires paying capital, subtract it directly from balance
+                deltaToAdd = proceeds;
+            }
+
+            const txOps = [
+                prisma.user.update({
+                    where: { id: p.userId },
+                    data: {
+                        deltaBalance: { increment: deltaToAdd },
+                        marginLoan: loanToPay > 0 ? { decrement: loanToPay } : undefined
+                    }
+                }),
+                prisma.asset.update({
+                    where: { id: p.assetId },
+                    data: { supplyPool: newSupply, demandPool: newDemand }
+                }),
+                prisma.transaction.create({
+                    data: {
+                        userId: p.userId,
+                        assetId: p.assetId,
+                        type: p.isShortPosition ? 'COND_COVER' : 'COND_SELL',
+                        amount: p.quantity,
+                        price: executionPrice,
+                        fee
+                    }
+                }),
+                prisma.portfolio.delete({ where: { id: p.id } })
+            ];
+
+            await prisma.$transaction(txOps);
+        }
+    }
+}
+
 // ----- Scheduler Logic -----
 
-// 15 Minutes = 900,000 ms
-const FIFTEEN_MINS = 15 * 60 * 1000;
+// 5 Minutes = 300,000 ms
+const FIVE_MINS = 5 * 60 * 1000;
 // 30 Minutes = 1,800,000 ms 
 const THIRTY_MINS = 30 * 60 * 1000;
-// 3 Minutes = 180,000 ms
-const THREE_MINS = 3 * 60 * 1000;
+// 1 Minute = 60,000 ms
+const ONE_MIN = 60 * 1000;
 // 30 Seconds for simulation loop to feel "live"
 const THIRTY_SECONDS = 30 * 1000;
 
@@ -300,7 +397,7 @@ console.log("Starting OxNet Background Engine...");
 // Initial kicks
 recordPriceHistories();
 publishNewsStory();
-checkMarginCalls();
+simulateTradeImpacts();
 applySinusoidalMovements();
 
 // Kick off daily midnight backup cron
@@ -309,8 +406,9 @@ initBackupWorker();
 // Kick off goal auction processing
 initGoalWorker();
 
-setInterval(recordPriceHistories, FIFTEEN_MINS);
-setInterval(checkMarginCalls, FIFTEEN_MINS);
+setInterval(recordPriceHistories, FIVE_MINS);
 setInterval(publishNewsStory, THIRTY_MINS);
-setInterval(applySinusoidalMovements, THREE_MINS);
-setInterval(simulateTradeImpacts, THIRTY_SECONDS);
+setInterval(simulateTradeImpacts, THIRTY_SECONDS); // Run fake trades frequently
+setInterval(applySinusoidalMovements, ONE_MIN); // Force push underlying market graph every 1 minute
+setInterval(checkMarginCalls, THIRTY_SECONDS); // Run liquidations aggressively
+setInterval(checkConditionalOrders, ONE_MIN); // Check TP/SL every 1 minute

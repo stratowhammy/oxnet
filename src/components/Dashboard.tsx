@@ -18,6 +18,7 @@ type Asset = {
     basePrice: number;
     supplyPool: number;
     demandPool: number;
+    portfolios?: { quantity: number }[];
 };
 
 type PortfolioItem = {
@@ -82,6 +83,7 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
     const [filterSector, setFilterSector] = useState('All');
     const [selectedNews, setSelectedNews] = useState<NewsStory | null>(null);
     const [showGlobalPortfolio, setShowGlobalPortfolio] = useState(false);
+    const [showAssetDetails, setShowAssetDetails] = useState(false);
 
     // --- State: Data ---
     const [user, setUser] = useState<User>(initialUser);
@@ -127,6 +129,8 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
     const [leverage, setLeverage] = useState<number>(1);
     const [impact, setImpact] = useState<{ impact: number; estimatedTotal: number; fee: number } | null>(null);
     const [impactLoading, setImpactLoading] = useState(false);
+    const [takeProfitPrice, setTakeProfitPrice] = useState<number | ''>('');
+    const [stopLossPrice, setStopLossPrice] = useState<number | ''>('');
 
     // --- Effects: Chart Data ---
     useEffect(() => {
@@ -252,7 +256,9 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
                     assetId: selectedAsset.id,
                     type: orderType,
                     quantity,
-                    leverage
+                    leverage,
+                    takeProfitPrice: takeProfitPrice === '' ? undefined : takeProfitPrice,
+                    stopLossPrice: stopLossPrice === '' ? undefined : stopLossPrice
                 })
             });
             const json = await res.json();
@@ -260,6 +266,8 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
                 alert(`Trade Successful: ${json.message}`);
                 router.refresh(); // Optimistic server re-fetch without state wipe
                 setQuantity(0);
+                setTakeProfitPrice('');
+                setStopLossPrice('');
             } else {
                 alert(`Error: ${json.error}`);
             }
@@ -344,32 +352,24 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
                         <div className="bg-blue-600 text-white font-bold text-xs uppercase px-4 h-full flex items-center z-10 shrink-0 shadow-lg">
                             Live News
                         </div>
-                        <div className="flex-1 overflow-hidden whitespace-nowrap pl-4 flex items-center">
-                            {/* Wrapper duplicating the 6 news items to create an infinite ribbon without gaps */}
-                            <div className="inline-block animate-[ticker_300s_linear_infinite]">
-                                {news.slice(0, 6).map(n => (
-                                    <span
-                                        key={`t1-${n.id}`}
-                                        onClick={() => setSelectedNews(n)}
-                                        className="text-gray-300 hover:text-white cursor-pointer mr-12 text-sm transition-colors cursor-pointer inline-block"
-                                    >
-                                        <span className={`mr-2 font-mono font-bold ${n.direction === 'UP' ? 'text-green-500' : 'text-red-500'}`}>
-                                            [{n.targetSector}]
-                                        </span>
-                                        {n.headline}
-                                    </span>
-                                ))}
-                                {news.slice(0, 6).map(n => (
-                                    <span
-                                        key={`t2-${n.id}`}
-                                        onClick={() => setSelectedNews(n)}
-                                        className="text-gray-300 hover:text-white cursor-pointer mr-12 text-sm transition-colors cursor-pointer inline-block"
-                                    >
-                                        <span className={`mr-2 font-mono font-bold ${n.direction === 'UP' ? 'text-green-500' : 'text-red-500'}`}>
-                                            [{n.targetSector}]
-                                        </span>
-                                        {n.headline}
-                                    </span>
+                        <div className="flex-1 overflow-hidden pl-4 flex items-center">
+                            {/* Ribbon duplicating the news items to create an infinite ribbon without gaps */}
+                            <div className="flex w-max flex-shrink-0 animate-ribbon">
+                                {[...Array(4)].map((_, i) => (
+                                    <React.Fragment key={`rbn-group-${i}`}>
+                                        {news.slice(0, 20).map(n => (
+                                            <span
+                                                key={`rbn-${i}-${n.id}`}
+                                                onClick={() => setSelectedNews(n)}
+                                                className="text-gray-300 hover:text-white cursor-pointer mr-12 text-sm transition-colors whitespace-nowrap"
+                                            >
+                                                <span className={`mr-2 font-mono font-bold ${n.direction === 'UP' ? 'text-green-500' : 'text-red-500'}`}>
+                                                    [{n.targetSector}]
+                                                </span>
+                                                {n.headline}
+                                            </span>
+                                        ))}
+                                    </React.Fragment>
                                 ))}
                             </div>
                         </div>
@@ -388,12 +388,20 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
                             const totalEquity = user.deltaBalance - (user.marginLoan || 0) + portfolioEquity;
                             return <div className="text-xl font-bold text-white">Δ {totalEquity.toFixed(2)}</div>;
                         })()}
-                        <button
-                            onClick={() => setShowGlobalPortfolio(true)}
-                            className="mt-1 text-xs bg-blue-600 hover:bg-blue-500 text-white font-bold py-1 px-3 rounded shadow transition-colors block"
-                        >
-                            View All Positions
-                        </button>
+                        <div className="flex gap-2 mt-2">
+                            <button
+                                onClick={() => setShowGlobalPortfolio(true)}
+                                className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-bold py-1 px-3 rounded shadow transition-colors"
+                            >
+                                View All Positions
+                            </button>
+                            <a href="/goals" className="text-xs bg-green-700 hover:bg-green-600 border border-green-600 text-white font-bold py-1 px-3 rounded shadow transition-colors">
+                                Victory Goals
+                            </a>
+                            <a href="/leaderboard" className="text-xs bg-purple-700 hover:bg-purple-600 border border-purple-600 text-white font-bold py-1 px-3 rounded shadow transition-colors">
+                                Leaderboard
+                            </a>
+                        </div>
                     </div>
                     <div className="flex items-center gap-6">
                         <div className="text-right">
@@ -437,28 +445,26 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
                                     </div>
                                 )}
 
-                                {/* Asset Info Card */}
-                                <div className="bg-gray-900 rounded-xl p-6 shadow-sm border border-gray-800">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div>
-                                            <h1 className="text-3xl font-bold text-white mb-1">{selectedAsset.name} <span className="text-gray-500 text-lg font-normal">({selectedAsset.symbol})</span></h1>
-                                            <div className="flex gap-2 text-sm">
-                                                <span className="bg-blue-900 text-blue-200 px-2 py-0.5 rounded border border-blue-800">{selectedAsset.sector}</span>
-                                                <span className="bg-purple-900 text-purple-200 px-2 py-0.5 rounded border border-purple-800">{selectedAsset.type}</span>
-                                            </div>
+                                {/* Main Chart Header */}
+                                <div
+                                    className="bg-gray-900 rounded-xl p-6 shadow-lg border border-gray-800 flex justify-between items-center cursor-pointer hover:bg-gray-800/80 transition-colors group relative overflow-hidden"
+                                    onClick={() => setShowAssetDetails(true)}
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-r from-blue-900/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                    <div className="relative z-10">
+                                        <div className="flex items-center gap-3 mb-1">
+                                            <h1 className="text-3xl font-black text-white">{selectedAsset.symbol}</h1>
+                                            <span className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded font-mono border border-gray-700">Click for Details</span>
                                         </div>
-                                        <div className="text-right">
-                                            <div className="text-3xl font-mono font-bold">Δ {selectedAsset.basePrice.toFixed(2)}</div>
-                                        </div>
+                                        <div className="text-gray-400 text-sm">{selectedAsset.name}</div>
                                     </div>
-                                    <p className="text-gray-400 text-sm leading-relaxed mb-4">
-                                        {selectedAsset.description}
-                                    </p>
-                                    <div className="text-xs text-gray-500">
-                                        <span className="font-semibold text-gray-400">Specialization:</span> {selectedAsset.niche}
+                                    <div className="text-right relative z-10">
+                                        <div className="text-4xl font-mono font-black text-white tracking-tighter drop-shadow-md">
+                                            <span className="text-gray-500 mr-1 text-2xl font-sans font-normal">Δ</span>
+                                            {selectedAsset.basePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </div>
                                     </div>
                                 </div>
-
                                 {/* Chart Card */}
                                 <div className="bg-gray-900 rounded-xl p-4 shadow-sm border border-gray-800 flex-1 min-h-[450px] flex flex-col">
                                     <div className="flex justify-between items-center mb-2 px-2">
@@ -522,6 +528,30 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
                                             onChange={e => setLeverage(parseInt(e.target.value))}
                                             className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
                                         />
+
+                                        {/* Conditional Bounds */}
+                                        <div className="grid grid-cols-2 gap-4 mt-6">
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Take Profit</label>
+                                                <input
+                                                    type="number"
+                                                    value={takeProfitPrice}
+                                                    onChange={(e) => setTakeProfitPrice(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                                    className="w-full bg-gray-950 border border-gray-700 text-white p-2 text-sm rounded focus:border-green-500 outline-none transition-all font-mono"
+                                                    placeholder="Optional"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Stop Loss</label>
+                                                <input
+                                                    type="number"
+                                                    value={stopLossPrice}
+                                                    onChange={(e) => setStopLossPrice(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                                    className="w-full bg-gray-950 border border-gray-700 text-white p-2 text-sm rounded focus:border-red-500 outline-none transition-all font-mono"
+                                                    placeholder="Optional"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div className="bg-gray-950 rounded p-4 mb-6 border border-gray-800">
@@ -531,6 +561,37 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
                                                 {impactLoading ? '...' : impact ? `${impact.impact.toFixed(4)}%` : '--'}
                                             </span>
                                         </div>
+                                        {leverage > 1 && quantity > 0 && (
+                                            (() => {
+                                                const portfolioEquity = user.portfolios.reduce((acc, p) => {
+                                                    const val = p.quantity * p.asset.basePrice;
+                                                    return p.isShortPosition ? acc - val : acc + val;
+                                                }, 0);
+                                                const totalEquity = user.deltaBalance - (user.marginLoan || 0) + portfolioEquity;
+
+                                                let entryPrice = selectedAsset.basePrice;
+                                                // Ideally use impact estimated price, but basePrice is okay for approx
+                                                if (impact && impact.estimatedTotal) {
+                                                    entryPrice = (impact.estimatedTotal + impact.fee) / quantity;
+                                                }
+
+                                                let liqPrice = 0;
+                                                if (orderType === 'BUY') {
+                                                    liqPrice = entryPrice - (totalEquity / quantity);
+                                                } else if (orderType === 'SHORT') {
+                                                    liqPrice = entryPrice + (totalEquity / quantity);
+                                                }
+
+                                                return (
+                                                    <div className="flex justify-between text-sm mb-2">
+                                                        <span className="text-orange-500 font-bold uppercase text-xs tracking-wider flex items-center">Est. Liquidation</span>
+                                                        <span className="font-mono text-orange-400 font-bold">
+                                                            Δ {Math.max(0, liqPrice).toFixed(2)}
+                                                        </span>
+                                                    </div>
+                                                )
+                                            })()
+                                        )}
                                         <div className="flex justify-between text-sm mb-2">
                                             <span className="text-gray-500">Est. Fee (0.5%)</span>
                                             <span className="font-mono text-gray-300">
@@ -620,44 +681,98 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
                 </div>
             </main>
 
-            {/* --- News Overlay Modal --- */}
+            {/* --- Modals --- */}
+
+            {/* News Overlay */}
             {selectedNews && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-                    <div className="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl max-w-2xl w-full p-8 relative">
-                        <button
-                            onClick={() => setSelectedNews(null)}
-                            className="absolute top-4 right-4 text-gray-400 hover:text-white"
-                        >
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                        </button>
-
-                        <div className="flex gap-2 text-sm mb-4">
-                            <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded border border-gray-700">{selectedNews.targetSector}</span>
-                            <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded border border-gray-700">{selectedNews.targetSpecialty}</span>
-                            <span className={`px-2 py-1 rounded border font-bold ${selectedNews.direction === 'UP' ? 'bg-green-900/30 text-green-400 border-green-800' : 'bg-red-900/30 text-red-400 border-red-800'}`}>
-                                {selectedNews.direction} IMPACT
-                            </span>
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedNews(null)}>
+                    <div className="bg-gray-900 border border-gray-800 rounded-xl max-w-2xl w-full p-8 shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-start mb-6">
+                            <h2 className="text-2xl font-bold text-white">{selectedNews.headline}</h2>
+                            <button onClick={() => setSelectedNews(null)} className="text-gray-500 hover:text-white transition-colors">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
                         </div>
-
-                        <h2 className="text-2xl font-bold text-white mb-6 leading-tight">
-                            {selectedNews.headline}
-                        </h2>
-
-                        <div className="prose prose-invert prose-blue max-w-none">
-                            <p className="text-gray-300 text-lg leading-relaxed">
-                                {selectedNews.context}
-                            </p>
+                        <div className="text-gray-300 text-lg leading-relaxed mb-8">
+                            {selectedNews.context}
                         </div>
-
-                        <div className="mt-8 pt-6 border-t border-gray-800 flex justify-between items-center text-sm text-gray-500">
-                            <span>Intensity Level: {selectedNews.intensityWeight} / 5</span>
-                            <span>Published: {new Date(selectedNews.publishedAt).toLocaleString()}</span>
+                        <div className="grid grid-cols-2 gap-4 border-t border-gray-800 pt-6">
+                            <div>
+                                <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Target Sector</div>
+                                <div className="text-white font-mono bg-gray-800 px-3 py-1 rounded inline-block">{selectedNews.targetSector}</div>
+                            </div>
+                            <div>
+                                <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Direction</div>
+                                <div className={`font-bold font-mono ${selectedNews.direction === 'UP' ? 'text-green-500' : 'text-red-500'}`}>
+                                    {selectedNews.direction} (Intensity: {selectedNews.intensityWeight})
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* --- Global Portfolio Modal --- */}
+            {/* Asset Details Overlay */}
+            {showAssetDetails && selectedAsset && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity" onClick={() => setShowAssetDetails(false)}>
+                    <div className="bg-gray-900 border border-gray-800 rounded-xl max-w-3xl w-full shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="bg-gradient-to-br from-gray-800 to-gray-900 p-8 border-b border-gray-800">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <h2 className="text-4xl font-black text-white tracking-tight">{selectedAsset.symbol}</h2>
+                                        <span className="bg-blue-900/50 border border-blue-800 text-blue-300 text-xs px-2 py-1 rounded font-bold uppercase tracking-widest">{selectedAsset.sector}</span>
+                                        <span className="bg-purple-900/50 border border-purple-800 text-purple-300 text-xs px-2 py-1 rounded font-bold uppercase tracking-widest">{selectedAsset.niche}</span>
+                                    </div>
+                                    <h3 className="text-xl text-gray-400 font-medium">{selectedAsset.name}</h3>
+                                </div>
+                                <button onClick={() => setShowAssetDetails(false)} className="text-gray-500 hover:text-white transition-colors bg-gray-800 hover:bg-gray-700 p-2 rounded-full">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="p-8">
+                            <p className="text-gray-300 text-lg leading-relaxed mb-8 border-l-4 border-gray-700 pl-4">
+                                {selectedAsset.description}
+                            </p>
+
+                            <h4 className="text-white font-bold uppercase tracking-widest text-sm mb-4 border-b border-gray-800 pb-2">Financial Overview</h4>
+
+                            {(() => {
+                                // Assuming Asset type includes 'portfolios' property, which is an array of user's positions for this asset.
+                                // If 'portfolios' is not directly on Asset, this logic might need adjustment based on actual data structure.
+                                const userLongs = selectedAsset.portfolios?.reduce((acc, p) => acc + p.quantity, 0) || 0;
+                                const totalShares = selectedAsset.supplyPool + userLongs;
+                                const marketCap = totalShares * selectedAsset.basePrice;
+
+                                return (
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <div className="bg-gray-950 p-4 rounded-lg border border-gray-800/50">
+                                            <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Base Price</div>
+                                            <div className="text-xl font-mono text-white">Δ {selectedAsset.basePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                                        </div>
+                                        <div className="bg-gray-950 p-4 rounded-lg border border-gray-800/50">
+                                            <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Outstanding Shares</div>
+                                            <div className="text-xl font-mono text-blue-400">{totalShares.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                                        </div>
+                                        <div className="bg-gray-950 p-4 rounded-lg border border-gray-800/50">
+                                            <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">AMM Pool Depth</div>
+                                            <div className="text-xl font-mono text-gray-400">{selectedAsset.supplyPool.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                                        </div>
+                                        <div className="bg-gray-950 p-4 rounded-lg border border-green-900/30 bg-gradient-to-tr from-green-900/10 to-transparent">
+                                            <div className="text-xs text-green-500/70 font-bold uppercase tracking-wider mb-1">Market Capitalization</div>
+                                            <div className="text-xl font-mono text-green-400 font-bold">Δ {marketCap.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Global Portfolio Overlay */}
             {showGlobalPortfolio && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-6">
                     <div className="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl max-w-5xl w-full h-[80vh] flex flex-col relative">

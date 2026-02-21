@@ -9,6 +9,8 @@ const tradeSchema = z.object({
     type: z.enum(['BUY', 'SELL', 'SHORT']),
     quantity: z.number().positive(),
     leverage: z.number().min(1).max(10).optional().default(1),
+    takeProfitPrice: z.number().positive().optional(),
+    stopLossPrice: z.number().positive().optional(),
 });
 
 export async function POST(req: Request) {
@@ -20,7 +22,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Invalid input', details: result.error.format() }, { status: 400 });
         }
 
-        const { userId, assetId, type, quantity, leverage } = result.data;
+        const { userId, assetId, type, quantity, leverage, takeProfitPrice, stopLossPrice } = result.data;
 
         // In a real app, verify authentication here. 
         // For this task, assuming userId is passed and trusted or we use a mock session.
@@ -31,6 +33,8 @@ export async function POST(req: Request) {
             type,
             quantity,
             leverage,
+            takeProfitPrice,
+            stopLossPrice
         });
 
         if (!tradeResult.success) {

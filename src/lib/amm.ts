@@ -11,6 +11,8 @@ export interface TradeOrder {
     type: 'BUY' | 'SELL' | 'SHORT';
     quantity: number;
     leverage?: number;
+    takeProfitPrice?: number;
+    stopLossPrice?: number;
 }
 
 export interface TradeResult {
@@ -149,10 +151,16 @@ export class AutomatedMarketMaker {
                 }
             }
             if (qtyToLong > 0) {
+                const updateData: any = { quantity: { increment: qtyToLong }, averageEntryPrice: executionPrice };
+                const createData: any = { userId, assetId, quantity: qtyToLong, averageEntryPrice: executionPrice, isShortPosition: false };
+
+                if (order.takeProfitPrice !== undefined) { updateData.takeProfitPrice = order.takeProfitPrice; createData.takeProfitPrice = order.takeProfitPrice; }
+                if (order.stopLossPrice !== undefined) { updateData.stopLossPrice = order.stopLossPrice; createData.stopLossPrice = order.stopLossPrice; }
+
                 txOps.push(prisma.portfolio.upsert({
                     where: { userId_assetId_isShortPosition: { userId, assetId, isShortPosition: false } },
-                    update: { quantity: { increment: qtyToLong }, averageEntryPrice: executionPrice },
-                    create: { userId, assetId, quantity: qtyToLong, averageEntryPrice: executionPrice, isShortPosition: false }
+                    update: updateData,
+                    create: createData
                 }));
             }
 
@@ -225,8 +233,21 @@ export class AutomatedMarketMaker {
                     }),
                     prisma.portfolio.upsert({
                         where: { userId_assetId_isShortPosition: { userId, assetId, isShortPosition: true } },
-                        update: { quantity: { increment: quantity }, averageEntryPrice: executionPrice },
-                        create: { userId, assetId, quantity, averageEntryPrice: executionPrice, isShortPosition: true }
+                        update: {
+                            quantity: { increment: quantity },
+                            averageEntryPrice: executionPrice,
+                            takeProfitPrice: order.takeProfitPrice,
+                            stopLossPrice: order.stopLossPrice
+                        },
+                        create: {
+                            userId,
+                            assetId,
+                            quantity,
+                            averageEntryPrice: executionPrice,
+                            isShortPosition: true,
+                            takeProfitPrice: order.takeProfitPrice,
+                            stopLossPrice: order.stopLossPrice
+                        }
                     }),
                     prisma.transaction.create({
                         data: { userId, assetId, type: 'SHORT', amount: quantity, price: executionPrice, fee }

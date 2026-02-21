@@ -11,11 +11,11 @@ async function main() {
     const historyToInsert = [];
     const now = new Date();
 
-    // Generate 100 points, spaced by 15 minutes each, stepping backwards
-    const intervals = 100;
-    const intervalMs = 15 * 60 * 1000; // 15 minutes per history point
-    const subTicks = 5; // 3 minute ticks per 15 minute interval
-    const tickMs = 3 * 60 * 1000;
+    // Generate 500 points, spaced by 5 minutes each, stepping backwards
+    const intervals = 500;
+    const intervalMs = 5 * 60 * 1000; // 5 minutes per history point
+    const subTicks = 5; // 1 minute ticks per 5 minute interval
+    const tickMs = 1 * 60 * 1000;
     const cycleLength = 7200000; // 2 hour sinusoidal phase cycle
 
     for (const asset of assets) {

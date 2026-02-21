@@ -10,6 +10,9 @@ export default async function Home() {
     include: {
       priceHistory: {
         orderBy: { timestamp: 'asc' }
+      },
+      portfolios: {
+        where: { isShortPosition: false }
       }
     }
   });

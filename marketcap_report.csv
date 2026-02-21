@@ -1,0 +1,121 @@
+Symbol,Name,Sector,Niche,Base Price,AMM Supply Pool,User Longs,Total Outstanding Shares,Market Cap
+"O-NEX","Omni-Nexus Corp","Technology","Quantum-resistant encryption hardware",161.81,1000000.00,0.00,1000000.00,161814742.82
+"O-VOR","Omni-Vortex Corp","Technology","Generative AI for architectural blueprints",243.90,800000.00,0.00,800000.00,195120222.52
+"O-CYB","Omni-CyberDyne Corp","Technology","Autonomous cybersecurity defense swarms",96.86,2000000.00,0.00,2000000.00,193724791.55
+"O-NAN","Omni-NanoFab Corp","Manufacturing","Molecular assemblers for consumers",397.38,450000.00,0.00,450000.00,178821803.77
+"O-QBI","Omni-Q-Bit Corp","Technology","Room-temperature quantum processing units",443.59,400000.00,0.00,400000.00,177435407.33
+"O-HOL","Omni-HoloXperience Corp","Technology","Holographic telepresence for remote work",74.17,1500000.00,0.00,1500000.00,111251738.57
+"O-AER","Omni-AeroNet Corp","Technology","High-altitude balloon internet synthesis",51.60,3000000.00,0.00,3000000.00,154806056.67
+"O-DAT","Omni-DataMine Corp","Technology","Deep sea server farm cooling solutions",124.60,1200000.00,0.00,1200000.00,149525569.24
+"O-ROB","Omni-RoboButler Corp","Technology","Humanoid domestic assistance droids",195.62,900000.00,0.00,900000.00,176061334.58
+"O-VRS","Omni-MetaVerse Corp","Technology","Digital real estate development algorithms",31.63,5000000.00,0.00,5000000.00,158130504.16
+"O-CHI","Omni-Silicon Corp","Technology","Biodegradable semiconductor manufacturing",108.27,1800000.00,0.00,1800000.00,194891803.70
+"O-LIN","Omni-NeuralLinker Corp","Technology","Brain-Computer Interfaces for gaming",276.68,600000.00,0.00,600000.00,166009646.93
+"O-CLD","Omni-Nimbus Corp","Technology","Decentralized fog computing storage",61.58,2500000.00,0.00,2500000.00,153947278.41
+"O-AUT","Omni-AutoDrive Corp","Technology","LIDAR systems for underwater vehicles",87.60,1600000.00,0.00,1600000.00,140166287.40
+"O-GAM","Omni-PolyFill Corp","Technology","AI-generated infinite open-world rpgs",45.40,3500000.00,0.00,3500000.00,158914132.20
+"O-GEN","Omni-GeneFix Corp","Healthcare","CRISPR therapies for hair loss",136.75,1100000.00,0.00,1100000.00,150425305.35
+"O-LIF","Omni-LifeExtension Corp","Healthcare","Telomere regeneration supplements",334.97,500000.00,0.00,500000.00,167484836.76
+"O-MED","Omni-MediDrone Corp","Healthcare","Drone delivery of emergency defibrillators",75.96,1400000.00,0.00,1400000.00,106346668.73
+"O-BIO","Omni-BioPrint Corp","Healthcare","3D printed custom organs for transplants",534.86,300000.00,0.00,300000.00,160458330.36
+"O-NEU","Omni-NeuroCalm Corp","Healthcare","Implants for instant anxiety suppression",154.18,950000.00,0.00,950000.00,146473655.20
+"O-VAC","Omni-VaxSpeed Corp","Healthcare","Universal flu vaccine patches",56.91,2200000.00,0.00,2200000.00,125212451.18
+"O-DIA","Omni-DiagAI Corp","Healthcare","Smartphone-based retinal disease scanning",95.47,1300000.00,0.00,1300000.00,124112011.09
+"O-SLE","Omni-DeepSleep Corp","Healthcare","Circadian rhythm reset chambers",118.53,800000.00,0.00,800000.00,94825068.82
+"O-PTL","Omni-Petals Corp","Healthcare","Flower-derived pain management opioids",79.79,1700000.00,0.00,1700000.00,135650059.00
+"O-SKI","Omni-DermaTech Corp","Healthcare","Synthetic skin for burn victims",184.70,650000.00,0.00,650000.00,120055686.72
+"O-SOL","Omni-HelioPower Corp","Energy","Transparent solar windows for skyscrapers",47.94,2800000.00,0.00,2800000.00,134231021.81
+"O-WIN","Omni-Zephyr Corp","Energy","Silent vertical-axis wind turbines for urban use",32.30,4000000.00,0.00,4000000.00,129204495.75
+"O-FUS","Omni-Stellar Corp","Energy","Compact muon-catalyzed cold fusion reactors",348.76,200000.00,0.00,200000.00,69751558.14
+"O-H20","Omni-HydroGenius Corp","Energy","Seawater-to-hydrogen electrolysis at scale",72.45,1500000.00,0.00,1500000.00,108674780.55
+"O-BAT","Omni-SolidState Corp","Energy","Graphene supercapacitor batteries for EVs",114.41,1200000.00,0.00,1200000.00,137290847.94
+"O-GEO","Omni-MagmaTap Corp","Energy","Deep-crust geothermal drilling technology",135.43,900000.00,0.00,900000.00,121885706.05
+"O-TID","Omni-LunarTide Corp","Energy","Oscillating water column wave energy converters",30.99,4500000.00,0.00,4500000.00,139475358.98
+"O-ALG","Omni-AlgaeFuel Corp","Energy","Bio-jetfuel from genetically modified algae",61.16,1800000.00,0.00,1800000.00,110081247.67
+"O-GRI","Omni-SmartGrid Corp","Energy","AI-driven peer-to-peer energy trading networks",81.64,1300000.00,0.00,1300000.00,106137008.47
+"O-NUC","Omni-SaltThorium Corp","Energy","Molten salt thorium reactors",175.19,600000.00,0.00,600000.00,105111347.79
+"O-BAN","Omni-NeoBank Corp","Finance","AI-only banking with zero human employees",116.51,1000000.00,0.00,1000000.00,116506593.40
+"O-INS","Omni-ClimateIns Corp","Finance","Parametric weather insurance",88.46,1400000.00,0.00,1400000.00,123838034.19
+"O-LEN","Omni-DefiLend Corp","Finance","Cross-chain collateralized loans",166.44,400000.00,0.00,400000.00,66576502.61
+"O-WLT","Omni-RoboWealth Corp","Finance","Algorithmic tax-loss harvesting for retail",118.42,800000.00,0.00,800000.00,94739088.68
+"O-EXC","Omni-DarkPool Corp","Finance","Anonymous institutional trading venue",241.81,300000.00,0.00,300000.00,72542362.49
+"O-FOO","Omni-InsectProtein Corp","Food","Cricket flour pasta and chips",19.53,4000000.00,0.00,4000000.00,78132094.95
+"O-WEA","Omni-SprayOnClothes Corp","Consumer","Aerosol fabric for instant outfits",41.39,3000000.00,0.00,3000000.00,124169827.22
+"O-DRN","Omni-SynAlcohol Corp","Food","Alcohol without the hangover toxicity",66.62,2000000.00,0.00,2000000.00,133243578.83
+"O-BRE","Omni-HopQuantum Corp","Consumer","Beer brewed by AI optimizing for taste receptors",56.01,2100000.00,0.00,2100000.00,117612040.62
+"O-PET","Omni-DinoPets Corp","Consumer","Genetically engineered miniature dinosaurs",398.54,100000.00,0.00,100000.00,39853967.90
+"O-MRS","Omni-MarsColony Corp","Space","Prefabricated habitats for Martian settlement",643.55,400000.00,0.00,400000.00,257421008.44
+"O-AST","Omni-AsteroidMine Corp","Space","Platinum group metals form near-earth asteroids",143.26,1100000.00,0.00,1100000.00,157586162.20
+"O-ORB","Omni-OrbitalTrash Corp","Space","Space debris capture and recycling",66.12,1900000.00,0.00,1900000.00,125626116.83
+"O-HYP","Omni-HyperLoop Corp","Transport","Vacuum tube trans-continental maglev",192.15,700000.00,0.00,700000.00,134506849.09
+"O-VTO","Omni-SkyTaxi Corp","Transport","Autonomous electric flying car network",250.43,600000.00,0.00,600000.00,150259921.34
+"O-HOU","Omni-ModuHome Corp","Real Estate","Flat-pack skyscrapers for rapid urbanization",110.92,1300000.00,0.00,1300000.00,144194809.58
+"O-UND","Omni-SubTerra Corp","Real Estate","Luxury doomsday bunkers for the elite",392.48,400000.00,0.00,400000.00,156993081.05
+"O-SEA","Omni-AquaEstates Corp","Real Estate","Floating sovereign island nations",758.37,250000.00,0.00,250000.00,189592928.33
+"SOL-10","Solar Dominion 10Y","Government","Hegemony yield curve anchor",109.09,10000000.00,0.00,10000000.00,1090906426.23
+"VAL-30","Valerian Union 30Y","Government","Long term planetary stability",104.77,8000000.00,0.00,8000000.00,838178343.15
+"NIP-GB","Neo-Imperial Bond","Government","Yield curve control protected",115.02,9000000.00,0.00,9000000.00,1035135914.83
+"URB-MUNI","Urban-Core Bond","Government","Grid-level infrastructure funding",103.85,5000000.00,0.00,5000000.00,519244187.40
+"G-BILL","Galactic T-Bill","Government","Short term inter-system liquidity",114.33,15000000.00,0.00,15000000.00,1714930895.87
+"NEX-B","Nexus Corp Bond","Corporate","A+ rated tech giant debt",113.12,3000000.00,0.00,3000000.00,339374305.77
+"VOR-B","Vortex cvt Bond","Corporate","Convertible debt for AI expansion",119.18,2000000.00,0.00,2000000.00,238355635.47
+"GEN-B","GeneFix Bond","Corporate","Biotech R&D funding",98.95,2500000.00,0.00,2500000.00,247367440.32
+"HEL-B","Helio Green Bond","Corporate","Renewable energy infrastructure",111.12,3500000.00,0.00,3500000.00,388934966.37
+"NEO-B","NeoBank SubDebt","Corporate","Tier 2 algo-capital notes",100.53,4000000.00,0.00,4000000.00,402129756.09
+"DIST","Distressed ETF","Corporate","Diversified junk-level debt",91.93,6000000.00,0.00,6000000.00,551587315.04
+"HYP-B","HyperLoop Bond","Corporate","Speculative transport infrastructure",81.72,1500000.00,0.00,1500000.00,122577332.89
+"MRS-B","Red-Planet Bond","Corporate","Off-world colonization financing",65.80,1000000.00,0.00,1000000.00,65801360.78
+"HASH-B","Compute Node Bond","Corporate","Hash-rate secured lending",86.33,2000000.00,0.00,2000000.00,172650299.57
+"MOD-B","ModuHome SecDoc","Corporate","Modular housing backed securities",106.76,5000000.00,0.00,5000000.00,533809711.02
+"AUR","Aurum Ingots","Precious Metals","Traditional inflation hedge",2703.30,500000.00,0.00,500000.00,1351652021.53
+"ARG","Argent Bars","Precious Metals","Industrial and monetary metal",27.05,5000000.00,0.00,5000000.00,135227138.77
+"FUEL","Refined Fuel","Energy","Hydrocarbon energy baseline",75.37,10000000.00,0.00,10000000.00,753688342.88
+"LITH","Lithium Ore","Industrial","Battery grade lithium carbonate",51.03,2000000.00,0.00,2000000.00,102051488.41
+"BEAN","Synthetic Bean","Agriculture","Bio-engineered stimulant crop",209.08,3000000.00,0.00,3000000.00,627228516.74
+"GRN","Staple Grain","Agriculture","Global nutrition baseline",7.13,20000000.00,0.00,20000000.00,142590449.99
+"HYDR","Liquid Hydrogen","Energy","Clean fuel carrier",12.44,5000000.00,0.00,5000000.00,62178819.60
+"URAN","Fissile Core","Energy","Nuclear fuel yellowcake",49.29,800000.00,0.00,800000.00,39431420.05
+"CUPR","Cuprum Cathode","Industrial","Grid infrastructure metal",4.30,12000000.00,0.00,12000000.00,51606813.26
+"MAG","Neodymium","Industrial","Rare earth magnetic material",134.28,600000.00,0.00,600000.00,80569676.83
+"PI","Pi (𝝅)","Currency","Circular decentralized value",0.19,1000.00,0.00,1000.00,188.71
+"TAU","Tau (𝜏)","Currency","Double-cycle protocol gas",24524.30,15000.00,0.00,15000.00,367864567.54
+"XON","Xon Credits","Currency","Inter-ledger settlement bridge",0.59,100000000.00,0.00,100000000.00,59009462.58
+"HELI","Helios Protocol","Currency","Solar-minted asset",101.28,500000.00,0.00,500000.00,50637929.05
+"VOID","Void Coin","Currency","Entropy-based privacy currency",0.12,1000000000.00,0.00,1000000000.00,123708953.43
+"DELTA","Delta (Δ)","Fiat","Primary floating fiat currency",1.16,1000000000.00,0.00,1000000000.00,1156433341.37
+"VALR","Valerian Mark","Fiat","Valerian Union economic unit",1.30,800000000.00,0.00,800000000.00,1039447638.67
+"ZEN","Zen Yen","Fiat","Safe haven low yield currency",0.01,10000000000.00,0.00,10000000000.00,82914593.86
+"AURE","Aurelius Pound","Fiat","Oldest fiat currency in use",1.47,500000500.00,0.00,500000500.00,734405516.88
+"BASE","Base Franc","Fiat","Neutral banking haven currency",1.27,299999889.00,111.00,300000000.00,381533650.16
+"O-FIS","Omni-BlueOcean Corp","Consumer","Lab-grown bluefin tuna fish",196.14,600000.00,0.00,600000.00,117681975.87
+"O-WOO","Omni-TimberTech Corp","Materials","Super-hardened transparent wood glass",71.04,1400000.00,0.00,1400000.00,99462870.87
+"O-EDU","Omni-BrainUpload Corp","Education","Direct-to-cortex skill downloading",361.10,400000.00,0.00,400000.00,144441832.89
+"O-SHI","Omni-AutoCargo Corp","Transport","Ghost ships autonomous shipping",45.39,2500000.00,0.00,2500000.00,113469719.78
+"O-SEC","Omni-BioLock Corp","Services","DNA-based door locks",191.06,600000.00,0.00,600000.00,114635214.04
+"O-WAS","Omni-NukeRecycle Corp","Services","Nuclear waste reprocessing into plastic",16.29,5000000.00,0.00,5000000.00,81453362.67
+"O-HAC","Omni-WhiteHat Corp","Services","Penetration testing as a service",128.59,700000.00,0.00,700000.00,90010103.91
+"O-LAW","Omni-RoboLaw Corp","Services","AI litigation and contract generation",199.85,550000.00,0.00,550000.00,109917534.60
+"O-TOU","Omni-VirtualSafari Corp","Services","VR tourism for extinct ecosystems",58.17,1800000.00,0.00,1800000.00,104702107.03
+"O-LOV","Omni-MatchAI Corp","Services","Genetic compatibility dating app",79.68,1200000.00,0.00,1200000.00,95610302.61
+"O-COL","Omni-CryoPreserve Corp","Services","Whole body cryogenics for afterlife",569.78,200000.00,0.00,200000.00,113955767.68
+"O-TRU","Omni-VeritasBlock Corp","Crypto","Decentralized fact-checking oracle",4.17,10001000.00,0.00,10001000.00,41751307.61
+"O-FIL","Omni-AI Corp","Media","Movies generated from prompt to screen",84.27,1500000.00,0.00,1500000.00,126407766.00
+"O-NEW","Omni-AutoJournal Corp","Media","Algorithmic personalized news feeds",38.01,3000000.00,0.00,3000000.00,114044174.10
+"O-AGR","Omni-VerticalFarms Corp","Agriculture","Skyscraper hydroponic vegetable growing",109.06,950000.00,0.00,950000.00,103610450.49
+"O-MEA","Omni-NoMoo Corp","Agriculture","Methane-free synthetic bovine protein",146.87,850000.00,0.00,850000.00,124837212.02
+"O-AQU","Omni-DesalCorp Corp","Utilities","Low-energy graphene desalination",108.38,1400000.00,0.00,1400000.00,151734623.50
+"O-WIF","Omni-GlobalFi Corp","Utilities","Global free ad-supported satellite wifi",21.54,6000000.00,0.00,6000000.00,129248161.59
+"O-TRA","Omni-PlasmaWaste Corp","Utilities","Plasma gasification waste destruction",52.51,2200000.00,0.00,2200000.00,115516330.70
+"O-ROA","Omni-SmartRoads Corp","Infrastructure","Induction charging highway lanes",150.41,800500.00,0.00,800500.00,120406737.46
+"O-SOF","Omni-SoftBot Corp","Manufacturing","Soft robotics for handling delicates",156.91,750000.00,0.00,750000.00,117679494.98
+"O-STE","Omni-GreenSteel Corp","Materials","Hydrogen-reduced zero carbon steel",60.09,1800000.00,0.00,1800000.00,108154984.01
+"O-PLS","Omni-BioPlast Corp","Materials","Plastic made from capture atmospheric CO2",76.14,1300000.00,0.00,1300000.00,98986429.58
+"O-MIN","Omni-DeepBore Corp","Materials","Automated mantle drilling rigs",207.79,500000.00,0.00,500000.00,103897004.53
+"O-SPC","Omni-SpaceHotel Corp","Hospitality","Low orbit luxury vacations",3748.61,150000.00,0.00,150000.00,562291571.11
+"O-TOY","Omni-EdutainBot Corp","Consumer","AI tutors that act as toys",141.13,900000.00,0.00,900000.00,127021120.68
+"O-SRV","Omni-DroneSrv Corp","Services","Drone swarm window cleaning",39.44,2500000.00,0.00,2500000.00,98612369.44
+"O-FUN","Omni-AlgoFund Corp","Finance","AI managed ETF of ETFs",117.30,800500.00,0.00,800500.00,93901563.19
+"O-COI","Omni-TokenizeIt Corp","Finance","Real estate tokenization platform",63.43,1800000.00,0.00,1800000.00,114169194.50
+"O-ART","Omni-NFTGallery Corp","Finance","Fractional ownership of digital art",27.22,5000000.00,0.00,5000000.00,136080599.66
+"O-BET","Omni-PredictionMkt Corp","Finance","Decentralized event betting",51.14,2200000.00,0.00,2200000.00,112502921.18
+"O-AUD","Omni-ChainAudit Corp","Services","Blockchain forensic accounting",181.06,500000.00,0.00,500000.00,90530332.90
