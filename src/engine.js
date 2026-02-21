@@ -125,9 +125,20 @@ async function simulateTradeImpacts() {
             competitors = allAssets.filter(a => a.sector === story.targetSector && !targets.some(t => t.id === a.id));
         }
 
-        // Determine synthetic trade magnitude based on Intensity (1-5)
-        // Intensity 5 = strong impact, large quantity
-        const baseQuantity = 50 * story.intensityWeight;
+        // Calculate age of story in minutes to model natural market digestion
+        const ageInMinutes = (Date.now() - new Date(story.publishedAt).getTime()) / (1000 * 60);
+
+        // Exponential decay: volume spikes immediately upon release, then rapidly normalizes (half-life of 15m)
+        const decayFactor = Math.exp(-ageInMinutes / 15);
+
+        // Inject volume noise (between 0.3x and 1.7x) so volume bars are staggered organically
+        const volumeNoise = 0.3 + (Math.random() * 1.4);
+
+        // Determine synthetic trade magnitude based on Intensity (1-5) and scale by decay/noise
+        const baseQuantity = 50 * story.intensityWeight * decayFactor * volumeNoise;
+
+        // Skip negligible phantom trades once the news has fully faded
+        if (baseQuantity < 1) continue;
 
         // Direction logic
         const mainAction = story.direction === 'UP' ? 'BUY' : 'SELL';
@@ -147,9 +158,11 @@ async function simulateTradeImpacts() {
 
 async function executeSyntheticTrade(asset, userId, action, quantity) {
     // Basic price impact math (slippage logic)
-    // Just directly nudging the asset basePrice
     const liquidityRatio = asset.supplyPool > 0 ? quantity / asset.supplyPool : 0.001;
     let priceImpactPercent = Math.min(liquidityRatio * 0.5, 0.05); // cap physical slide to 5% per minute
+
+    // Jitter the price slice to create authentic candle wicks and bodies
+    priceImpactPercent *= (0.6 + Math.random() * 0.8);
 
     if (action === 'SELL') {
         priceImpactPercent *= -1; // price drops

@@ -59,7 +59,7 @@ export default async function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-950">
+    <main className="h-screen overflow-hidden bg-gray-950">
       <Dashboard initialUser={user} initialAssets={assets} initialNews={news} />
     </main>
   );

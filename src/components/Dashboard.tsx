@@ -344,11 +344,11 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
             </aside>
 
             {/* --- Main Content --- */}
-            <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+            <main className="flex-1 flex flex-col min-w-0 min-h-0 relative">
 
                 {/* --- News Ticker --- */}
                 {news.length > 0 && (
-                    <div className="h-10 border-b border-gray-800 bg-black flex items-center overflow-hidden">
+                    <div className="h-10 border-b border-gray-800 bg-black flex items-center overflow-hidden shrink-0">
                         <div className="bg-blue-600 text-white font-bold text-xs uppercase px-4 h-full flex items-center z-10 shrink-0 shadow-lg">
                             Live News
                         </div>
@@ -377,7 +377,7 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
                 )}
 
                 {/* Header: Portfolio Summary */}
-                <header className="h-16 border-b border-gray-800 flex items-center justify-between px-6 bg-gray-900">
+                <header className="h-16 border-b border-gray-800 flex items-center justify-between px-6 bg-gray-900 shrink-0">
                     <div>
                         <span className="text-gray-400 text-sm">Account Equity</span>
                         {(() => {
@@ -395,6 +395,9 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
                             >
                                 View All Positions
                             </button>
+                            <a href="/news" className="text-xs bg-gray-700 hover:bg-gray-600 border border-gray-600 text-white font-bold py-1 px-3 rounded shadow transition-colors font-serif italic">
+                                Read News
+                            </a>
                             <a href="/goals" className="text-xs bg-green-700 hover:bg-green-600 border border-green-600 text-white font-bold py-1 px-3 rounded shadow transition-colors">
                                 Victory Goals
                             </a>
