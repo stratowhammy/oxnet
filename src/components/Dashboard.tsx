@@ -375,8 +375,6 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
                                         </div>
                                         <div className="text-right">
                                             <div className="text-3xl font-mono font-bold">Δ {selectedAsset.basePrice.toFixed(2)}</div>
-                                            {/* Simulate a 24h change */}
-                                            <div className="text-green-500 font-mono text-sm">+2.4% (Mock)</div>
                                         </div>
                                     </div>
                                     <p className="text-gray-400 text-sm leading-relaxed mb-4">
