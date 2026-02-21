@@ -10,6 +10,7 @@ export interface TradeOrder {
     assetId: string;
     type: 'BUY' | 'SELL' | 'SHORT';
     quantity: number;
+    leverage?: number;
 }
 
 export interface TradeResult {
@@ -23,17 +24,9 @@ export interface TradeResult {
 
 export class AutomatedMarketMaker {
 
-    /**
-     * Calculates the price impact of a trade based on the constant product formula (x * y = k).
-     * @param supplyPool Current supply pool size (x)
-     * @param demandPool Current demand pool size (y - represents quote currency/liquidity)
-     * @param orderSize Size of the order in asset units
-     * @param isBuy True for BUY, False for SELL/SHORT
-     * @returns Percentage price change (positive for price increase, negative for decrease)
-     */
     static calculatePriceImpact(supplyPool: number, demandPool: number, orderSize: number, isBuy: boolean): number {
         if (supplyPool <= MIN_POOL_LIQUIDITY || demandPool <= MIN_POOL_LIQUIDITY) {
-            return 0; // Or throw error: Insufficient liquidity
+            return 0;
         }
 
         const k = supplyPool * demandPool;
@@ -41,20 +34,10 @@ export class AutomatedMarketMaker {
         let newDemand: number;
 
         if (isBuy) {
-            // Buying removes supply, adds to demand pool
-            // x_new = x - dx
-            // y_new = k / x_new
-            // price_new = y_new / x_new
-
-            if (orderSize >= supplyPool) return 100; // Cap at 100% impact (infinite price)
-
+            if (orderSize >= supplyPool) return 100;
             newSupply = supplyPool - orderSize;
             newDemand = k / newSupply;
         } else {
-            // Selling adds supply, removes from demand pool
-            // x_new = x + dx
-            // y_new = k / x_new
-
             newSupply = supplyPool + orderSize;
             newDemand = k / newSupply;
         }
@@ -62,194 +45,176 @@ export class AutomatedMarketMaker {
         const currentPrice = demandPool / supplyPool;
         const newPrice = newDemand / newSupply;
 
-        // safe division check
         if (currentPrice === 0) return 0;
-
         return ((newPrice - currentPrice) / currentPrice) * 100;
     }
 
-    /**
-     * Executes a trade using the AMM logic.
-     * Updates asset pools, creates transaction record, updates user balance and portfolio.
-     */
     static async executeTrade(order: TradeOrder): Promise<TradeResult> {
         const { userId, assetId, type, quantity } = order;
+        const leverage = order.leverage || 1;
 
         if (quantity <= 0) {
             return { success: false, message: "Invalid quantity" };
         }
 
-        // 1. Fetch current state
         const asset = await prisma.asset.findUnique({ where: { id: assetId } });
         const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!asset || !user) return { success: false, message: "Asset or User not found" };
 
-        if (!asset || !user) {
-            return { success: false, message: "Asset or User not found" };
-        }
-
-        // Safety Check: Divide by zero or negative pools
         if (asset.supplyPool <= MIN_POOL_LIQUIDITY || asset.demandPool <= MIN_POOL_LIQUIDITY) {
             return { success: false, message: "Insufficient market liquidity" };
         }
 
+        const userPortfolios = await prisma.portfolio.findMany({ where: { userId } });
+        const holdingAssetIds = [...new Set(userPortfolios.map(p => p.assetId))];
+        const holdingAssets = await prisma.asset.findMany({ where: { id: { in: holdingAssetIds } } });
+
+        let portfolioEquity = 0;
+        for (const p of userPortfolios) {
+            const a = holdingAssets.find(x => x.id === p.assetId);
+            if (a) {
+                const val = p.quantity * a.basePrice;
+                if (p.isShortPosition) {
+                    portfolioEquity -= val;
+                } else {
+                    portfolioEquity += val;
+                }
+            }
+        }
+        const totalEquity = user.deltaBalance - user.marginLoan + portfolioEquity;
+        const maxPurchasingPower = Math.max(0, totalEquity) * leverage;
+
         const k = asset.supplyPool * asset.demandPool;
         let executionPrice = 0;
-        let amountReceived = 0; // For SELL: Need to know how much quote currency received
-        let cost = 0; // For BUY/SHORT: Need to know how much quote currency required
-
-        // 2. Calculate execution details based on Constant Product
-        // We calculate exact amount of tokens in/out to preserve K (minus fees? Usually fee is taken from input amount)
-        // Requirement says: "Append 0.5% fee to all buy and sell orders" => Fee is ON TOP or DEDUCTED.
-        // "Calculate total transaction price, strictly append a 0.5% fee" -> implies Total = Price * Qty * (1 + fee) for buy?
-
-        // Let's stick to the prompt: determine price using CP, then apply fee.
-
-        // Price Impact Calculation for reference
+        let cost = 0;
         const priceImpact = this.calculatePriceImpact(asset.supplyPool, asset.demandPool, quantity, type === 'BUY');
 
         if (type === 'BUY') {
-            if (quantity >= asset.supplyPool) {
-                return { success: false, message: "Order exceeds available supply" };
-            }
-
-            // Calculate Cost in Demand Pool units to get 'quantity' of Supply
-            // (x - dx) * (y + dy) = k
-            // y + dy = k / (x - dx)
-            // dy = (k / (x - dx)) - y
+            if (quantity >= asset.supplyPool) return { success: false, message: "Order exceeds available supply" };
 
             const newSupply = asset.supplyPool - quantity;
             const newDemand = k / newSupply;
-            const amountToPayToPool = newDemand - asset.demandPool; // This is the "base cost"
+            const amountToPayToPool = newDemand - asset.demandPool;
 
             executionPrice = amountToPayToPool / quantity;
             const fee = amountToPayToPool * FEE_PERCENTAGE;
             cost = amountToPayToPool + fee;
 
-            if (user.deltaBalance < cost) {
-                return { success: false, message: `Insufficient balance. Prev: ${user.deltaBalance}, Req: ${cost}` };
+            const existingShort = userPortfolios.find(p => p.assetId === assetId && p.isShortPosition);
+            let qtyToCover = 0;
+            let qtyToLong = quantity;
+            if (existingShort && existingShort.quantity > 0) {
+                qtyToCover = Math.min(quantity, existingShort.quantity);
+                qtyToLong = quantity - qtyToCover;
             }
 
-            // 3. Execute Updates
-            await prisma.$transaction([
-                // Update User Balance
+            if (cost > maxPurchasingPower && qtyToLong > 0) {
+                return { success: false, message: `Insufficient margin. Max PP: ${maxPurchasingPower.toFixed(2)}, Req: ${cost.toFixed(2)}` };
+            }
+
+            let deltaToDeduct = cost;
+            let loanToAdd = 0;
+            if (user.deltaBalance >= cost) {
+                deltaToDeduct = cost;
+            } else {
+                deltaToDeduct = Math.max(0, user.deltaBalance);
+                loanToAdd = cost - deltaToDeduct;
+            }
+
+            const txOps: any[] = [
                 prisma.user.update({
                     where: { id: userId },
-                    data: { deltaBalance: { decrement: cost } }
+                    data: {
+                        deltaBalance: { decrement: deltaToDeduct },
+                        marginLoan: { increment: loanToAdd }
+                    }
                 }),
-                // Update Asset Pools
                 prisma.asset.update({
                     where: { id: assetId },
-                    data: {
-                        supplyPool: newSupply,
-                        demandPool: newDemand
-                    }
+                    data: { supplyPool: newSupply, demandPool: newDemand }
                 }),
-                // Update Portfolio
-                prisma.portfolio.upsert({
-                    where: {
-                        userId_assetId_isShortPosition: {
-                            userId,
-                            assetId,
-                            isShortPosition: false
-                        }
-                    },
-                    update: {
-                        quantity: { increment: quantity },
-                        // Average entry price update omitted for brevity, logic: (oldQty * oldAvg + newCost) / (oldQty + newQty)
-                        averageEntryPrice: executionPrice // Simply updating last price for now as placeholder, needs weighted avg logic
-                    },
-                    create: {
-                        userId,
-                        assetId,
-                        quantity,
-                        averageEntryPrice: executionPrice,
-                        isShortPosition: false
-                    }
-                }),
-                // Create Transaction
                 prisma.transaction.create({
-                    data: {
-                        userId,
-                        assetId,
-                        type: 'BUY',
-                        amount: quantity,
-                        price: executionPrice,
-                        fee: fee
-                    }
+                    data: { userId, assetId, type: 'BUY', amount: quantity, price: executionPrice, fee }
                 })
-            ]);
+            ];
 
+            if (qtyToCover > 0) {
+                if (qtyToCover === existingShort!.quantity) {
+                    txOps.push(prisma.portfolio.delete({ where: { id: existingShort!.id } }));
+                } else {
+                    txOps.push(prisma.portfolio.update({
+                        where: { id: existingShort!.id },
+                        data: { quantity: { decrement: qtyToCover } }
+                    }));
+                }
+            }
+            if (qtyToLong > 0) {
+                txOps.push(prisma.portfolio.upsert({
+                    where: { userId_assetId_isShortPosition: { userId, assetId, isShortPosition: false } },
+                    update: { quantity: { increment: qtyToLong }, averageEntryPrice: executionPrice },
+                    create: { userId, assetId, quantity: qtyToLong, averageEntryPrice: executionPrice, isShortPosition: false }
+                }));
+            }
+
+            await prisma.$transaction(txOps);
             return { success: true, message: "Buy executed", executionPrice, totalCost: cost, fee, priceImpact };
 
         } else if (type === 'SELL' || type === 'SHORT') {
-            // Selling/Shorting adds unit to supply, takes quote from demand
-            // (x + dx) * (y - dy) = k
-            // y - dy = k / (x + dx)
-            // dy = y - (k / (x + dx))
-
             const newSupply = asset.supplyPool + quantity;
             const newDemand = k / newSupply;
             const amountReceivedFromPool = asset.demandPool - newDemand;
 
             executionPrice = amountReceivedFromPool / quantity;
-
-            // Fee reduces the amount received? Prompt: "strictly append a 0.5% fee to all buy and sell orders"
-            // Usually for sell, fee is deducted from proceeds.
             const fee = amountReceivedFromPool * FEE_PERCENTAGE;
             const proceeds = amountReceivedFromPool - fee;
 
             if (type === 'SELL') {
-                // Check portfolio
-                const portfolio = await prisma.portfolio.findUnique({
-                    where: {
-                        userId_assetId_isShortPosition: { userId, assetId, isShortPosition: false }
-                    }
-                });
+                const portfolio = userPortfolios.find(p => p.assetId === assetId && !p.isShortPosition);
+                if (!portfolio || portfolio.quantity < quantity) return { success: false, message: "Insufficient holdings to sell" };
 
-                if (!portfolio || portfolio.quantity < quantity) {
-                    return { success: false, message: "Insufficient holdings to sell" };
+                let loanToPay = 0;
+                let deltaToAdd = proceeds;
+                if (user.marginLoan > 0) {
+                    loanToPay = Math.min(proceeds, user.marginLoan);
+                    deltaToAdd = proceeds - loanToPay;
                 }
 
-                await prisma.$transaction([
+                const txOps: any[] = [
                     prisma.user.update({
                         where: { id: userId },
-                        data: { deltaBalance: { increment: proceeds } }
+                        data: {
+                            deltaBalance: { increment: deltaToAdd },
+                            marginLoan: { decrement: loanToPay }
+                        }
                     }),
                     prisma.asset.update({
                         where: { id: assetId },
                         data: { supplyPool: newSupply, demandPool: newDemand }
                     }),
-                    prisma.portfolio.update({
-                        where: {
-                            userId_assetId_isShortPosition: { userId, assetId, isShortPosition: false }
-                        },
-                        data: { quantity: { decrement: quantity } }
-                    }),
                     prisma.transaction.create({
-                        data: {
-                            userId,
-                            assetId,
-                            type: 'SELL',
-                            amount: quantity,
-                            price: executionPrice,
-                            fee: fee
-                        }
+                        data: { userId, assetId, type: 'SELL', amount: quantity, price: executionPrice, fee }
                     })
-                ]);
+                ];
 
+                if (portfolio.quantity === quantity) {
+                    txOps.push(prisma.portfolio.delete({ where: { id: portfolio.id } }));
+                } else {
+                    txOps.push(prisma.portfolio.update({
+                        where: { id: portfolio.id },
+                        data: { quantity: { decrement: quantity } }
+                    }));
+                }
+
+                await prisma.$transaction(txOps);
                 return { success: true, message: "Sell executed", executionPrice, totalCost: -proceeds, fee, priceImpact };
 
             } else { // SHORT
-                // Shorting logic: borrow asset, sell immediately. 
-                // User gets Delta (proceeds). 
-                // Creates negative position (or 'isShortPosition: true' portfolio entry).
+                const notional = executionPrice * quantity;
+                if (notional > maxPurchasingPower) {
+                    return { success: false, message: `Insufficient margin. Max PP: ${maxPurchasingPower.toFixed(2)}, Req: ${notional.toFixed(2)}` };
+                }
 
-                // Logic:
-                // 1. Receive Delta proceeds.
-                // 2. Add 'Short' entry to portfolio. 
-                // Margin check logic would be separate requirement, assuming basic check here if needed.
-
-                await prisma.$transaction([
+                const txOps: any[] = [
                     prisma.user.update({
                         where: { id: userId },
                         data: { deltaBalance: { increment: proceeds } }
@@ -259,37 +224,19 @@ export class AutomatedMarketMaker {
                         data: { supplyPool: newSupply, demandPool: newDemand }
                     }),
                     prisma.portfolio.upsert({
-                        where: {
-                            userId_assetId_isShortPosition: { userId, assetId, isShortPosition: true }
-                        },
-                        update: {
-                            quantity: { increment: quantity },
-                            averageEntryPrice: executionPrice
-                        },
-                        create: {
-                            userId,
-                            assetId,
-                            quantity,
-                            averageEntryPrice: executionPrice,
-                            isShortPosition: true
-                        }
+                        where: { userId_assetId_isShortPosition: { userId, assetId, isShortPosition: true } },
+                        update: { quantity: { increment: quantity }, averageEntryPrice: executionPrice },
+                        create: { userId, assetId, quantity, averageEntryPrice: executionPrice, isShortPosition: true }
                     }),
                     prisma.transaction.create({
-                        data: {
-                            userId,
-                            assetId,
-                            type: 'SHORT',
-                            amount: quantity,
-                            price: executionPrice,
-                            fee: fee
-                        }
+                        data: { userId, assetId, type: 'SHORT', amount: quantity, price: executionPrice, fee }
                     })
-                ]);
+                ];
 
+                await prisma.$transaction(txOps);
                 return { success: true, message: "Short executed", executionPrice, totalCost: -proceeds, fee, priceImpact };
             }
         }
-
         return { success: false, message: "Invalid trade type" };
     }
 }

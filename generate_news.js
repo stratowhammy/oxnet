@@ -12,16 +12,16 @@ assets.forEach(asset => {
     sectorsMap[asset.sector].push(asset.niche);
 });
 
-// Economic context templates (high school level)
+// Economic context templates (high school level -> 8th Grade Level)
 const economicContexts = [
-    "When demand outpaces supply, prices usually rise. This breakthrough has increased consumer desire, leading to potential revenue growth because more people want it but the amount available is limited.",
-    "A decrease in the cost of production (like cheaper raw materials) shifts the supply curve outward. This allows companies to sell products for less and still make a profit, increasing their market share.",
-    "New regulations can act like a tax, increasing the cost of doing business. When costs go up, supply goes down, which can hurt profitability and drive prices up for consumers.",
-    "Subsidies from the government lower production costs. This encourages companies to innovate and expand, leading to a surplus of goods and making the industry much more attractive to investors.",
-    "Opportunity cost is what a company gives up when making a choice. By focusing on this new trend, they sacrifice older markets, but the high potential profits make this a calculated and smart economic decision.",
-    "When a company develops a unique product, it gains a competitive advantage. This monopoly-like position allows them to set higher prices and earn greater profits because consumers have few alternatives.",
-    "Macroeconomic factors like inflation reduce the purchasing power of money. However, this industry provides essential goods, meaning consumer demand remains steady even when the broader economy weakens.",
-    "Scarcity means there is never enough to satisfy everyone's wants. This recent development makes a previously scarce resource more abundant, which lowers prices and increases accessibility for everyone."
+    "When a lot of people want something but there isn't much of it to go around, the price goes up. This discovery has made everyone want to buy it, meaning the company can easily charge more money.",
+    "When it becomes cheaper to make something, companies can sell it for a lower price and still make a lot of money. This helps them steal customers away from other companies who can't match their prices.",
+    "New rules from the government act almost like a forced extra tax. When it costs more money or time just to obey the law, companies make less profit and usually have to raise their prices.",
+    "When the government gives out free money (subsidies) to help an industry, it makes building things much cheaper. Companies are encouraged to take big risks and build a ton of new products.",
+    "Opportunity cost means deciding what you have to give up to get something else. By choosing to build this new technology, they had to shut down their old factories, but the profit from the new tech is much higher.",
+    "When a company is the only one who knows how to make a special product, they have a monopoly. Because nobody else can sell it, they can charge as much as they want without losing customers.",
+    "Inflation is when your money slowly buys less over time. However, because everyone relies on this specific product just to survive, people will keep buying it even if the rest of the economy is doing badly.",
+    "Scarcity means there is never enough stuff for everybody on Earth. This new invention suddenly makes a very rare material super easy to find, which drops the price so everyone can afford it."
 ];
 
 const directions = ["UP", "DOWN"];
@@ -53,10 +53,11 @@ for (const sector in sectorsMap) {
 
         if (isUp) {
             headline = `Breakthrough in ${niche} Drives Historic Growth`;
-            context = `Recent advances in ${niche} have created massive opportunities. ${contextBase}`;
+            context = `Recent advances in the field of ${niche} have created massive new opportunities for businesses. Companies are rushing to take advantage of the new technology.\n\n**Economic Impact**\n\n${contextBase}`;
         } else {
             headline = `Regulatory Hurdles Hit ${niche} Hard`;
-            context = `Unexpected challenges in ${niche} have disrupted the market. ${contextBase.replace('increases availability', 'decreases availability').replace('lowers prices', 'raises prices')}`; // basic tweaking
+            let flippedBase = contextBase.replace('goes up', 'goes down').replace('charge more money', 'charge less money').replace('cheaper to make', 'more expensive to make');
+            context = `Unexpected challenges and government rules regarding ${niche} have delayed major projects. Investors are worried about the long-term viability of the sector.\n\n**Economic Impact**\n\n${flippedBase}`;
         }
 
         newsArray.push({
@@ -70,6 +71,15 @@ for (const sector in sectorsMap) {
             Competitor_Inversion: inversion
         });
     }
+}
+
+// Ensure exactly 250 items total by duplicating if necessary, or slicing
+while (newsArray.length < 250) {
+    const randomStory = newsArray[Math.floor(Math.random() * newsArray.length)];
+    newsArray.push({ ...randomStory });
+}
+if (newsArray.length > 250) {
+    newsArray.length = 250;
 }
 
 fs.writeFileSync('news_output.json', JSON.stringify(newsArray, null, 2));

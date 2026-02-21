@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { calculatePriceShift } from './src/lib/marketMath.js';
 
 const prisma = new PrismaClient();
 
@@ -12,48 +13,56 @@ async function main() {
 
     // Generate 100 points, spaced by 15 minutes each, stepping backwards
     const intervals = 100;
-    const intervalMs = 15 * 60 * 1000;
+    const intervalMs = 15 * 60 * 1000; // 15 minutes per history point
+    const subTicks = 5; // 3 minute ticks per 15 minute interval
+    const tickMs = 3 * 60 * 1000;
+    const cycleLength = 7200000; // 2 hour sinusoidal phase cycle
 
     for (const asset of assets) {
-        let currentPrice = asset.basePrice;
+        let simulatedPrice = asset.basePrice;
 
-        // We want the most recent point to be close to the current basePrice, 
-        // so we'll simulate backwards and then reverse it, or just generate standard walk backwards.
-        // It's easier to walk backward: 
-        // older points have higher variance from current basePrice.
-
-        // Let's build the array of prices going backward so we can control the random walk
-        let candlesBackward = [];
         for (let i = 0; i < intervals; i++) {
-            // Random walk volatility: max 1% per 15m
-            const volatility = 0.01;
+            const intervalEndTime = new Date(now.getTime() - (i * intervalMs));
 
-            const close = currentPrice;
-            // Close can be up or down
-            const openChange = 1 + (Math.random() * volatility * 2 - volatility);
-            const open = close * openChange;
+            let candle = {
+                open: simulatedPrice,
+                high: simulatedPrice,
+                low: simulatedPrice,
+                close: simulatedPrice
+            };
 
-            // High is above MAX(open, close) by up to 0.5%
-            const high = Math.max(open, close) * (1 + (Math.random() * (volatility / 2)));
-            // Low is below MIN(open, close) by up to 0.5%
-            const low = Math.min(open, close) * (1 - (Math.random() * (volatility / 2)));
+            for (let j = 0; j < subTicks; j++) {
+                const tickTime = intervalEndTime.getTime() - (j * tickMs);
 
-            currentPrice = open;
+                // Use shared math for reverse candle generation
+                const priceShiftPercent = calculatePriceShift(asset, tickTime);
 
-            candlesBackward.push({ open, high, low, close });
-        }
+                // To walk *backward* in price, we divide or inverse the multiplier.
+                // If moving forward: newPrice = oldPrice * (1 + shift)
+                // Moving backward: oldPrice = newPrice / (1 + shift)
+                simulatedPrice = simulatedPrice / (1 + priceShiftPercent);
 
-        // Now candlesBackward[0] is 15m ago, candlesBackward[99] is 100 intervals ago.
-        for (let i = 0; i < intervals; i++) {
-            const timeAgo = new Date(now.getTime() - ((i + 1) * intervalMs));
-            const c = candlesBackward[i];
+                // Update wick tracking
+                candle.high = Math.max(candle.high, simulatedPrice);
+                candle.low = Math.min(candle.low, simulatedPrice);
+
+                // If it's the very last 3-minute tick of this 15-min interval backward (meaning chronologically the first),
+                // that's the open price.
+                if (j === subTicks - 1) {
+                    candle.open = simulatedPrice;
+                }
+            }
+
+            // We must stamp the timestamp representing the *start* of the interval based on existing UI assumptions
+            const intervalStartTime = new Date(intervalEndTime.getTime() - intervalMs);
+
             historyToInsert.push({
                 assetId: asset.id,
-                open: c.open,
-                high: c.high,
-                low: c.low,
-                close: c.close,
-                timestamp: timeAgo
+                open: candle.open,
+                high: candle.high,
+                low: candle.low,
+                close: candle.close,
+                timestamp: intervalStartTime
             });
         }
     }

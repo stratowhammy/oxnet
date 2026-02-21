@@ -12,8 +12,11 @@ model User {
   role         String        @default("STUDENT")
   deltaBalance Float         @default(100000.0) // Initial balance
   marginLimit  Float         @default(0.0)
+  marginLoan   Float         @default(0.0)
   portfolios   Portfolio[]
   transactions Transaction[]
+  userGoals    UserGoal[]
+  bids         GoalAuction[]
 }
 
 model Asset {
@@ -84,4 +87,39 @@ model PriceHistory {
   asset     Asset    @relation(fields: [assetId], references: [id])
 
   @@index([assetId, timestamp])
+}
+
+model GoalCard {
+  id             String        @id @default(cuid())
+  title          String
+  description    String
+  criteriaType   String        // e.g. "HOLD_ASSET_QUANTITY", "TOTAL_EQUITY"
+  criteriaTarget String        // e.g. assetId or "ANY"
+  criteriaAmount Float
+  victoryPoints  Int
+  auctions       GoalAuction[]
+  userGoals      UserGoal[]
+}
+
+model GoalAuction {
+  id              String   @id @default(cuid())
+  goalCardId      String
+  startTime       DateTime @default(now())
+  endTime         DateTime
+  minBid          Float
+  highestBid      Float    @default(0.0)
+  highestBidderId String?
+  isActive        Boolean  @default(true)
+  goalCard        GoalCard @relation(fields: [goalCardId], references: [id])
+  highestBidder   User?    @relation(fields: [highestBidderId], references: [id])
+}
+
+model UserGoal {
+  id         String   @id @default(cuid())
+  userId     String
+  goalCardId String
+  acquiredAt DateTime @default(now())
+  costPaid   Float
+  user       User     @relation(fields: [userId], references: [id])
+  goalCard   GoalCard @relation(fields: [goalCardId], references: [id])
 }
