@@ -76,7 +76,10 @@ model NewsStory {
 model PriceHistory {
   id        String   @id @default(cuid())
   assetId   String
-  price     Float
+  open      Float
+  high      Float
+  low       Float
+  close     Float
   timestamp DateTime @default(now())
   asset     Asset    @relation(fields: [assetId], references: [id])
 

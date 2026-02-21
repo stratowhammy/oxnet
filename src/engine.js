@@ -26,7 +26,10 @@ async function recordPriceHistories() {
 
     const historyCreates = assets.map(a => ({
         assetId: a.id,
-        price: a.basePrice
+        open: a.basePrice,
+        high: a.basePrice,
+        low: a.basePrice,
+        close: a.basePrice
     }));
 
     await prisma.priceHistory.createMany({

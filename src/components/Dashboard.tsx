@@ -128,10 +128,10 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
             data = selectedAsset.priceHistory.map(ph => {
                 return {
                     time: new Date(ph.timestamp).getTime() / 1000 as import('lightweight-charts').Time,
-                    open: ph.price,
-                    high: ph.price, // It's just a snapshot, so open=high=low=close for this tick
-                    low: ph.price,
-                    close: ph.price
+                    open: ph.open,
+                    high: ph.high,
+                    low: ph.low,
+                    close: ph.close
                 };
             });
         } else {
