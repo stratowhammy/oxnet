@@ -30,15 +30,20 @@ assets.forEach(asset => {
 
 async function generateStoryWithAI(sector, niche, historyLines) {
 
+    const rulesAndIdentity = `
+# OxNet News Engine Rules
+You are the central intelligence behind the OxNet global economic simulation. Output purely functional JSON to manipulate the fictional economy.
+- No real-world companies exist.
+- Tone: Professional, objective, 8th-grade reading level.
+- Format: Strictly JSON { Headline, Story (5 lines), Expected_Economic_Outcome (2 lines), Direction, Intensity_Weight, Competitor_Inversion }.
+`;
+
     const prompt = `
-${aiContextText}
+${rulesAndIdentity}
 
 **NEW STORY REQUEST**
 Sector: "${sector}"
 Niche: "${niche}"
-
-Here are the most recent news events that occurred in this world. 
-You MUST review them to maintain narrative consistency. If relevant, follow up directly on one of these events or mention how the previous event led to this one. Refer to them as historical canon.
 
 Recent Historical News Events:
 ${historyLines}

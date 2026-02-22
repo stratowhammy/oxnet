@@ -24,6 +24,7 @@ export async function POST(request: Request) {
         // Fetch Sender
         const sender = await prisma.user.findUnique({ where: { id: senderId } });
         if (!sender) return NextResponse.json({ error: 'Sender not found' }, { status: 404 });
+        if (sender.frozen) return NextResponse.json({ error: 'Your account is frozen. Contact your administrator.' }, { status: 403 });
 
         // Calculate actual available liquidity (Balance - Margin)
         const availableDelta = sender.deltaBalance - (sender.marginLoan || 0);

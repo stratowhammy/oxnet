@@ -6,6 +6,7 @@ import { createChart, ColorType, ISeriesApi, CandlestickSeries, LineSeries } fro
 import { calculateSMA, calculateBollingerBands, Candle, BollingerBands } from '@/lib/indicators';
 import { z } from 'zod';
 import Banking from './Banking';
+import CeoDecisionPanel from './CeoDecisionPanel';
 
 // --- Types ---
 type Asset = {
@@ -33,10 +34,14 @@ type PortfolioItem = {
 type User = {
     id: string;
     username?: string | null;
+    role?: string;
+    playerRole?: string;
+    hedgeFundBalance?: number;
     deltaBalance: number;
     marginLoan: number;
     lendingLimit?: number;
     lendingRate?: number;
+    frozen?: boolean;
     portfolios: PortfolioItem[];
 };
 
@@ -820,6 +825,14 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                             </a>
                         </div>
                         <div className="flex items-center gap-3">
+                            {user.role === 'ADMIN' && (
+                                <a
+                                    href="/admin"
+                                    className="text-xs font-bold uppercase tracking-widest text-yellow-400 hover:text-white px-3 py-2 border border-yellow-900 hover:bg-yellow-900/50 rounded transition-all"
+                                >
+                                    ⚙ Admin
+                                </a>
+                            )}
                             <button
                                 onClick={() => setShowCallsignModal(true)}
                                 className="text-xs font-bold uppercase tracking-widest text-blue-400 hover:text-white px-3 py-2 border border-blue-900 hover:bg-blue-900/50 rounded transition-all"
@@ -975,6 +988,9 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
 
                                 {/* Sidebar Right: Buying/Portfolio (Col 4) */}
                                 <div className="col-span-12 lg:col-span-4 flex flex-col gap-6">
+
+                                    {/* CEO Decision Panel */}
+                                    {user.playerRole === 'CEO' && <CeoDecisionPanel />}
 
                                     {/* Trading Panel */}
                                     <div className="bg-gray-900 rounded-xl p-6 shadow-sm border border-gray-800">
@@ -1228,7 +1244,7 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                             <div>
                                 <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Direction</div>
                                 <div className={`font-bold font-mono ${selectedNews.direction === 'UP' ? 'text-green-500' : 'text-red-500'}`}>
-                                    {selectedNews.direction} (Intensity: {selectedNews.intensityWeight})
+                                    {selectedNews.direction}
                                 </div>
                             </div>
                         </div>

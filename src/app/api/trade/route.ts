@@ -24,8 +24,11 @@ export async function POST(req: Request) {
 
         const { userId, assetId, type, quantity, leverage, takeProfitPrice, stopLossPrice } = result.data;
 
-        // In a real app, verify authentication here. 
-        // For this task, assuming userId is passed and trusted or we use a mock session.
+        // Check if user account is frozen
+        const user = await prisma.user.findUnique({ where: { id: userId }, select: { frozen: true } });
+        if (user?.frozen) {
+            return NextResponse.json({ error: 'Account is frozen. Contact your administrator.' }, { status: 403 });
+        }
 
         const tradeResult = await AutomatedMarketMaker.executeTrade({
             userId,

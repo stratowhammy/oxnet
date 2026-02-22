@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function Leaderboard() {
     const allUsers = await prisma.user.findMany({
+        where: { role: { not: 'ADMIN' } },
         include: {
             portfolios: {
                 include: {

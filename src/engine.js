@@ -15,12 +15,16 @@ const LLM_URL = process.env.LLM_URL || 'http://127.0.0.1:1234/v1/chat/completion
 const LLM_MODEL = process.env.LLM_MODEL || 'qwen/qwen3-vl-4b';
 
 let aiContextText = '';
-try {
-    const contextPath = path.join(__dirname, '../ai_news_context.md');
-    aiContextText = fs.readFileSync(contextPath, 'utf8');
-} catch (e) {
-    console.error("Warning: ai_news_context.md not found.");
+const contextPath = path.join(__dirname, '../ai_news_context.md');
+
+function reloadAIContext() {
+    try {
+        aiContextText = fs.readFileSync(contextPath, 'utf8');
+    } catch (e) {
+        console.error("Warning: ai_news_context.md not found.");
+    }
 }
+reloadAIContext();
 
 // In-memory tracker for OHLC intra-interval pricing
 let currentCandles = {};
@@ -88,23 +92,39 @@ export async function publishNewsStory() {
         historyLines = dbHistory.map(item => `[${item.targetSector} - ${new Date(item.publishedAt).toLocaleDateString()}] ${item.headline}\nContent: ${item.context}`).join('\n\n');
     }
 
+    // Fetch details for the target asset and its sector colleagues to create a focused, "thin" context
+    const sectorColleagues = await prisma.asset.findMany({
+        where: { sector: sector, symbol: { not: 'DELTA' } },
+        select: { name: true, symbol: true, niche: true, description: true, basePrice: true, supplyPool: true, demandPool: true }
+    });
+
+    const assetDetailsLines = sectorColleagues.map(a =>
+        `- **${a.name}** (${a.symbol})\n  Niche: ${a.niche}\n  Price: Δ${a.basePrice.toFixed(2)} | Supply: ${a.supplyPool.toFixed(0)} | Demand: ${a.demandPool.toFixed(0)}\n  Description: ${a.description}`
+    ).join('\n\n');
+
+    const rulesAndIdentity = `
+# OxNet News Engine Rules
+You are the central intelligence behind the OxNet global economic simulation. Output purely functional JSON to manipulate the fictional economy.
+- No real-world companies exist.
+- Tone: Professional, objective, 8th-grade reading level.
+- Format: Strictly JSON { Headline, Story (5 lines), Expected_Economic_Outcome (2 lines), Direction, Intensity_Weight, Competitor_Inversion }.
+`;
+
     const prompt = `
-${aiContextText}
+${rulesAndIdentity}
+
+## Contextual Details for ${sector} Sector
+${assetDetailsLines}
 
 **NEW STORY REQUEST**
-Target Listed Company: "${companyName}"
+Target: "${companyName}" (${targetAsset.symbol})
 Sector: "${sector}"
 Niche: "${niche}"
-
-Here are the most recent news events that occurred in this world. 
-You MUST review them to maintain narrative consistency. If relevant, follow up directly on one of these events or mention how the previous event led to this one. Refer to them as historical canon.
 
 Recent Historical News Events:
 ${historyLines}
 
-CRITICAL INSTRUCTION: You MUST write this story specifically about the listed company '${companyName}' to prevent hallucinations. The narrative must directly impact '${companyName}' or its immediate competitors. Do not invent unlisted companies as the primary subject.
-
-Output strictly the JSON structure requested in your context rules.
+CRITICAL: Subject must be '${companyName}'. Impact must be logical based on niche. No unlisted companies.
 `;
 
     let aiData;
@@ -238,6 +258,9 @@ async function simulateTradeImpacts() {
 }
 
 async function executeSyntheticTrade(asset, userId, action, quantity) {
+    // DELTA is the fiat currency — never allow its price to change
+    if (asset.symbol === 'DELTA') return;
+
     // Basic price impact math (slippage logic)
     const liquidityRatio = asset.supplyPool > 0 ? quantity / asset.supplyPool : 0.001;
     let priceImpactPercent = Math.min(liquidityRatio * 0.5, 0.05); // cap physical slide to 5% per minute
@@ -251,6 +274,9 @@ async function executeSyntheticTrade(asset, userId, action, quantity) {
 
     const newPrice = asset.basePrice * (1 + priceImpactPercent);
 
+    // Sync demandPool to maintain the price ratio (P = D/S)
+    const newDemand = newPrice * asset.supplyPool;
+
     // Write transaction record
     await prisma.transaction.create({
         data: {
@@ -263,10 +289,10 @@ async function executeSyntheticTrade(asset, userId, action, quantity) {
         }
     });
 
-    // Update Asset price natively
+    // Update Asset price and pools natively
     await prisma.asset.update({
         where: { id: asset.id },
-        data: { basePrice: newPrice }
+        data: { basePrice: newPrice, demandPool: newDemand }
     });
 
     // Update local candle cache for this impact too
@@ -292,6 +318,9 @@ async function applySinusoidalMovements() {
     const now = Date.now();
 
     for (const asset of assets) {
+        // DELTA is the fiat currency — never allow its price to change
+        if (asset.symbol === 'DELTA') continue;
+
         // Use the shared math library for complex multi-layered noise
         const priceShiftPercent = calculatePriceShift(asset, now);
 
@@ -318,6 +347,12 @@ async function applySinusoidalMovements() {
             c.close = newPrice;
         }
     }
+
+    // Safety net: always reset DELTA to 1:1 parity
+    await prisma.asset.updateMany({
+        where: { symbol: 'DELTA' },
+        data: { basePrice: 1.00 }
+    });
 }
 // 4. Margin Call Engine
 async function checkMarginCalls() {
@@ -534,22 +569,253 @@ async function executeLimitOrders() {
 }
 
 
+// ----- CEO Decision-Driven News -----
+
+async function processCeoDecisions() {
+    try {
+        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+
+        // Find CEO scenarios answered > 10 min ago that haven't produced a news story yet
+        const pendingDecisions = await prisma.ceoScenario.findMany({
+            where: {
+                chosenOption: { not: null },
+                newsPublished: false,
+                answeredAt: { lte: tenMinutesAgo },
+            },
+            include: {
+                user: { select: { username: true } },
+                asset: { select: { name: true, symbol: true, sector: true, niche: true } },
+            }
+        });
+
+        for (const decision of pendingDecisions) {
+            const choiceText = decision.chosenOption === 'A' ? decision.choiceA
+                : decision.chosenOption === 'B' ? decision.choiceB
+                    : decision.choiceC;
+
+            console.log(`[CEO News] Processing decision from ${decision.user.username} for ${decision.asset.symbol}...`);
+
+            const colleagueInfo = await prisma.asset.findMany({
+                where: { sector: decision.asset.sector, symbol: { not: 'DELTA' } },
+                select: { name: true, symbol: true, niche: true, description: true }
+            });
+
+            const sectorContext = colleagueInfo.map(a => `- ${a.name} (${a.symbol}): ${a.niche}`).join('\n');
+
+            const rulesAndIdentity = `
+# OxNet News Engine Rules
+You are the central intelligence behind the OxNet global economic simulation. Output purely functional JSON to manipulate the fictional economy.
+- No real-world companies exist.
+- Tone: Professional, objective, 8th-grade reading level.
+- Format: Strictly JSON { Headline, Story (5 lines), Expected_Economic_Outcome (2 lines), Direction, Intensity_Weight, Competitor_Inversion }.
+`;
+
+            const prompt = `
+${rulesAndIdentity}
+
+## Sector Context: ${decision.asset.sector}
+${sectorContext}
+
+**CEO DECISION NEWS STORY**
+The CEO of "${decision.asset.name}" (${decision.asset.symbol}) in the ${decision.asset.sector} sector (${decision.asset.niche}) was faced with this situation:
+
+"${decision.question}"
+
+They chose: "${choiceText}"
+
+Write a news story about this CEO decision and its market impact. The story should feel like a real financial news article. Output standard JSON.
+`;
+
+            let aiData;
+            try {
+                const response = await fetch(LLM_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: LLM_MODEL,
+                        messages: [
+                            { role: 'system', content: 'You are a highly capable AI trained to output pure JSON data only.' },
+                            { role: 'user', content: prompt }
+                        ],
+                        temperature: 0.7
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.choices?.[0]?.message?.content) {
+                        const content = data.choices[0].message.content.trim();
+                        const cleaned = content.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
+                        aiData = JSON.parse(cleaned);
+                    }
+                }
+            } catch (e) {
+                console.error('CEO news generation failed:', e.message);
+            }
+
+            if (!aiData) {
+                const isUp = Math.random() > 0.5;
+                aiData = {
+                    Headline: `${decision.asset.name} CEO Makes Bold Strategic Move`,
+                    Story: `The leadership at ${decision.asset.name} has made a significant strategic decision that analysts believe could reshape the company's position in the ${decision.asset.niche} market. The CEO's choice to ${choiceText.toLowerCase()} has drawn attention from institutional investors and competitors alike.`,
+                    Expected_Economic_Outcome: `Market observers anticipate this could have meaningful implications for the broader ${decision.asset.sector} sector in the coming sessions.`,
+                    Direction: isUp ? 'UP' : 'DOWN',
+                    Intensity_Weight: Math.floor(Math.random() * 5) + 3,
+                    Competitor_Inversion: Math.random() > 0.6
+                };
+            }
+
+            await prisma.newsStory.create({
+                data: {
+                    headline: aiData.Headline || `${decision.asset.name}: CEO Decision Shakes Market`,
+                    context: `${aiData.Story}\n\n**Expected Economic Outcome**\n\n${aiData.Expected_Economic_Outcome}`,
+                    targetSector: decision.asset.sector,
+                    targetSpecialty: decision.asset.niche,
+                    impactScope: 'SPECIALTY',
+                    direction: aiData.Direction || 'UP',
+                    intensityWeight: aiData.Intensity_Weight || 3,
+                    competitorInversion: aiData.Competitor_Inversion || false,
+                }
+            });
+
+            await prisma.ceoScenario.update({
+                where: { id: decision.id },
+                data: { newsPublished: true },
+            });
+
+            console.log(`[CEO News] Published story for ${decision.asset.symbol} based on CEO decision.`);
+        }
+    } catch (e) {
+        console.error('Error processing CEO decisions:', e);
+    }
+}
+
+// ----- Hedge Fund Manager Performance Check -----
+
+async function checkHedgeFundPerformance() {
+    try {
+        const hedgeFundManagers = await prisma.user.findMany({
+            where: { playerRole: 'HEDGE_FUND' },
+            include: {
+                portfolios: {
+                    include: { asset: true }
+                }
+            }
+        });
+
+        for (const hfm of hedgeFundManagers) {
+            // Calculate total fund value = hedgeFundBalance + portfolio mark-to-market
+            let portfolioValue = 0;
+            for (const p of hfm.portfolios) {
+                if (p.isShortPosition) {
+                    // Short: profit = (entry - current) * qty
+                    portfolioValue += (p.averageEntryPrice - p.asset.basePrice) * p.quantity;
+                } else {
+                    portfolioValue += p.asset.basePrice * p.quantity;
+                }
+            }
+            const totalFundValue = hfm.hedgeFundBalance + portfolioValue;
+
+            if (totalFundValue < 7_500_000) {
+                console.log(`[HFM] ${hfm.username} fund value (${totalFundValue.toFixed(2)}) below 7.5M threshold — demoting to RETAIL.`);
+                await prisma.user.update({
+                    where: { id: hfm.id },
+                    data: {
+                        playerRole: 'RETAIL',
+                        hedgeFundBalance: 0,
+                    }
+                });
+            }
+        }
+    } catch (e) {
+        console.error('Error checking HFM performance:', e);
+    }
+}
+
+
+// ----- Sector Index Recording -----
+
+async function recordSectorIndices() {
+    try {
+        const assets = await prisma.asset.findMany({
+            where: { symbol: { not: 'DELTA' } },
+            select: { sector: true, basePrice: true }
+        });
+
+        const sectorPrices = {};
+        for (const asset of assets) {
+            if (!sectorPrices[asset.sector]) sectorPrices[asset.sector] = [];
+            sectorPrices[asset.sector].push(asset.basePrice);
+        }
+
+        const records = Object.entries(sectorPrices).map(([sector, prices]) => ({
+            sector,
+            indexPrice: prices.reduce((a, b) => a + b, 0) / prices.length,
+        }));
+
+        await prisma.sectorIndex.createMany({ data: records });
+        console.log(`[${new Date().toISOString()}] Recorded sector indices for ${records.length} sectors.`);
+    } catch (e) {
+        console.error('Error recording sector indices:', e);
+    }
+}
+
+// ----- Dynamic AI Context Refresh -----
+
+async function refreshAIContext() {
+    try {
+        const { generateAIContext } = await import('./generate_context.mjs');
+        await generateAIContext();
+        reloadAIContext();
+    } catch (e) {
+        console.error('Error refreshing AI context:', e);
+    }
+}
+
+
 // ----- Scheduler Logic -----
 
 // 5 Minutes = 300,000 ms
 const FIVE_MINS = 5 * 60 * 1000;
+// 15 Minutes = 900,000 ms
+const FIFTEEN_MINS = 15 * 60 * 1000;
 // 30 Minutes = 1,800,000 ms 
 const THIRTY_MINS = 30 * 60 * 1000;
 // 1 Minute = 60,000 ms
 const ONE_MIN = 60 * 1000;
+// 2 Minutes for CEO decision checks
+const TWO_MINS = 2 * 60 * 1000;
 // 30 Seconds for simulation loop to feel "live"
 const THIRTY_SECONDS = 30 * 1000;
 
+// Helper: check if current time is within trading hours (8 AM - 4 PM EST, Mon-Fri)
+function isWithinTradingHours() {
+    const now = new Date();
+    // Convert to EST (America/New_York)
+    const estString = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+    const est = new Date(estString);
+    const day = est.getDay(); // 0=Sun, 6=Sat
+    const hour = est.getHours();
+    return day >= 1 && day <= 5 && hour >= 8 && hour < 16;
+}
+
+// Scheduled wrapper for news: only publish during trading hours
+async function scheduledPublishNewsStory() {
+    if (!isWithinTradingHours()) {
+        console.log(`[${new Date().toISOString()}] Outside trading hours (8AM-4PM EST Mon-Fri), skipping news publish.`);
+        return;
+    }
+    // Reload context before publishing in case it was refreshed
+    reloadAIContext();
+    await publishNewsStory();
+}
+
 console.log("Starting OxNet Background Engine...");
 
-// Initial kicks
+// Initial kicks (news only if within trading hours)
 recordPriceHistories();
-publishNewsStory();
+recordSectorIndices();
+scheduledPublishNewsStory();
 simulateTradeImpacts();
 applySinusoidalMovements();
 
@@ -560,9 +826,14 @@ initBackupWorker();
 initGoalWorker();
 
 setInterval(recordPriceHistories, FIVE_MINS);
-setInterval(publishNewsStory, THIRTY_MINS);
+setInterval(recordSectorIndices, FIFTEEN_MINS); // Record sector indices every 15 minutes
+setInterval(scheduledPublishNewsStory, THIRTY_MINS);
 setInterval(simulateTradeImpacts, THIRTY_SECONDS); // Run fake trades frequently
 setInterval(applySinusoidalMovements, ONE_MIN); // Force push underlying market graph every 1 minute
 setInterval(checkMarginCalls, THIRTY_SECONDS); // Run liquidations aggressively
 setInterval(checkConditionalOrders, ONE_MIN); // Check TP/SL every 1 minute
 setInterval(executeLimitOrders, THIRTY_SECONDS); // Check limit orders frequently
+setInterval(processCeoDecisions, TWO_MINS); // Check for CEO decisions to turn into news
+setInterval(checkHedgeFundPerformance, FIVE_MINS); // Check HFM fund performance
+setInterval(refreshAIContext, THIRTY_MINS); // Refresh AI context file every 30 minutes
+

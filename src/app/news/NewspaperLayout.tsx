@@ -27,12 +27,9 @@ export default function NewspaperLayout({ leadStory, otherStories }: { leadStory
                 <div className="bg-gray-900 border-2 border-gray-700 p-6 max-w-2xl w-full rounded-lg shadow-2xl" onClick={e => e.stopPropagation()}>
                     <div className="flex justify-between items-start mb-4 border-b border-gray-800 pb-4">
                         <div>
-                            <div className="flex gap-2 items-center mb-1">
-                                <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded ${selectedNews.direction === 'UP' ? 'bg-green-600/20 text-green-400' : 'bg-red-600/20 text-red-400'}`}>
-                                    {selectedNews.direction} OUTLOOK
-                                </span>
-                                <span className="text-gray-400 text-xs">Level {selectedNews.intensityWeight} Intensity</span>
-                            </div>
+                            <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded ${selectedNews.direction === 'UP' ? 'bg-green-600/20 text-green-400' : 'bg-red-600/20 text-red-400'}`}>
+                                {selectedNews.direction} OUTLOOK
+                            </span>
                             <h2 className="text-2xl font-bold text-white mt-1">{selectedNews.headline}</h2>
                         </div>
                         <button onClick={closeModal} className="text-gray-500 hover:text-white transition-colors">
@@ -82,7 +79,7 @@ export default function NewspaperLayout({ leadStory, otherStories }: { leadStory
                         <img src="/logo.png" alt="Market Master Logo" className="object-contain w-full h-full" />
                     </div>
 
-                    <h1 className="text-4xl md:text-5xl lg:text-7xl font-black uppercase font-serif tracking-tighter leading-none text-left" style={{ fontFamily: "'Playfair Display', 'Merriweather', serif" }}>
+                    <h1 className="text-2xl md:text-3xl lg:text-[2.6rem] font-black uppercase font-serif tracking-tighter leading-none text-left" style={{ fontFamily: "'Playfair Display', 'Merriweather', serif" }}>
                         The Market Master<br />Journal
                     </h1>
                 </div>
@@ -90,7 +87,7 @@ export default function NewspaperLayout({ leadStory, otherStories }: { leadStory
                 <div className="flex justify-between items-center border-t-2 border-b-2 border-black py-2 font-serif text-sm font-bold uppercase tracking-widest">
                     <span>Vol. CXXIV ... No. 59,102</span>
                     <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                    <span>Price: 10 Cents</span>
+                    <span>Price: 1Δ</span>
                 </div>
             </header>
 
@@ -113,7 +110,7 @@ export default function NewspaperLayout({ leadStory, otherStories }: { leadStory
                             className="mb-8 pb-8 border-b-4 border-black cursor-pointer group hover:bg-black/5 p-4 -m-4 rounded transition-colors"
                             onClick={() => setSelectedNews(leadStory)}
                         >
-                            <h2 className="text-5xl md:text-7xl font-black font-serif uppercase leading-none mb-6 text-center group-hover:underline decoration-4" style={{ fontFamily: "'Playfair Display', serif" }}>
+                            <h2 className="text-2xl md:text-4xl font-black font-serif uppercase leading-none mb-6 text-center group-hover:underline decoration-4" style={{ fontFamily: "'Playfair Display', serif" }}>
                                 {leadStory.headline}
                             </h2>
                             <div className="flex justify-center gap-4 mb-6 font-sans text-xs uppercase tracking-widest font-bold border-y border-black py-2">
@@ -122,7 +119,7 @@ export default function NewspaperLayout({ leadStory, otherStories }: { leadStory
                                 <span>Impact: {leadStory.impactScope}</span>
                                 <span>•</span>
                                 <span className={leadStory.direction === 'UP' ? 'text-green-800' : 'text-red-800'}>
-                                    Outlook: {leadStory.direction} (Level {leadStory.intensityWeight})
+                                    Outlook: {leadStory.direction}
                                 </span>
                             </div>
 
@@ -177,7 +174,7 @@ export default function NewspaperLayout({ leadStory, otherStories }: { leadStory
                                     {story.headline}
                                 </h4>
                                 <div className="text-[10px] font-sans font-bold uppercase tracking-wider mb-2 text-gray-500">
-                                    Sector: {story.targetSector} • Int: {story.intensityWeight}
+                                    Sector: {story.targetSector}
                                 </div>
                                 <p className="font-serif text-sm leading-relaxed text-justify line-clamp-4">
                                     {story.context.replace(/\*\*/g, '')}

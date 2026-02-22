@@ -2,19 +2,19 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-    // Simple Mock RBAC
-    // In a real app, verify JWT or Session
-
     if (request.nextUrl.pathname.startsWith('/admin')) {
+        // Check session-based role cookie OR legacy role cookie
         const role = request.cookies.get('role')?.value;
+        const session = request.cookies.get('oxnet_session')?.value;
 
-        // Allow if role is ADMIN
-        // For demo purposes, if no cookie is set, we block.
-        // To test, user needs to set cookie `role=ADMIN`
+        // Allow if role cookie is ADMIN (legacy)
+        if (role === 'ADMIN') return NextResponse.next();
 
-        if (role !== 'ADMIN') {
-            return NextResponse.redirect(new URL('/', request.url));
-        }
+        // Allow if session cookie matches admin user ID
+        if (session === '10101010') return NextResponse.next();
+
+        // Block non-admin access
+        return NextResponse.redirect(new URL('/login', request.url));
     }
 
     return NextResponse.next();

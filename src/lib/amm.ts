@@ -133,7 +133,7 @@ export class AutomatedMarketMaker {
                 }),
                 prisma.asset.update({
                     where: { id: assetId },
-                    data: { supplyPool: newSupply, demandPool: newDemand }
+                    data: { supplyPool: newSupply, demandPool: newDemand, basePrice: executionPrice }
                 }),
                 prisma.transaction.create({
                     data: { userId, assetId, type: 'BUY', amount: quantity, price: executionPrice, fee }
@@ -151,7 +151,13 @@ export class AutomatedMarketMaker {
                 }
             }
             if (qtyToLong > 0) {
-                const updateData: any = { quantity: { increment: qtyToLong }, averageEntryPrice: executionPrice };
+                const existingLong = userPortfolios.find(p => p.assetId === assetId && !p.isShortPosition);
+                let newAvgEntry = executionPrice;
+                if (existingLong) {
+                    newAvgEntry = (existingLong.quantity * existingLong.averageEntryPrice + qtyToLong * executionPrice) / (existingLong.quantity + qtyToLong);
+                }
+
+                const updateData: any = { quantity: { increment: qtyToLong }, averageEntryPrice: newAvgEntry };
                 const createData: any = { userId, assetId, quantity: qtyToLong, averageEntryPrice: executionPrice, isShortPosition: false };
 
                 if (order.takeProfitPrice !== undefined) { updateData.takeProfitPrice = order.takeProfitPrice; createData.takeProfitPrice = order.takeProfitPrice; }
@@ -197,7 +203,7 @@ export class AutomatedMarketMaker {
                     }),
                     prisma.asset.update({
                         where: { id: assetId },
-                        data: { supplyPool: newSupply, demandPool: newDemand }
+                        data: { supplyPool: newSupply, demandPool: newDemand, basePrice: executionPrice }
                     }),
                     prisma.transaction.create({
                         data: { userId, assetId, type: 'SELL', amount: quantity, price: executionPrice, fee }
@@ -222,6 +228,12 @@ export class AutomatedMarketMaker {
                     return { success: false, message: `Insufficient margin. Max PP: ${maxPurchasingPower.toFixed(2)}, Req: ${notional.toFixed(2)}` };
                 }
 
+                const existingShort = userPortfolios.find(p => p.assetId === assetId && p.isShortPosition);
+                let newAvgEntry = executionPrice;
+                if (existingShort) {
+                    newAvgEntry = (existingShort.quantity * existingShort.averageEntryPrice + quantity * executionPrice) / (existingShort.quantity + quantity);
+                }
+
                 const txOps: any[] = [
                     prisma.user.update({
                         where: { id: userId },
@@ -229,13 +241,13 @@ export class AutomatedMarketMaker {
                     }),
                     prisma.asset.update({
                         where: { id: assetId },
-                        data: { supplyPool: newSupply, demandPool: newDemand }
+                        data: { supplyPool: newSupply, demandPool: newDemand, basePrice: executionPrice }
                     }),
                     prisma.portfolio.upsert({
                         where: { userId_assetId_isShortPosition: { userId, assetId, isShortPosition: true } },
                         update: {
                             quantity: { increment: quantity },
-                            averageEntryPrice: executionPrice,
+                            averageEntryPrice: newAvgEntry,
                             takeProfitPrice: order.takeProfitPrice,
                             stopLossPrice: order.stopLossPrice
                         },

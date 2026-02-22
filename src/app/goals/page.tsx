@@ -1,12 +1,16 @@
 import prisma from "@/lib/db";
 import { evaluateGoalStatus } from "@/lib/goals";
 import GoalsClientModule from "./GoalsClientModule";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 export const dynamic = 'force-dynamic';
 
 export default async function GoalsDashboard() {
-    // Assuming 'demo-user-1' as the identity
-    const userId = "demo-user-1";
+    const cookieStore = await cookies();
+    const session = cookieStore.get('oxnet_session');
+    if (!session?.value) redirect('/login');
+    const userId = session.value;
 
     const user = await prisma.user.findUnique({
         where: { id: userId },
@@ -94,8 +98,8 @@ export default async function GoalsDashboard() {
                         <div className="space-y-4">
                             {evaluatedGoals.map(goal => (
                                 <div key={goal.id} className={`p-5 rounded-xl border flex justify-between items-center transition-all ${goal.status === 'EARNED'
-                                        ? 'bg-green-950/20 border-green-800 shadow-[0_0_15px_rgba(22,163,74,0.1)]'
-                                        : 'bg-gray-900 border-gray-700 opacity-80'
+                                    ? 'bg-green-950/20 border-green-800 shadow-[0_0_15px_rgba(22,163,74,0.1)]'
+                                    : 'bg-gray-900 border-gray-700 opacity-80'
                                     }`}>
                                     <div className="flex-1 pr-6">
                                         <div className="flex gap-3 mb-2 items-center">

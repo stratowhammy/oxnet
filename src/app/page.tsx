@@ -1,4 +1,5 @@
 import Dashboard from "@/components/Dashboard";
+import RoleSelection from "@/components/RoleSelection";
 import prisma from "@/lib/db";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -11,6 +12,49 @@ export default async function Home() {
 
   if (!session || !session.value) {
     redirect('/login');
+  }
+
+  // Fetch session user
+  const user = await prisma.user.findUnique({
+    where: { id: session.value },
+    include: {
+      portfolios: {
+        include: {
+          asset: true
+        }
+      }
+    }
+  });
+
+  if (!user) {
+    redirect('/login');
+  }
+
+  // If user hasn't onboarded yet (and not admin), show role selection
+  if (!user.onboarded && user.role !== 'ADMIN') {
+    // Get all assets and find which ones already have a CEO
+    const allAssets = await prisma.asset.findMany({
+      where: { symbol: { not: 'DELTA' } },
+      orderBy: { symbol: 'asc' },
+      select: { id: true, symbol: true, name: true, sector: true, niche: true }
+    });
+
+    const takenAssetIds = (await prisma.user.findMany({
+      where: { playerRole: 'CEO', managedAssetId: { not: null } },
+      select: { managedAssetId: true }
+    })).map(u => u.managedAssetId);
+
+    const availableCompanies = allAssets.filter(a => !takenAssetIds.includes(a.id));
+
+    return (
+      <main className="h-screen overflow-hidden bg-gray-950">
+        <RoleSelection
+          userId={user.id}
+          username={user.username}
+          availableCompanies={availableCompanies}
+        />
+      </main>
+    );
   }
 
   // Fetch assets with their price history
@@ -29,19 +73,7 @@ export default async function Home() {
   // Fetch all news stories
   const news = await prisma.newsStory.findMany({
     orderBy: { publishedAt: 'desc' },
-    take: 50 // Keep the ticker lightweight
-  });
-
-  // Fetch session user
-  const user = await prisma.user.findUnique({
-    where: { id: session.value },
-    include: {
-      portfolios: {
-        include: {
-          asset: true
-        }
-      }
-    }
+    take: 50
   });
 
   const allUsers = await prisma.user.findMany({
@@ -65,11 +97,6 @@ export default async function Home() {
         </div>
       </main>
     );
-  }
-
-  if (!user) {
-    // If cookie is invalid or user was deleted
-    redirect('/login');
   }
 
   return (

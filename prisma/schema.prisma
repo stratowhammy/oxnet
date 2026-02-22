@@ -8,32 +8,38 @@ datasource db {
 }
 
 model User {
-  id           String        @id @default(cuid())
-  username     String?       @unique
-  password     String        @default("password")
-  role         String        @default("STUDENT")
-  deltaBalance Float         @default(100000.0) // Initial balance
-  marginLimit  Float         @default(0.0)
-  marginLoan   Float         @default(0.0)
-  lendingLimit Float         @default(0.0) // How much of balance they are willing to lend out
-  lendingRate  Float         @default(0.0) // Interest rate offered (e.g. 0.05 for 5%)
-  portfolios   Portfolio[]
-  transactions Transaction[]
-  userGoals    UserGoal[]
-  bids         GoalAuction[]
-  loansGiven   Loan[]        @relation("Lender")
-  loansTaken   Loan[]        @relation("Borrower")
-  limitOrders  LimitOrder[]
+  id               String        @id @default(cuid())
+  username         String?       @unique
+  password         String        @default("password")
+  role             String        @default("STUDENT")
+  frozen           Boolean       @default(false)
+  playerRole       String        @default("UNSET")   // UNSET, CEO, HEDGE_FUND, RETAIL
+  onboarded        Boolean       @default(false)
+  managedAssetId   String?                            // CEO only: which company they manage
+  hedgeFundBalance Float         @default(0.0)        // HFM only: fund capital (starts 10M)
+  deltaBalance     Float         @default(100000.0)
+  marginLimit      Float         @default(0.0)
+  marginLoan       Float         @default(0.0)
+  lendingLimit     Float         @default(0.0)
+  lendingRate      Float         @default(0.0)
+  portfolios       Portfolio[]
+  transactions     Transaction[]
+  userGoals        UserGoal[]
+  bids             GoalAuction[]
+  loansGiven       Loan[]        @relation("Lender")
+  loansTaken       Loan[]        @relation("Borrower")
+  limitOrders      LimitOrder[]
+  ceoScenarios     CeoScenario[]
 }
 
 model Asset {
   id           String         @id @default(cuid())
   symbol       String         @unique
-  name         String // Added name field
+  name         String
   type         String
-  sector       String // Added sector field
-  niche        String // Added niche field
-  description  String // Added description field
+  sector       String
+  niche        String
+  description  String
   supplyPool   Float
   demandPool   Float
   basePrice    Float
@@ -41,6 +47,23 @@ model Asset {
   transactions Transaction[]
   priceHistory PriceHistory[]
   limitOrders  LimitOrder[]
+  ceoScenarios CeoScenario[]
+}
+
+model CeoScenario {
+  id            String    @id @default(cuid())
+  userId        String
+  assetId       String
+  question      String
+  choiceA       String
+  choiceB       String
+  choiceC       String
+  chosenOption  String?                          // null = unanswered, "A"/"B"/"C"
+  answeredAt    DateTime?
+  newsPublished Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  user          User      @relation(fields: [userId], references: [id])
+  asset         Asset     @relation(fields: [assetId], references: [id])
 }
 
 model Portfolio {
@@ -163,3 +186,22 @@ model LimitOrder {
   user      User     @relation(fields: [userId], references: [id])
   asset     Asset    @relation(fields: [assetId], references: [id])
 }
+
+model InviteCode {
+  code      String   @id           // 8-digit alphanumeric code
+  used      Boolean  @default(false)
+  usedById  String?                // userId who redeemed it
+  createdAt DateTime @default(now())
+  usedAt    DateTime?
+}
+
+model SectorIndex {
+  id        String   @id @default(cuid())
+  sector    String
+  indexPrice Float                   // Average basePrice of all assets in this sector
+  timestamp  DateTime @default(now())
+
+  @@index([sector, timestamp])
+}
+
+
