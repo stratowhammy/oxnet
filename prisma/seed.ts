@@ -5,8 +5,8 @@ const prisma = new PrismaClient();
 const assetsData = [
     // --- TECHNOLOGY (Stocks) ---
     {
-        symbol: 'O-NEX',
-        name: 'Omni-Nexus Corp',
+        symbol: 'S-$1',
+        name: 'Vanguard-$1 Corp',
         type: 'STOCK',
         sector: 'Technology',
         niche: 'Quantum-resistant encryption hardware',
@@ -15,8 +15,8 @@ const assetsData = [
         description: "Nexus Systems pioneers the post-silicon era with their quantum-resistant hardware modules, trusted by defense contractors and financial institutions globally to secure data against next-gen threats."
     },
     {
-        symbol: 'O-VOR',
-        name: 'Omni-Vortex Corp',
+        symbol: 'L-$1',
+        name: 'Lumina-$1 Corp',
         type: 'STOCK',
         sector: 'Technology',
         niche: 'Generative AI for architectural blueprints',
@@ -25,8 +25,8 @@ const assetsData = [
         description: "Transforming the skylines of tomorrow, Vortex AI utilizes advanced generative algorithms to create structural blueprints that optimize for sustainability and aesthetics in seconds rather than months."
     },
     {
-        symbol: 'O-CYB',
-        name: 'Omni-CyberDyne Corp',
+        symbol: 'L-$1',
+        name: 'Quantum-$1 Corp',
         type: 'STOCK',
         sector: 'Technology',
         niche: 'Autonomous cybersecurity defense swarms',
@@ -35,8 +35,8 @@ const assetsData = [
         description: "CyberDyne Ops deploys autonomous software swarms that actively hunt and neutralize malware within corporate networks, offering a proactive defense layer that evolves faster than hackers."
     },
     {
-        symbol: 'O-NAN',
-        name: 'Omni-NanoWorks Corp',
+        symbol: 'V-$1',
+        name: 'Lumina-$1 Corp',
         type: 'STOCK',
         sector: 'Technology',
         niche: 'Medical nanobots for non-invasive surgery',
@@ -45,8 +45,8 @@ const assetsData = [
         description: "Famed for their microscopic surgeons, NanoWorks designs programmable nanobots capable of clearing arteries and repairing tissue damage from the inside out, making scalpels obsolete."
     },
     {
-        symbol: 'O-QBI',
-        name: 'Omni-Q-Bit Corp',
+        symbol: 'V-$1',
+        name: 'Vanguard-$1-Bit Corp',
         type: 'STOCK',
         sector: 'Technology',
         niche: 'Room-temperature quantum processing units',
@@ -55,8 +55,8 @@ const assetsData = [
         description: "Breaking the cryogenic barrier, Q-Bit Computing has developed the world's first stable room-temperature quantum processor, bringing exponential computing power to standard data centers."
     },
     {
-        symbol: 'O-HOL',
-        name: 'Omni-HoloXperience Corp',
+        symbol: 'S-$1',
+        name: 'Nova-$1 Corp',
         type: 'STOCK',
         sector: 'Technology',
         niche: 'Holographic telepresence for remote work',
@@ -65,8 +65,8 @@ const assetsData = [
         description: "HoloXperience is redefining the home office with high-fidelity, volumetric displays that project life-size colleagues into your living room, eliminating the distance in remote work."
     },
     {
-        symbol: 'O-AER',
-        name: 'Omni-AeroNet Corp',
+        symbol: 'H-$1',
+        name: 'Pulse-$1 Corp',
         type: 'STOCK',
         sector: 'Technology',
         niche: 'High-altitude balloon internet synthesis',
@@ -75,8 +75,8 @@ const assetsData = [
         description: "Bridging the digital divide, AeroNet maintains a global mesh network of stratospheric balloons, delivering high-speed, low-latency internet to the most remote corners of the planet."
     },
     {
-        symbol: 'O-DAT',
-        name: 'Omni-DataMine Corp',
+        symbol: 'V-$1',
+        name: 'Nova-$1 Corp',
         type: 'STOCK',
         sector: 'Technology',
         niche: 'Deep sea server farm cooling solutions',
@@ -85,8 +85,8 @@ const assetsData = [
         description: "DataMine Corp leverages the natural cooling power of the ocean depths to run ultra-efficient, emission-free data centers located on the seafloor."
     },
     {
-        symbol: 'O-ROB',
-        name: 'Omni-RoboButler Corp',
+        symbol: 'N-$1',
+        name: 'Echo-$1 Corp',
         type: 'STOCK',
         sector: 'Technology',
         niche: 'Humanoid domestic assistance droids',
@@ -95,8 +95,8 @@ const assetsData = [
         description: "From laundry to latte art, RoboButler's line of polite, domestic androids are becoming a staple in upper-middle-class households, promising a chore-free existence."
     },
     {
-        symbol: 'O-VRS',
-        name: 'Omni-MetaVerse Corp',
+        symbol: 'H-$1',
+        name: 'Stratos-$1 Corp',
         type: 'STOCK',
         sector: 'Technology',
         niche: 'Digital real estate development algorithms',
@@ -105,8 +105,8 @@ const assetsData = [
         description: "As the premier developer of virtual worlds, MetaVerse Architects procedurally generates sprawling digital cities, selling prime voxel real estate to global brands and influencers."
     },
     {
-        symbol: 'O-CHI',
-        name: 'Omni-Silicon Corp',
+        symbol: 'A-$1',
+        name: 'Apex-$1 Corp',
         type: 'STOCK',
         sector: 'Technology',
         niche: 'Biodegradable semiconductor manufacturing',
@@ -115,8 +115,8 @@ const assetsData = [
         description: "Combating e-waste, Silicon Frontier manufactures high-performance chips using organic substrates that decompose harmlessly after their operational lifecycle."
     },
     {
-        symbol: 'O-LIN',
-        name: 'Omni-NeuralLinker Corp',
+        symbol: 'N-$1',
+        name: 'Apex-$1 Corp',
         type: 'STOCK',
         sector: 'Technology',
         niche: 'Brain-Computer Interfaces for gaming',
@@ -125,8 +125,8 @@ const assetsData = [
         description: "NeuralLinker's non-invasive headsets translate thought directly into digital action, allowing gamers to control avatars with pure intent and reaction times faster than any keystroke."
     },
     {
-        symbol: 'O-CLD',
-        name: 'Omni-Nimbus Corp',
+        symbol: 'A-$1',
+        name: 'Catalyst-$1 Corp',
         type: 'STOCK',
         sector: 'Technology',
         niche: 'Decentralized fog computing storage',
@@ -135,8 +135,8 @@ const assetsData = [
         description: "Nimbus Cloud fragments and distributes data across millions of idle consumer devices, creating a resilient, unhackable storage network that costs a fraction of centralized alternatives."
     },
     {
-        symbol: 'O-AUT',
-        name: 'Omni-AutoDrive Corp',
+        symbol: 'H-$1',
+        name: 'Stratos-$1 Corp',
         type: 'STOCK',
         sector: 'Technology',
         niche: 'LIDAR systems for underwater vehicles',
@@ -145,8 +145,8 @@ const assetsData = [
         description: "Mapping the abyss, AutoDrive Logic specializes in sonar-LIDAR fusion technology that enables autonomous submersibles to navigate the complex, high-pressure environments of the deep ocean."
     },
     {
-        symbol: 'O-GAM',
-        name: 'Omni-PolyFill Corp',
+        symbol: 'V-$1',
+        name: 'Nova-$1 Corp',
         type: 'STOCK',
         sector: 'Technology',
         niche: 'AI-generated infinite open-world rpgs',
@@ -157,8 +157,8 @@ const assetsData = [
 
     // --- HEALTHCARE (Stocks) ---
     {
-        symbol: 'O-GEN',
-        name: 'Omni-GeneFix Corp',
+        symbol: 'Q-$1',
+        name: 'Pulse-$1 Corp',
         type: 'STOCK',
         sector: 'Healthcare',
         niche: 'CRISPR therapies for hair loss',
@@ -167,8 +167,8 @@ const assetsData = [
         description: "GeneFix targets the root cause of balding at the genetic level, offering a permanent, one-time CRISPR editing treatment that restores full, youthful hair growth."
     },
     {
-        symbol: 'O-LIF',
-        name: 'Omni-LifeExtension Corp',
+        symbol: 'P-$1',
+        name: 'Aether-$1 Corp',
         type: 'STOCK',
         sector: 'Healthcare',
         niche: 'Telomere regeneration supplements',
@@ -177,8 +177,8 @@ const assetsData = [
         description: "Pushing the boundaries of human longevity, LifeExtension's patented enzyme therapy rebuilds protective chromosomal caps, effectively reversing the cellular aging clock."
     },
     {
-        symbol: 'O-MED',
-        name: 'Omni-MediDrone Corp',
+        symbol: 'N-$1',
+        name: 'Vanguard-$1 Corp',
         type: 'STOCK',
         sector: 'Healthcare',
         niche: 'Drone delivery of emergency defibrillators',
@@ -187,8 +187,8 @@ const assetsData = [
         description: "When seconds count, MediDrone dispatches autonomous heavy-lift flyers equipped with AEDs and epinephrine, beating ambulances to the scene of cardiac arrests by minutes."
     },
     {
-        symbol: 'O-BIO',
-        name: 'Omni-BioPrint Corp',
+        symbol: 'L-$1',
+        name: 'Zenith-$1 Corp',
         type: 'STOCK',
         sector: 'Healthcare',
         niche: '3D printed custom organs for transplants',
@@ -197,8 +197,8 @@ const assetsData = [
         description: "Eliminating donor waiting lists, BioPrint Labs constructs functional, biocompatible kidneys and livers using a patient's own stem cells as the ink."
     },
     {
-        symbol: 'O-NEU',
-        name: 'Omni-NeuroCalm Corp',
+        symbol: 'P-$1',
+        name: 'Apex-$1 Corp',
         type: 'STOCK',
         sector: 'Healthcare',
         niche: 'Implants for instant anxiety suppression',
@@ -207,8 +207,8 @@ const assetsData = [
         description: "NeuroCalm's sub-dermal chip monitors cortisol levels in real-time and releases micro-pulses of calming agents, guaranteeing a panic-free existence for its users."
     },
     {
-        symbol: 'O-VAC',
-        name: 'Omni-VaxSpeed Corp',
+        symbol: 'A-$1',
+        name: 'Aether-$1 Corp',
         type: 'STOCK',
         sector: 'Healthcare',
         niche: 'Universal flu vaccine patches',
@@ -217,8 +217,8 @@ const assetsData = [
         description: "VaxSpeed has revolutionized immunization with a painless, micron-needle patch that provides year-round protection against all known influenza strains."
     },
     {
-        symbol: 'O-DIA',
-        name: 'Omni-DiagAI Corp',
+        symbol: 'N-$1',
+        name: 'Stratos-$1 Corp',
         type: 'STOCK',
         sector: 'Healthcare',
         niche: 'Smartphone-based retinal disease scanning',
@@ -227,8 +227,8 @@ const assetsData = [
         description: "Turning every phone into a clinic, DiagAI's app analyzes retinal scans to detect early signs of diabetes, hypertension, and glaucoma with 99% accuracy."
     },
     {
-        symbol: 'O-SLE',
-        name: 'Omni-DeepSleep Corp',
+        symbol: 'S-$1',
+        name: 'Apex-$1 Corp',
         type: 'STOCK',
         sector: 'Healthcare',
         niche: 'Circadian rhythm reset chambers',
@@ -237,8 +237,8 @@ const assetsData = [
         description: "Curing insomnia and jet lag, DeepSleep Institute enables clients to reset their biological clocks instantly through hyperbaric oxygen and light therapy chambers."
     },
     {
-        symbol: 'O-PTL',
-        name: 'Omni-Petals Corp',
+        symbol: 'A-$1',
+        name: 'Zenith-$1 Corp',
         type: 'STOCK',
         sector: 'Healthcare',
         niche: 'Flower-derived pain management opioids',
@@ -247,8 +247,8 @@ const assetsData = [
         description: "Seeking a non-addictive alternative, Petals Pharma synthesizes powerful analgesics from rare, genetically modified Amazonian orchids."
     },
     {
-        symbol: 'O-SKI',
-        name: 'Omni-DermaTech Corp',
+        symbol: 'S-$1',
+        name: 'Stratos-$1 Corp',
         type: 'STOCK',
         sector: 'Healthcare',
         niche: 'Synthetic skin for burn victims',
@@ -259,8 +259,8 @@ const assetsData = [
 
     // --- ENERGY (Stocks) ---
     {
-        symbol: 'O-SOL',
-        name: 'Omni-HelioPower Corp',
+        symbol: 'S-$1',
+        name: 'Pulse-$1 Corp',
         type: 'STOCK',
         sector: 'Energy',
         niche: 'Transparent solar windows for skyscrapers',
@@ -269,8 +269,8 @@ const assetsData = [
         description: "HelioPower turns entire skylines into power plants with their photovoltaic glass, harvesting energy while maintaining crystal-clear views for office tenants."
     },
     {
-        symbol: 'O-WIN',
-        name: 'Omni-Zephyr Corp',
+        symbol: 'E-$1',
+        name: 'Horizon-$1 Corp',
         type: 'STOCK',
         sector: 'Energy',
         niche: 'Silent vertical-axis wind turbines for urban use',
@@ -279,8 +279,8 @@ const assetsData = [
         description: "Designed for the city, Zephyr's silent, sculpturesque turbines capture turbulent urban airflows to generate clean power on rooftops and roadsides."
     },
     {
-        symbol: 'O-FUS',
-        name: 'Omni-Stellar Corp',
+        symbol: 'V-$1',
+        name: 'Aether-$1 Corp',
         type: 'STOCK',
         sector: 'Energy',
         niche: 'Compact muon-catalyzed cold fusion reactors',
@@ -289,8 +289,8 @@ const assetsData = [
         description: "The holy grail of energy, Stellar Fusion manufactures shipping-container-sized reactors that provide limitless, safe power for decades without refueling."
     },
     {
-        symbol: 'O-H20',
-        name: 'Omni-HydroGenius Corp',
+        symbol: 'A-$1',
+        name: 'Pulse-$1 Corp',
         type: 'STOCK',
         sector: 'Energy',
         niche: 'Seawater-to-hydrogen electrolysis at scale',
@@ -299,8 +299,8 @@ const assetsData = [
         description: "HydroGenius extracts clean fuel from the ocean, utilizing advanced catalysts to split seawater into hydrogen and oxygen at industrial scales."
     },
     {
-        symbol: 'O-BAT',
-        name: 'Omni-SolidState Corp',
+        symbol: 'S-$1',
+        name: 'Aether-$1 Corp',
         type: 'STOCK',
         sector: 'Energy',
         niche: 'Graphene supercapacitor batteries for EVs',
@@ -309,8 +309,8 @@ const assetsData = [
         description: "Eliminating charge anxiety, SolidState's graphene batteries charge in minutes and last for millions of miles, powering the next generation of electric fleets."
     },
     {
-        symbol: 'O-GEO',
-        name: 'Omni-MagmaTap Corp',
+        symbol: 'A-$1',
+        name: 'Pulse-$1 Corp',
         type: 'STOCK',
         sector: 'Energy',
         niche: 'Deep-crust geothermal drilling technology',
@@ -319,8 +319,8 @@ const assetsData = [
         description: "Drilling deeper than ever before, MagmaTap accesses supercritical geothermal fluids near the mantle, delivering consistent baseload power anywhere on Earth."
     },
     {
-        symbol: 'O-TID',
-        name: 'Omni-LunarTide Corp',
+        symbol: 'S-$1',
+        name: 'Synergy-$1 Corp',
         type: 'STOCK',
         sector: 'Energy',
         niche: 'Oscillating water column wave energy converters',
@@ -329,8 +329,8 @@ const assetsData = [
         description: "Harnessing the pulse of the ocean, LunarTide's coastal arrays convert the kinetic energy of breaking waves into a steady stream of electricity."
     },
     {
-        symbol: 'O-ALG',
-        name: 'Omni-AlgaeFuel Corp',
+        symbol: 'E-$1',
+        name: 'Lumina-$1 Corp',
         type: 'STOCK',
         sector: 'Energy',
         niche: 'Bio-jetfuel from genetically modified algae',
@@ -339,8 +339,8 @@ const assetsData = [
         description: "Decarbonizing aviation, AlgaeFuel cultivates massive vats of engineered algae that secrete high-grade kerosene substitute, carbon-neutral and ready for jet engines."
     },
     {
-        symbol: 'O-GRI',
-        name: 'Omni-SmartGrid Corp',
+        symbol: 'S-$1',
+        name: 'Pinnacle-$1 Corp',
         type: 'STOCK',
         sector: 'Energy',
         niche: 'AI-driven peer-to-peer energy trading networks',
@@ -349,8 +349,8 @@ const assetsData = [
         description: "SmartGrid Ops empowers homeowners to become energy moguls, managing a blockchain-based marketplace where neighbors trade excess solar power automatically."
     },
     {
-        symbol: 'O-NUC',
-        name: 'Omni-SaltThorium Corp',
+        symbol: 'C-$1',
+        name: 'Vanguard-$1 Corp',
         type: 'STOCK',
         sector: 'Energy',
         niche: 'Molten salt thorium reactors',
@@ -361,8 +361,8 @@ const assetsData = [
 
     // --- FINANCE (Stocks) ---
     {
-        symbol: 'O-BAN',
-        name: 'Omni-NeoBank Corp',
+        symbol: 'P-$1',
+        name: 'Pulse-$1 Corp',
         type: 'STOCK',
         sector: 'Finance',
         niche: 'AI-only banking with zero human employees',
@@ -371,8 +371,8 @@ const assetsData = [
         description: "With zero overhead and infinite scalability, NeoBank Corp offers impossible interest rates by replacing all tellers, managers, and traders with efficient algorithms."
     },
     {
-        symbol: 'O-INS',
-        name: 'Omni-SureThing Corp',
+        symbol: 'S-$1',
+        name: 'Synergy-$1 Corp',
         type: 'STOCK',
         sector: 'Finance',
         niche: 'Micro-insurance for gig economy freelance failure',
@@ -381,8 +381,8 @@ const assetsData = [
         description: "A safety net for the side-hustle generation, SureThing offers bite-sized policies protecting freelancers against cancelled gigs, bad ratings, and sudden burnout."
     },
     {
-        symbol: 'O-LEN',
-        name: 'Omni-PeerCred Corp',
+        symbol: 'Z-$1',
+        name: 'Synergy-$1 Corp',
         type: 'STOCK',
         sector: 'Finance',
         niche: 'Social-reputation based unsecured lending',
@@ -391,8 +391,8 @@ const assetsData = [
         description: "Your network is your net worth. PeerCred grants loans based on the creditworthiness of your social graph rather than your bank account history."
     },
     {
-        symbol: 'O-WLT',
-        name: 'Omni-RoboWealth Corp',
+        symbol: 'A-$1',
+        name: 'Zenith-$1 Corp',
         type: 'STOCK',
         sector: 'Finance',
         niche: 'Algorithmic tax-loss harvesting for retail',
@@ -401,8 +401,8 @@ const assetsData = [
         description: "RoboWealth brings billionaire-tier tax strategies to the masses, automatically selling losing assets to offset capital gains and minimize tax liabilities in real-time."
     },
     {
-        symbol: 'O-EXC',
-        name: 'Omni-BlockTrade Corp',
+        symbol: 'Z-$1',
+        name: 'Synergy-$1 Corp',
         type: 'STOCK',
         sector: 'Finance',
         niche: 'Atomic swap derivatives exchange',
@@ -413,8 +413,8 @@ const assetsData = [
 
     // --- CONSUMER & RETAIL (Stocks) ---
     {
-        symbol: 'O-FOO',
-        name: 'Omni-NutriPaste Corp',
+        symbol: 'L-$1',
+        name: 'Pulse-$1 Corp',
         type: 'STOCK',
         sector: 'Consumer',
         niche: '3D printed personalized meal cubes',
@@ -423,8 +423,8 @@ const assetsData = [
         description: "Efficiency meets nutrition. NutriPaste analyzes your biometrics to print customized edible cubes containing the exact caloric and vitamin blend your body needs for the day."
     },
     {
-        symbol: 'O-WEA',
-        name: 'Omni-SmartTextile Corp',
+        symbol: 'H-$1',
+        name: 'Echo-$1 Corp',
         type: 'STOCK',
         sector: 'Consumer',
         niche: 'Clothes that change color with mood',
@@ -433,8 +433,8 @@ const assetsData = [
         description: "Wear your heart on your sleeve—literally. SmartTextile weaves chromatic fibers that shift hues based on the wearer's skin temperature and heart rate."
     },
     {
-        symbol: 'O-DRN',
-        name: 'Omni-H2O+ Corp',
+        symbol: 'N-$1',
+        name: 'Pinnacle-$1+ Corp',
         type: 'STOCK',
         sector: 'Consumer',
         niche: 'Caffeinated sparkling holy water',
@@ -443,8 +443,8 @@ const assetsData = [
         description: "A cultural phenomenon, H2O+ combines spiritual hydration with a jolt of espresso-grade caffeine, marketing itself as the ultimate morning ritual for the modern soul."
     },
     {
-        symbol: 'O-BRE',
-        name: 'Omni-HopQuantum Corp',
+        symbol: 'P-$1',
+        name: 'Catalyst-$1 Corp',
         type: 'STOCK',
         sector: 'Consumer',
         niche: 'Beer brewed by AI optimizing for taste receptors',
@@ -453,8 +453,8 @@ const assetsData = [
         description: "Using machine learning to map the human palate, HopQuantum crafts micro-brews scientifically guaranteed to hit the bliss point of bitterness and aroma."
     },
     {
-        symbol: 'O-PET',
-        name: 'Omni-DinoPets Corp',
+        symbol: 'A-$1',
+        name: 'Nova-$1 Corp',
         type: 'STOCK',
         sector: 'Consumer',
         niche: 'Genetically engineered miniature dinosaurs',
@@ -465,8 +465,8 @@ const assetsData = [
 
     // --- TRANSPORT & SPACE (Stocks) ---
     {
-        symbol: 'O-MRS',
-        name: 'Omni-MarsColony Corp',
+        symbol: 'A-$1',
+        name: 'Pinnacle-$1 Corp',
         type: 'STOCK',
         sector: 'Space',
         niche: 'Prefabricated habitats for Martian settlement',
@@ -475,8 +475,8 @@ const assetsData = [
         description: "Selling the dream of a backup planet, MarsColony manufactures radiation-shielded, self-sustaining habitats ready to be dropped onto the Red Planet's surface."
     },
     {
-        symbol: 'O-AST',
-        name: 'Omni-AsteroidMine Corp',
+        symbol: 'N-$1',
+        name: 'Echo-$1 Corp',
         type: 'STOCK',
         sector: 'Space',
         niche: 'Platinum group metals form near-earth asteroids',
@@ -485,8 +485,8 @@ const assetsData = [
         description: "Why dig down when you can look up? AsteroidMine captures metallic rocks from orbit to harvest trillions of dollars worth of platinum and palladium."
     },
     {
-        symbol: 'O-ORB',
-        name: 'Omni-OrbitalTrash Corp',
+        symbol: 'P-$1',
+        name: 'Aether-$1 Corp',
         type: 'STOCK',
         sector: 'Space',
         niche: 'Space debris capture and recycling',
@@ -495,8 +495,8 @@ const assetsData = [
         description: "Keeping low-earth orbit safe, OrbitalTrash deploys 'net-sats' to snag dangerous debris, recycling the scrap metal for use in orbital manufacturing foundries."
     },
     {
-        symbol: 'O-HYP',
-        name: 'Omni-HyperLoop Corp',
+        symbol: 'L-$1',
+        name: 'Vanguard-$1 Corp',
         type: 'STOCK',
         sector: 'Transport',
         niche: 'Vacuum tube trans-continental maglev',
@@ -505,8 +505,8 @@ const assetsData = [
         description: "NYC to London in 50 minutes. HyperLoop X is nearing completion of its vacuum-sealed Atlantic tunnel, poised to make air travel obsolete."
     },
     {
-        symbol: 'O-VTO',
-        name: 'Omni-SkyTaxi Corp',
+        symbol: 'V-$1',
+        name: 'Horizon-$1 Corp',
         type: 'STOCK',
         sector: 'Transport',
         niche: 'Autonomous electric flying car network',
@@ -517,8 +517,8 @@ const assetsData = [
 
     // --- REAL ESTATE & CONSTRUCTION (Stocks) ---
     {
-        symbol: 'O-HOU',
-        name: 'Omni-ModuHome Corp',
+        symbol: 'P-$1',
+        name: 'Catalyst-$1 Corp',
         type: 'STOCK',
         sector: 'Real Estate',
         niche: 'Flat-pack skyscrapers for rapid urbanization',
@@ -527,8 +527,8 @@ const assetsData = [
         description: "Like IKEA for skylines, ModuHome ships pre-fabricated apartment blocks that stack together like Lego bricks, erecting full skyscrapers in weeks instead of years."
     },
     {
-        symbol: 'O-UND',
-        name: 'Omni-SubTerra Corp',
+        symbol: 'Z-$1',
+        name: 'Horizon-$1 Corp',
         type: 'STOCK',
         sector: 'Real Estate',
         niche: 'Luxury doomsday bunkers for the elite',
@@ -537,8 +537,8 @@ const assetsData = [
         description: "For those hedging against the apocalypse, SubTerra builds five-star subterranean resorts deep in granite mountains, complete with hydroponic gardens and golf simulators."
     },
     {
-        symbol: 'O-SEA',
-        name: 'Omni-AquaEstates Corp',
+        symbol: 'A-$1',
+        name: 'Synergy-$1 Corp',
         type: 'STOCK',
         sector: 'Real Estate',
         niche: 'Floating sovereign island nations',
@@ -593,8 +593,8 @@ const assetsData = [
 
     // --- Additional Diverse Stocks to reach 100 ---
     {
-        symbol: 'O-FIS',
-        name: 'Omni-BlueOcean Corp',
+        symbol: 'S-$1',
+        name: 'Pulse-$1 Corp',
         type: 'STOCK',
         sector: 'Consumer',
         niche: 'Lab-grown bluefin tuna fish',
@@ -603,8 +603,8 @@ const assetsData = [
         description: "Saving the seas. BlueOcean cultivates sashimi-grade bluefin tuna meat in bioreactors, offering the taste of luxury seafood without harming a single fish or ecosystem."
     },
     {
-        symbol: 'O-WOO',
-        name: 'Omni-TimberTech Corp',
+        symbol: 'L-$1',
+        name: 'Catalyst-$1 Corp',
         type: 'STOCK',
         sector: 'Materials',
         niche: 'Super-hardened transparent wood glass',
@@ -613,8 +613,8 @@ const assetsData = [
         description: "Better than glass. TimberTech chemically treats fast-growing pine to create transparent, bulletproof wood panels that are better insulators and biodegrade safely."
     },
     {
-        symbol: 'O-EDU',
-        name: 'Omni-BrainUpload Corp',
+        symbol: 'Z-$1',
+        name: 'Vanguard-$1 Corp',
         type: 'STOCK',
         sector: 'Education',
         niche: 'Direct-to-cortex skill downloading',
@@ -623,8 +623,8 @@ const assetsData = [
         description: "Learn Kung Fu in seconds. BrainUpload uses non-invasive stimulation to imprint muscle memory and technical knowledge directly into the user's motor cortex."
     },
     {
-        symbol: 'O-SHI',
-        name: 'Omni-AutoCargo Corp',
+        symbol: 'S-$1',
+        name: 'Horizon-$1 Corp',
         type: 'STOCK',
         sector: 'Transport',
         niche: 'Ghost ships autonomous shipping',
@@ -633,8 +633,8 @@ const assetsData = [
         description: "Crewless commerce. AutoCargo operates a fleet of massive, autonomous container ships that sail the high seas without a single human on board, optimizing routes for fuel and weather."
     },
     {
-        symbol: 'O-SEC',
-        name: 'Omni-PrivateGuard Corp',
+        symbol: 'V-$1',
+        name: 'Nova-$1 Corp',
         type: 'STOCK',
         sector: 'Services',
         niche: 'Mercenary defense for corporations',
@@ -643,8 +643,8 @@ const assetsData = [
         description: "When the police are too slow. PrivateGuard offers paramilitary asset protection for multinational corporations operating in unstable regions, guaranteed by combat veterans."
     },
     {
-        symbol: 'O-WAS',
-        name: 'Omni-NukeRecycle Corp',
+        symbol: 'S-$1',
+        name: 'Aether-$1 Corp',
         type: 'STOCK',
         sector: 'Services',
         niche: 'Nuclear waste reprocessing into plastic',
@@ -653,8 +653,8 @@ const assetsData = [
         description: "Alchemy for the modern age. NukeRecycle uses high-energy particle beams to transmute radioactive waste isotopes into stable polymers for use in industrial packaging."
     },
     {
-        symbol: 'O-HAC',
-        name: 'Omni-WhiteHat Corp',
+        symbol: 'A-$1',
+        name: 'Pinnacle-$1 Corp',
         type: 'STOCK',
         sector: 'Services',
         niche: 'Penetration testing as a service',
@@ -663,8 +663,8 @@ const assetsData = [
         description: "Breaking in to keep you safe. WhiteHat crowdsources elite hackers to continuously attack client infrastructure, finding vulnerabilities before the criminals do."
     },
     {
-        symbol: 'O-LAW',
-        name: 'Omni-RoboLaw Corp',
+        symbol: 'S-$1',
+        name: 'Catalyst-$1 Corp',
         type: 'STOCK',
         sector: 'Services',
         niche: 'AI litigation and contract generation',
@@ -673,8 +673,8 @@ const assetsData = [
         description: "Justice is blind, and now it's digital. RoboLaw drafts ironclad contracts and simulates litigation outcomes with 99.8% accuracy, settling disputes instantly."
     },
     {
-        symbol: 'O-TOU',
-        name: 'Omni-VirtualSafari Corp',
+        symbol: 'S-$1',
+        name: 'Aether-$1 Corp',
         type: 'STOCK',
         sector: 'Services',
         niche: 'VR tourism for extinct ecosystems',
@@ -683,8 +683,8 @@ const assetsData = [
         description: "Walk with mammoths. VirtualSafari painstakingly reconstructs the Pleistocene era in sensory VR, allowing tourists to safely pet saber-toothed tigers."
     },
     {
-        symbol: 'O-LOV',
-        name: 'Omni-MatchAI Corp',
+        symbol: 'S-$1',
+        name: 'Pulse-$1 Corp',
         type: 'STOCK',
         sector: 'Services',
         niche: 'Genetic compatibility dating app',
@@ -693,8 +693,8 @@ const assetsData = [
         description: "Soulmates by science. MatchAI analyzes DNA samples to pair couples with perfect immune system compatibility and pheromonal attraction, guaranteeing chemistry."
     },
     {
-        symbol: 'O-COL',
-        name: 'Omni-CryoPreserve Corp',
+        symbol: 'Z-$1',
+        name: 'Horizon-$1 Corp',
         type: 'STOCK',
         sector: 'Services',
         niche: 'Whole body cryogenics for afterlife',
@@ -703,8 +703,8 @@ const assetsData = [
         description: "A waiting room for the future. CryoPreserve freezes terminally ill patients in liquid nitrogen, preserving them until medical technology advances enough to revive and cure them."
     },
     {
-        symbol: 'O-TRU',
-        name: 'Omni-VeritasBlock Corp',
+        symbol: 'A-$1',
+        name: 'Stratos-$1 Corp',
         type: 'STOCK',
         sector: 'Crypto',
         niche: 'Decentralized fact-checking oracle',
@@ -713,8 +713,8 @@ const assetsData = [
         description: "The source of truth. VeritasBlock incentivizes thousands of validators to verify real-world events, creating an immutable ledger of facts for news orgs and smart contracts."
     },
     {
-        symbol: 'O-FIL',
-        name: 'Omni-AI Corp',
+        symbol: 'V-$1',
+        name: 'Vertex-$1 Corp',
         type: 'STOCK',
         sector: 'Media',
         niche: 'Movies generated from prompt to screen',
@@ -723,8 +723,8 @@ const assetsData = [
         description: "Hollywood in a box. AI Studios generates feature-length films with consistent characters and plots from a single text prompt, disrupting the entire film industry."
     },
     {
-        symbol: 'O-NEW',
-        name: 'Omni-AutoJournal Corp',
+        symbol: 'C-$1',
+        name: 'Nova-$1 Corp',
         type: 'STOCK',
         sector: 'Media',
         niche: 'Algorithmic personalized news feeds',
@@ -733,8 +733,8 @@ const assetsData = [
         description: "News for an audience of one. AutoJournal curates and rewrites global events into a personalized daily briefing tailored specifically to your reading level and interests."
     },
     {
-        symbol: 'O-AGR',
-        name: 'Omni-VerticalFarms Corp',
+        symbol: 'Z-$1',
+        name: 'Nova-$1 Corp',
         type: 'STOCK',
         sector: 'Agriculture',
         niche: 'Skyscraper hydroponic vegetable growing',
@@ -743,8 +743,8 @@ const assetsData = [
         description: "Farming up, not out. VerticalFarms converts abandoned city high-rises into lush, automated hydroponic greenhouses, supplying fresh produce with zero food miles."
     },
     {
-        symbol: 'O-MEA',
-        name: 'Omni-NoMoo Corp',
+        symbol: 'V-$1',
+        name: 'Horizon-$1 Corp',
         type: 'STOCK',
         sector: 'Agriculture',
         niche: 'Methane-free synthetic bovine protein',
@@ -753,8 +753,8 @@ const assetsData = [
         description: "The steak without the cow. NoMoo ferments precision microbes to produce muscle proteins identical to beef, eliminating the environmental cost of traditional ranching."
     },
     {
-        symbol: 'O-AQU',
-        name: 'Omni-DesalCorp Corp',
+        symbol: 'P-$1',
+        name: 'Vertex-$1 Corp',
         type: 'STOCK',
         sector: 'Utilities',
         niche: 'Low-energy graphene desalination',
@@ -763,8 +763,8 @@ const assetsData = [
         description: "Endless fresh water. DesalCorp uses single-layer graphene filters to sift salt from seawater at a fraction of the energy cost of reverse osmosis, greening the desert."
     },
     {
-        symbol: 'O-WIF',
-        name: 'Omni-GlobalFi Corp',
+        symbol: 'Z-$1',
+        name: 'Synergy-$1 Corp',
         type: 'STOCK',
         sector: 'Utilities',
         niche: 'Global free ad-supported satellite wifi',
@@ -773,8 +773,8 @@ const assetsData = [
         description: "Internet is a human right (supported by ads). GlobalFi beams basic connectivity to every inch of the globe for free, monetizing users via unavoidable retinal-projection ads."
     },
     {
-        symbol: 'O-TRA',
-        name: 'Omni-PlasmaWaste Corp',
+        symbol: 'E-$1',
+        name: 'Nova-$1 Corp',
         type: 'STOCK',
         sector: 'Utilities',
         niche: 'Plasma gasification waste destruction',
@@ -783,8 +783,8 @@ const assetsData = [
         description: "Vaporizing the landfill. PlasmaWaste blasts garbage with plasma torches hotter than the sun, disintegrating it into useful syngas and inert obsidian slag."
     },
     {
-        symbol: 'O-ROA',
-        name: 'Omni-SmartRoads Corp',
+        symbol: 'N-$1',
+        name: 'Horizon-$1 Corp',
         type: 'STOCK',
         sector: 'Infrastructure',
         niche: 'Induction charging highway lanes',
@@ -793,8 +793,8 @@ const assetsData = [
         description: "Charge while you drive. SmartRoads embeds wireless induction coils under highway asphalt, allowing EVs to drive indefinitely without ever stopping to plug in."
     },
     {
-        symbol: 'O-NAN',
-        name: 'Omni-NanoFab Corp',
+        symbol: 'P-$1',
+        name: 'Vertex-$1 Corp',
         type: 'STOCK',
         sector: 'Manufacturing',
         niche: 'Molecular assemblers for consumers',
@@ -803,8 +803,8 @@ const assetsData = [
         description: "The Star Trek replicator, nearly real. NanoFab sells desktop units that arrange atoms to build small objects from raw carbon feedstock, disrupting traditional supply chains."
     },
     {
-        symbol: 'O-SOF',
-        name: 'Omni-SoftBot Corp',
+        symbol: 'P-$1',
+        name: 'Nova-$1 Corp',
         type: 'STOCK',
         sector: 'Manufacturing',
         niche: 'Soft robotics for handling delicates',
@@ -813,8 +813,8 @@ const assetsData = [
         description: "Robots with a gentle touch. SoftBot uses silicone pneumatic muscles to create manipulators capable of picking strawberries or handling eggs without crushing them."
     },
     {
-        symbol: 'O-STE',
-        name: 'Omni-GreenSteel Corp',
+        symbol: 'P-$1',
+        name: 'Vertex-$1 Corp',
         type: 'STOCK',
         sector: 'Materials',
         niche: 'Hydrogen-reduced zero carbon steel',
@@ -823,8 +823,8 @@ const assetsData = [
         description: "Forging without fire. GreenSteel replaces coal with hydrogen in the smelting process, producing high-strength alloy steel with water vapor as the only byproduct."
     },
     {
-        symbol: 'O-PLS',
-        name: 'Omni-BioPlast Corp',
+        symbol: 'Q-$1',
+        name: 'Aether-$1 Corp',
         type: 'STOCK',
         sector: 'Materials',
         niche: 'Plastic made from capture atmospheric CO2',
@@ -833,8 +833,8 @@ const assetsData = [
         description: "Turning pollution into product. BioPlast sucks carbon dioxide from the air and catalyzes it into durable, moldable polymers, effectively sequestering carbon in your phone case."
     },
     {
-        symbol: 'O-MIN',
-        name: 'Omni-DeepBore Corp',
+        symbol: 'Q-$1',
+        name: 'Nova-$1 Corp',
         type: 'STOCK',
         sector: 'Materials',
         niche: 'Automated mantle drilling rigs',
@@ -843,8 +843,8 @@ const assetsData = [
         description: "Journey to the center of the earth. DeepBore's tungsten-tipped autonomous rigs drill deeper than any human could survive to retrieve hyper-pure minerals from the mantle."
     },
     {
-        symbol: 'O-SPC',
-        name: 'Omni-SpaceHotel Corp',
+        symbol: 'P-$1',
+        name: 'Horizon-$1 Corp',
         type: 'STOCK',
         sector: 'Hospitality',
         niche: 'Low orbit luxury vacations',
@@ -853,8 +853,8 @@ const assetsData = [
         description: "The ultimate room with a view. SpaceHotel operates a rotating toroidal station in low earth orbit, offering ultra-wealthy guests a week of zero-g luxury."
     },
     {
-        symbol: 'O-FOO',
-        name: 'Omni-InsectProtein Corp',
+        symbol: 'S-$1',
+        name: 'Stratos-$1 Corp',
         type: 'STOCK',
         sector: 'Food',
         niche: 'Cricket flour pasta and chips',
@@ -863,8 +863,8 @@ const assetsData = [
         description: "Crunchy, sustainable, protein-packed. InsectProtein processes crickets into tasteless, high-nutrition flour used to fortify pasta, snacks, and protein bars."
     },
     {
-        symbol: 'O-DRN',
-        name: 'Omni-SynAlcohol Corp',
+        symbol: 'L-$1',
+        name: 'Nova-$1 Corp',
         type: 'STOCK',
         sector: 'Food',
         niche: 'Alcohol without the hangover toxicity',
@@ -873,8 +873,8 @@ const assetsData = [
         description: "All the buzz, none of the headache. SynAlcohol creates a synthetic molecule that mimics the relaxing effects of ethanol but is metabolized harmlessly without toxic byproducts."
     },
     {
-        symbol: 'O-WEA',
-        name: 'Omni-SprayOnClothes Corp',
+        symbol: 'A-$1',
+        name: 'Pulse-$1 Corp',
         type: 'STOCK',
         sector: 'Consumer',
         niche: 'Aerosol fabric for instant outfits',
@@ -883,8 +883,8 @@ const assetsData = [
         description: "Fashion in a can. SprayOnClothes allows users to spray a liquid polymer directly onto their skin which dries instantly into a custom-fitted, washable fabric garment."
     },
     {
-        symbol: 'O-TOY',
-        name: 'Omni-EdutainBot Corp',
+        symbol: 'V-$1',
+        name: 'Lumina-$1 Corp',
         type: 'STOCK',
         sector: 'Consumer',
         niche: 'AI tutors that act as toys',
@@ -893,8 +893,8 @@ const assetsData = [
         description: "The teddy bear that teaches calculus. EdutainBot hides a supercomputer inside a plush toy, patiently tutoring children from toddlerhood to university entrance exams."
     },
     {
-        symbol: 'O-SRV',
-        name: 'Omni-DroneSrv Corp',
+        symbol: 'A-$1',
+        name: 'Vanguard-$1 Corp',
         type: 'STOCK',
         sector: 'Services',
         niche: 'Drone swarm window cleaning',
@@ -903,8 +903,8 @@ const assetsData = [
         description: "No more daring feats on scaffolds. DroneSrv deploys flocks of tethered drones to wash the windows of the world's tallest skyscrapers quickly and safely."
     },
     {
-        symbol: 'O-SEC',
-        name: 'Omni-BioLock Corp',
+        symbol: 'H-$1',
+        name: 'Stratos-$1 Corp',
         type: 'STOCK',
         sector: 'Services',
         niche: 'DNA-based door locks',
@@ -913,8 +913,8 @@ const assetsData = [
         description: "Keys are obsolete. BioLock uses rapid gene sequencing to verify identity at the door, ensuring that only you (and not your evil clone) can enter your home."
     },
     {
-        symbol: 'O-INS',
-        name: 'Omni-ClimateIns Corp',
+        symbol: 'S-$1',
+        name: 'Horizon-$1 Corp',
         type: 'STOCK',
         sector: 'Finance',
         niche: 'Parametric weather insurance',
@@ -923,8 +923,8 @@ const assetsData = [
         description: "Payouts when it pours. ClimateIns triggers instant, automatic payments to farmers and businesses the moment local weather sensors detect adverse conditions."
     },
     {
-        symbol: 'O-LEN',
-        name: 'Omni-DefiLend Corp',
+        symbol: 'E-$1',
+        name: 'Stratos-$1 Corp',
         type: 'STOCK',
         sector: 'Finance',
         niche: 'Cross-chain collateralized loans',
@@ -933,8 +933,8 @@ const assetsData = [
         description: "Your assets, working for you anywhere. DefiLend allows users to lock Bitcoin on one chain to borrow Dollars on another, seamlessly bridging the crypto liquidity islands."
     },
     {
-        symbol: 'O-EXC',
-        name: 'Omni-DarkPool Corp',
+        symbol: 'L-$1',
+        name: 'Quantum-$1 Corp',
         type: 'STOCK',
         sector: 'Finance',
         niche: 'Anonymous institutional trading venue',
@@ -943,8 +943,8 @@ const assetsData = [
         description: "Where whales swim unseen. DarkPool X offers a fully private trading venue for large institutions to move massive blocks of stock without moving the market price."
     },
     {
-        symbol: 'O-FUN',
-        name: 'Omni-AlgoFund Corp',
+        symbol: 'A-$1',
+        name: 'Synergy-$1 Corp',
         type: 'STOCK',
         sector: 'Finance',
         niche: 'AI managed ETF of ETFs',
@@ -953,8 +953,8 @@ const assetsData = [
         description: "The fund that knows best. AlgoFund's AI rebalances its portfolio of other ETFs every millisecond, capitalizing on macro trends faster than human analysis permits."
     },
     {
-        symbol: 'O-COI',
-        name: 'Omni-TokenizeIt Corp',
+        symbol: 'L-$1',
+        name: 'Vanguard-$1 Corp',
         type: 'STOCK',
         sector: 'Finance',
         niche: 'Real estate tokenization platform',
@@ -963,8 +963,8 @@ const assetsData = [
         description: "Buy a brick, not a building. TokenizeIt splits high-value commercial properties into millions of digital tokens, allowing anyone to invest in a skyscraper with $10."
     },
     {
-        symbol: 'O-ART',
-        name: 'Omni-NFTGallery Corp',
+        symbol: 'P-$1',
+        name: 'Quantum-$1 Corp',
         type: 'STOCK',
         sector: 'Finance',
         niche: 'Fractional ownership of digital art',
@@ -973,8 +973,8 @@ const assetsData = [
         description: "Owning the Mona Lisa of the Metaverse. NFTGallery acquires blue-chip digital art and sells shares to collectors, democratizing access to high-culture assets."
     },
     {
-        symbol: 'O-BET',
-        name: 'Omni-PredictionMkt Corp',
+        symbol: 'V-$1',
+        name: 'Vertex-$1 Corp',
         type: 'STOCK',
         sector: 'Finance',
         niche: 'Decentralized event betting',
@@ -983,8 +983,8 @@ const assetsData = [
         description: "Bet on anything. PredictionMkt creates liquid markets for real-world outcomes, from election results to weather patterns, harnessing the wisdom of the crowd."
     },
     {
-        symbol: 'O-AUD',
-        name: 'Omni-ChainAudit Corp',
+        symbol: 'V-$1',
+        name: 'Aether-$1 Corp',
         type: 'STOCK',
         sector: 'Services',
         niche: 'Blockchain forensic accounting',

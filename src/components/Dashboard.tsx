@@ -493,6 +493,23 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                                 </div>
                             )}
                         </div>
+                        <div className="flex bg-gray-800 p-1 rounded border border-gray-700 items-center justify-center">
+                            <button
+                                onClick={() => setShowGlobalPortfolio(true)}
+                                className="text-xs hover:text-white text-gray-400 border-r border-gray-700 px-3 py-1 font-bold uppercase tracking-widest transition-colors"
+                            >
+                                Portfolio
+                            </button>
+                            <a href="/news" className="text-xs hover:text-white text-gray-400 border-r border-gray-700 px-3 py-1 font-bold uppercase tracking-widest transition-colors">
+                                News
+                            </a>
+                            <a href="/goals" className="text-xs hover:text-white text-gray-400 border-r border-gray-700 px-3 py-1 font-bold uppercase tracking-widest transition-colors">
+                                Goals
+                            </a>
+                            <a href="/leaderboard" className="text-xs hover:text-white text-gray-400 px-3 py-1 font-bold uppercase tracking-widest transition-colors">
+                                Leaderboard
+                            </a>
+                        </div>
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={() => setShowCallsignModal(true)}

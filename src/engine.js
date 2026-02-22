@@ -73,8 +73,9 @@ export async function publishNewsStory() {
     const targetAsset = allAssets[Math.floor(Math.random() * allAssets.length)];
     const sector = targetAsset.sector;
     const niche = targetAsset.niche;
+    const companyName = targetAsset.name;
 
-    console.log(`Generating AI news story for ${sector} - ${niche}...`);
+    console.log(`Generating AI news story for ${companyName} (${sector} - ${niche})...`);
 
     // Fetch historical context
     const dbHistory = await prisma.newsStory.findMany({
@@ -90,6 +91,7 @@ export async function publishNewsStory() {
 ${aiContextText}
 
 **NEW STORY REQUEST**
+Target Listed Company: "${companyName}"
 Sector: "${sector}"
 Niche: "${niche}"
 
@@ -98,6 +100,8 @@ You MUST review them to maintain narrative consistency. If relevant, follow up d
 
 Recent Historical News Events:
 ${historyLines}
+
+CRITICAL INSTRUCTION: You MUST write this story specifically about the listed company '${companyName}' to prevent hallucinations. The narrative must directly impact '${companyName}' or its immediate competitors. Do not invent unlisted companies as the primary subject.
 
 Output strictly the JSON structure requested in your context rules.
 `;
