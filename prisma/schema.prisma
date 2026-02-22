@@ -22,14 +22,15 @@ model User {
   marginLoan       Float         @default(0.0)
   lendingLimit     Float         @default(0.0)
   lendingRate      Float         @default(0.0)
-  portfolios       Portfolio[]
-  transactions     Transaction[]
-  userGoals        UserGoal[]
-  bids             GoalAuction[]
-  loansGiven       Loan[]        @relation("Lender")
-  loansTaken       Loan[]        @relation("Borrower")
-  limitOrders      LimitOrder[]
-  ceoScenarios     CeoScenario[]
+  portfolios         Portfolio[]
+  transactions       Transaction[]
+  userGoals          UserGoal[]
+  bids               GoalAuction[]
+  loansGiven         Loan[]            @relation("Lender")
+  loansTaken         Loan[]            @relation("Borrower")
+  limitOrders        LimitOrder[]
+  ceoScenarios       CeoScenario[]
+  consumerPurchases  ConsumerPurchase[]
 }
 
 model Asset {
@@ -43,11 +44,16 @@ model Asset {
   supplyPool   Float
   demandPool   Float
   basePrice    Float
-  portfolios   Portfolio[]
-  transactions Transaction[]
-  priceHistory PriceHistory[]
-  limitOrders  LimitOrder[]
-  ceoScenarios CeoScenario[]
+  portfolios         Portfolio[]
+  transactions       Transaction[]
+  priceHistory       PriceHistory[]
+  limitOrders        LimitOrder[]
+  ceoScenarios       CeoScenario[]
+  producedGoods      Good[]             @relation("ProducedGoods")
+  inputRequirements  InputRequirement[] @relation("InputRequirements")
+  buyerContracts     SupplyContract[]   @relation("BuyerContracts")
+  sellerContracts    SupplyContract[]   @relation("SellerContracts")
+  goodInventories    GoodInventory[]
 }
 
 model CeoScenario {
@@ -210,4 +216,80 @@ model GlobalSetting {
   id    String @id @default(cuid())
   key   String @unique
   value String
+}
+
+// ===== PHASE 1: PRODUCTION ECONOMY =====
+
+// A physical or digital good that a company produces and sells
+model Good {
+  id                  String              @id @default(cuid())
+  name                String
+  unit                String              // e.g. "barrel", "chip", "kWh", "tonne"
+  producerId          String              // The Asset (company) that produces this good
+  currentStockLevel   Float               @default(0.0)
+  baseProductionCost  Float               // Delta cost to produce one unit
+  listPrice           Float               // Price at which the producer sells it
+  isListedForSale     Boolean             @default(false)
+  createdAt           DateTime            @default(now())
+
+  producer            Asset               @relation("ProducedGoods", fields: [producerId], references: [id])
+  inputRequirements   InputRequirement[]  @relation("InputGood")
+  inventories         GoodInventory[]
+  contracts           SupplyContract[]
+  consumerPurchases   ConsumerPurchase[]
+}
+
+// Declares that a company needs certain goods as inputs to run a production cycle
+model InputRequirement {
+  id                    String   @id @default(cuid())
+  consumerId            String   // The Asset (company) that needs this input
+  inputGoodId           String   // The Good they need
+  unitsPerCycle         Float    // How many units needed per production cycle
+
+  consumer              Asset    @relation("InputRequirements", fields: [consumerId], references: [id])
+  inputGood             Good     @relation("InputGood", fields: [inputGoodId], references: [id])
+}
+
+// A bilateral, recurring supply agreement between two companies
+model SupplyContract {
+  id            String   @id @default(cuid())
+  buyerId       String   // The company purchasing the good
+  sellerId      String   // The company selling the good
+  goodId        String   
+  pricePerUnit  Float
+  unitsPerCycle Float
+  status        String   @default("ACTIVE")   // ACTIVE, BROKEN, PENDING, EXPIRED
+  autoRenew     Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  buyer         Asset    @relation("BuyerContracts", fields: [buyerId], references: [id])
+  seller        Asset    @relation("SellerContracts", fields: [sellerId], references: [id])
+  good          Good     @relation(fields: [goodId], references: [id])
+}
+
+// Tracks how much of any good a company currently has in stock
+model GoodInventory {
+  id        String   @id @default(cuid())
+  assetId   String   // The company holding this inventory
+  goodId    String   
+  quantity  Float    @default(0.0)
+
+  asset     Asset    @relation(fields: [assetId], references: [id])
+  good      Good     @relation(fields: [goodId], references: [id])
+
+  @@unique([assetId, goodId])
+}
+
+// A retail user purchasing a physical good from a company's marketplace listing
+model ConsumerPurchase {
+  id          String   @id @default(cuid())
+  userId      String
+  goodId      String
+  quantity    Float
+  pricePaid   Float
+  purchasedAt DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id])
+  good        Good     @relation(fields: [goodId], references: [id])
 }

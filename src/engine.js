@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { initBackupWorker } from './backupWorker.js';
 import { initGoalWorker } from './goalWorker.js';
 import { calculatePriceShift } from './lib/marketMath.js';
+import { runProductionCycle, PRODUCTION_CYCLE_INTERVAL } from './productionWorker.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -867,4 +868,7 @@ setInterval(executeLimitOrders, THIRTY_SECONDS); // Check limit orders frequentl
 setInterval(processCeoDecisions, TWO_MINS); // Check for CEO decisions to turn into news
 setInterval(checkHedgeFundPerformance, FIVE_MINS); // Check HFM fund performance
 setInterval(refreshAIContext, THIRTY_MINS); // Refresh AI context file every 30 minutes
+setInterval(runProductionCycle, PRODUCTION_CYCLE_INTERVAL); // Run production cycle every 10 minutes
 
+// Initial production cycle kick
+runProductionCycle();

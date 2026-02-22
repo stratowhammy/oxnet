@@ -7,6 +7,7 @@ import { calculateSMA, calculateBollingerBands, Candle, BollingerBands } from '@
 import { z } from 'zod';
 import Banking from './Banking';
 import CeoDecisionPanel from './CeoDecisionPanel';
+import ProductionPanel from './ProductionPanel';
 
 // --- Types ---
 type Asset = {
@@ -42,6 +43,7 @@ type User = {
     lendingLimit?: number;
     lendingRate?: number;
     frozen?: boolean;
+    managedAssetId?: string | null;
     portfolios: PortfolioItem[];
 };
 
@@ -817,6 +819,9 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                             <a href="/news" className="text-xs hover:text-white text-gray-400 border-r border-gray-700 px-3 py-1 font-bold uppercase tracking-widest transition-colors">
                                 News
                             </a>
+                            <a href="/marketplace" className="text-xs hover:text-white text-gray-400 border-r border-gray-700 px-3 py-1 font-bold uppercase tracking-widest transition-colors">
+                                Marketplace
+                            </a>
                             <a href="/goals" className="text-xs hover:text-white text-gray-400 border-r border-gray-700 px-3 py-1 font-bold uppercase tracking-widest transition-colors">
                                 Goals
                             </a>
@@ -991,6 +996,14 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
 
                                     {/* CEO Decision Panel */}
                                     {user.playerRole === 'CEO' && <CeoDecisionPanel />}
+                                    {/* CEO Production Management Panel */}
+                                    {user.playerRole === 'CEO' && user.managedAssetId && (
+                                        <ProductionPanel
+                                            userId={user.id}
+                                            assetId={user.managedAssetId}
+                                            assetSymbol={assets.find(a => a.id === user.managedAssetId)?.symbol ?? 'Company'}
+                                        />
+                                    )}
 
                                     {/* Trading Panel */}
                                     <div className="bg-gray-900 rounded-xl p-6 shadow-sm border border-gray-800">
