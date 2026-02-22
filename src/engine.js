@@ -78,9 +78,10 @@ export async function publishNewsStory() {
     console.log(`Generating AI news story for ${companyName} (${sector} - ${niche})...`);
 
     // Fetch historical context
+    // Reduced from 10 to 3 to prevent "Context size has been exceeded" errors with small local models
     const dbHistory = await prisma.newsStory.findMany({
         orderBy: { publishedAt: 'desc' },
-        take: 10
+        take: 3
     });
     let historyLines = "No recent events recorded in history yet.";
     if (dbHistory.length > 0) {
@@ -128,9 +129,13 @@ Output strictly the JSON structure requested in your context rules.
                 const cleaned = content.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
                 aiData = JSON.parse(cleaned);
             }
+        } else {
+            console.error(`LLM Generation responded with HTTP ${response.status}`);
+            const errText = await response.text();
+            console.error("LLM Error Details:", errText);
         }
     } catch (e) {
-        console.error("LLM Generation failed", e.message);
+        console.error("LLM Generation failed:", e.message);
     }
 
     if (!aiData) {
@@ -470,6 +475,65 @@ async function checkConditionalOrders() {
     }
 }
 
+async function executeLimitOrders() {
+    try {
+        const pendingOrders = await prisma.limitOrder.findMany({
+            where: { status: 'PENDING' },
+            include: { asset: true }
+        });
+
+        for (const order of pendingOrders) {
+            const currentPrice = order.asset.basePrice;
+            let triggered = false;
+
+            if (order.type === 'BUY' || order.type === 'COVER') {
+                if (currentPrice <= order.price) triggered = true;
+            } else if (order.type === 'SELL' || order.type === 'SHORT') {
+                if (currentPrice >= order.price) triggered = true;
+            }
+
+            if (triggered) {
+                console.log(`[Limit] Order ${order.id} triggered: ${order.type} ${order.quantity} of ${order.asset.symbol} at ${currentPrice}`);
+
+                // Call the existing trade API to process it fully via AMM
+                const res = await fetch(`http://127.0.0.1:${process.env.PORT || 3000}/api/trade`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: order.userId,
+                        assetId: order.assetId,
+                        type: order.type,
+                        quantity: order.quantity,
+                        leverage: order.leverage
+                    })
+                });
+
+                if (res.ok) {
+                    await prisma.limitOrder.update({
+                        where: { id: order.id },
+                        data: { status: 'EXECUTED' }
+                    });
+                    console.log(`[Limit] Order ${order.id} EXECUTED.`);
+                } else {
+                    const err = await res.json();
+                    console.error(`[Limit] Failed to execute order ${order.id}:`, err);
+                    // If it failed because of insufficient funds, we might cancel it:
+                    if (err.error && err.error.toLowerCase().includes('insufficient')) {
+                        await prisma.limitOrder.update({
+                            where: { id: order.id },
+                            data: { status: 'CANCELLED' }
+                        });
+                        console.log(`[Limit] Order ${order.id} CANCELLED due to insufficient funds.`);
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.error("Error evaluating limit orders:", e);
+    }
+}
+
+
 // ----- Scheduler Logic -----
 
 // 5 Minutes = 300,000 ms
@@ -501,3 +565,4 @@ setInterval(simulateTradeImpacts, THIRTY_SECONDS); // Run fake trades frequently
 setInterval(applySinusoidalMovements, ONE_MIN); // Force push underlying market graph every 1 minute
 setInterval(checkMarginCalls, THIRTY_SECONDS); // Run liquidations aggressively
 setInterval(checkConditionalOrders, ONE_MIN); // Check TP/SL every 1 minute
+setInterval(executeLimitOrders, THIRTY_SECONDS); // Check limit orders frequently

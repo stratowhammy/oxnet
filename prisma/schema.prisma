@@ -23,6 +23,7 @@ model User {
   bids         GoalAuction[]
   loansGiven   Loan[]        @relation("Lender")
   loansTaken   Loan[]        @relation("Borrower")
+  limitOrders  LimitOrder[]
 }
 
 model Asset {
@@ -39,6 +40,7 @@ model Asset {
   portfolios   Portfolio[]
   transactions Transaction[]
   priceHistory PriceHistory[]
+  limitOrders  LimitOrder[]
 }
 
 model Portfolio {
@@ -145,4 +147,19 @@ model Loan {
 
   lender       User     @relation("Lender", fields: [lenderId], references: [id])
   borrower     User     @relation("Borrower", fields: [borrowerId], references: [id])
+}
+
+model LimitOrder {
+  id        String   @id @default(cuid())
+  userId    String
+  assetId   String
+  type      String   // "BUY" or "SELL" or "SHORT" or "COVER"
+  quantity  Float
+  price     Float    // The target execution price
+  leverage  Float    @default(1.0)
+  status    String   @default("PENDING") // PENDING, EXECUTED, CANCELLED
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+  asset     Asset    @relation(fields: [assetId], references: [id])
 }

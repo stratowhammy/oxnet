@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createChart, ColorType, ISeriesApi, CandlestickSeries, LineSeries } from 'lightweight-charts';
-import { calculateSMA, Candle } from '@/lib/indicators';
+import { calculateSMA, calculateBollingerBands, Candle, BollingerBands } from '@/lib/indicators';
 import { z } from 'zod';
 import Banking from './Banking';
 
@@ -32,7 +32,7 @@ type PortfolioItem = {
 
 type User = {
     id: string;
-    username?: string;
+    username?: string | null;
     deltaBalance: number;
     marginLoan: number;
     lendingLimit?: number;
@@ -109,6 +109,167 @@ const orderSchema = z.object({
     quantity: z.number().positive(),
 });
 
+// ===== SECTOR INDEX VIEW COMPONENT =====
+function SectorIndexView({ selectedSector, sectorAssets, sectorIndexData, onSelectAsset, onSelectSector, uniqueSectors, allAssets }: {
+    selectedSector: string | null;
+    sectorAssets: any[];
+    sectorIndexData: any[];
+    onSelectAsset: (id: string) => void;
+    onSelectSector: (sector: string) => void;
+    uniqueSectors: string[];
+    allAssets: any[];
+}) {
+    const sectorChartRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!sectorChartRef.current || sectorIndexData.length === 0) return;
+
+        const chart = createChart(sectorChartRef.current, {
+            layout: {
+                background: { type: ColorType.Solid, color: '#111827' },
+                textColor: '#d1d5db',
+            },
+            width: sectorChartRef.current.clientWidth,
+            height: 350,
+            grid: {
+                vertLines: { color: '#374151' },
+                horzLines: { color: '#374151' },
+            },
+            rightPriceScale: { borderVisible: false },
+            timeScale: { borderVisible: false },
+        });
+
+        const lineSeries = chart.addSeries(LineSeries, {
+            color: '#22c55e',
+            lineWidth: 2,
+            title: `${selectedSector} Index`,
+        });
+
+        lineSeries.setData(sectorIndexData.map(d => ({ time: d.time as any, value: d.close })));
+        chart.timeScale().fitContent();
+
+        const handleResize = () => {
+            if (sectorChartRef.current) chart.applyOptions({ width: sectorChartRef.current.clientWidth });
+        };
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            chart.remove();
+        };
+    }, [sectorIndexData, selectedSector]);
+
+    if (!selectedSector) {
+        // Overview: all sectors as cards
+        return (
+            <div className="flex-1 overflow-y-auto p-6">
+                <h2 className="text-2xl font-black text-white mb-2">Market Sectors</h2>
+                <p className="text-gray-400 text-sm mb-6">Select a sector to view its price-weighted performance index.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {uniqueSectors.map(sector => {
+                        const companies = allAssets.filter(a => a.sector === sector);
+                        const avgPrice = companies.reduce((acc: number, a: any) => acc + a.basePrice, 0) / companies.length;
+                        const totalMktCap = companies.reduce((acc: number, a: any) => acc + (a.basePrice * a.supplyPool), 0);
+                        return (
+                            <div
+                                key={sector}
+                                onClick={() => onSelectSector(sector)}
+                                className="bg-gray-900 border border-gray-800 rounded-xl p-5 cursor-pointer hover:border-green-700 hover:bg-gray-800/50 transition-all group"
+                            >
+                                <div className="flex justify-between items-start mb-3">
+                                    <div>
+                                        <h3 className="font-black text-white text-lg group-hover:text-green-400 transition-colors">{sector}</h3>
+                                        <p className="text-xs text-gray-500 mt-0.5">{companies.length} listed companies</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-green-400 font-mono font-bold text-lg">Δ {avgPrice.toFixed(2)}</div>
+                                        <div className="text-xs text-gray-500">avg price</div>
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap gap-1 mt-3">
+                                    {companies.slice(0, 5).map((c: any) => (
+                                        <span key={c.id} className="text-xs bg-gray-800 border border-gray-700 text-gray-400 px-2 py-0.5 rounded font-mono">{c.symbol}</span>
+                                    ))}
+                                    {companies.length > 5 && (
+                                        <span className="text-xs text-gray-600">+{companies.length - 5} more</span>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    }
+
+    // Detail: selected sector's chart + company table
+    const startPrice = sectorIndexData[0]?.close ?? 0;
+    const endPrice = sectorIndexData[sectorIndexData.length - 1]?.close ?? 0;
+    const indexChange = startPrice > 0 ? ((endPrice - startPrice) / startPrice) * 100 : 0;
+    const isPositive = indexChange >= 0;
+
+    return (
+        <div className="flex-1 overflow-y-auto p-4 lg:p-6 flex flex-col gap-6">
+            {/* Back + Header */}
+            <div>
+                <button
+                    onClick={() => onSelectSector(null as any)}
+                    className="text-green-400 text-xs font-bold uppercase hover:text-white mb-3 flex items-center gap-1"
+                >
+                    &larr; All Sectors
+                </button>
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h2 className="text-3xl font-black text-white">{selectedSector}</h2>
+                        <p className="text-gray-400 text-sm mt-1">{sectorAssets.length} companies · Price-Weighted Sector Index</p>
+                    </div>
+                    <div className="text-right">
+                        <div className="text-4xl font-mono font-black text-white">Δ {endPrice.toFixed(2)}</div>
+                        <div className={`text-sm font-bold mt-1 ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+                            {isPositive ? '▲' : '▼'} {Math.abs(indexChange).toFixed(2)}% overall
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Chart */}
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                <h3 className="font-semibold text-gray-300 mb-3 px-1">Index Performance</h3>
+                {sectorIndexData.length > 0 ? (
+                    <div ref={sectorChartRef} className="w-full" />
+                ) : (
+                    <div className="h-[350px] flex items-center justify-center text-gray-600 text-sm">
+                        No historical data — prices will appear once the engine runs.
+                    </div>
+                )}
+            </div>
+
+            {/* Companies Grid */}
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                <h3 className="font-semibold text-gray-300 mb-4">Companies in this Sector</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                    {sectorAssets.map((asset: any) => (
+                        <div
+                            key={asset.id}
+                            onClick={() => onSelectAsset(asset.id)}
+                            className="flex justify-between items-center p-3 bg-gray-800 border border-gray-700 rounded-lg cursor-pointer hover:border-blue-600 hover:bg-gray-700/50 transition-all group"
+                        >
+                            <div>
+                                <div className="font-bold text-white group-hover:text-blue-400 transition-colors">{asset.symbol}</div>
+                                <div className="text-xs text-gray-500 truncate max-w-[140px]">{asset.name}</div>
+                            </div>
+                            <div className="text-right">
+                                <div className="font-mono text-green-400 font-bold">Δ {asset.basePrice.toFixed(2)}</div>
+                                <div className="text-xs text-gray-600">{asset.niche}</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // @ts-ignore
 export default function Dashboard({ initialUser, initialAssets, initialNews, allUsers = [] }: { initialUser: User, initialAssets: Asset[], initialNews: NewsStory[], allUsers?: any[] }) {
     // --- State: Layout & Selection ---
@@ -118,7 +279,8 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
     const [selectedNews, setSelectedNews] = useState<NewsStory | null>(null);
     const [showGlobalPortfolio, setShowGlobalPortfolio] = useState(false);
     const [showAssetDetails, setShowAssetDetails] = useState(false);
-    const [activeTab, setActiveTab] = useState<'TRADE' | 'BANKING'>('TRADE');
+    const [activeTab, setActiveTab] = useState<'TRADE' | 'BANKING' | 'SECTORS'>('TRADE');
+    const [selectedSector, setSelectedSector] = useState<string | null>(null);
 
     // --- State: Data ---
     const [user, setUser] = useState<User>(initialUser);
@@ -148,9 +310,52 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
         });
     }, [assets, searchTerm, filterSector]);
 
+    // Unique sector list (excluding 'All')
+    const uniqueSectors = useMemo(() => Array.from(new Set(assets.map(a => a.sector))).sort(), [assets]);
+
+    // Assets belonging to the selected sector
+    const sectorAssets = useMemo(() => {
+        if (!selectedSector) return [];
+        return assets.filter(a => a.sector === selectedSector);
+    }, [assets, selectedSector]);
+
+    // Aggregated price-weighted sector index candles from priceHistory
+    const sectorIndexData = useMemo(() => {
+        if (!selectedSector || sectorAssets.length === 0) return [];
+
+        // Build a map of timestamp -> array of base prices
+        const timeMap: Record<string, { open: number[], high: number[], low: number[], close: number[] }> = {};
+
+        for (const asset of sectorAssets) {
+            // @ts-ignore
+            const history = asset.priceHistory || [];
+            for (const ph of history) {
+                const ts = new Date(ph.timestamp).toISOString().split('T')[0];
+                if (!timeMap[ts]) timeMap[ts] = { open: [], high: [], low: [], close: [] };
+                timeMap[ts].open.push(ph.open);
+                timeMap[ts].high.push(ph.high);
+                timeMap[ts].low.push(ph.low);
+                timeMap[ts].close.push(ph.close);
+            }
+        }
+
+        const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+
+        return Object.entries(timeMap)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([time, vals]) => ({
+                time,
+                open: avg(vals.open),
+                high: avg(vals.high),
+                low: avg(vals.low),
+                close: avg(vals.close),
+            }));
+    }, [selectedSector, sectorAssets]);
+
     // --- State: Charting ---
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<any>(null);
+    const visibleRangeRef = useRef<any>(null);
     const [chartData, setChartData] = useState<Candle[]>([]);
 
     // SMA Toggles
@@ -158,8 +363,14 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
     const [showSMA20, setShowSMA20] = useState(false);
     const [showSMA50, setShowSMA50] = useState(false);
 
+    // BB Toggles
+    const [showBB, setShowBB] = useState(false);
+    const [bbStdDev, setBbStdDev] = useState<number>(2);
+
     // --- State: Trading ---
     const [orderType, setOrderType] = useState<'BUY' | 'SELL' | 'SHORT'>('BUY');
+    const [executionType, setExecutionType] = useState<'MARKET' | 'LIMIT'>('MARKET');
+    const [limitPrice, setLimitPrice] = useState<number | ''>('');
     const [quantity, setQuantity] = useState<number>(0);
     const [leverage, setLeverage] = useState<number>(1);
     const [impact, setImpact] = useState<{ impact: number; estimatedTotal: number; fee: number } | null>(null);
@@ -197,12 +408,16 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
         }
 
         setChartData(data);
+        visibleRangeRef.current = null; // Reset zoom when changing assets
     }, [selectedAsset]);
 
     // --- Effects: Chart Rendering ---
     const sma10 = useMemo(() => calculateSMA(chartData, 10), [chartData]);
     const sma20 = useMemo(() => calculateSMA(chartData, 20), [chartData]);
     const sma50 = useMemo(() => calculateSMA(chartData, 50), [chartData]);
+
+    // Default to 20 period for BB
+    const bollingerData = useMemo(() => showBB ? calculateBollingerBands(chartData, 20, bbStdDev) : [], [chartData, showBB, bbStdDev]);
 
     useEffect(() => {
         if (!chartContainerRef.current || chartData.length === 0) return;
@@ -237,11 +452,25 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
         const sma20Series = chart.addSeries(LineSeries, { color: '#f97316', lineWidth: 1, title: 'SMA 20' });
         const sma50Series = chart.addSeries(LineSeries, { color: '#3b82f6', lineWidth: 1, title: 'SMA 50' });
 
+        const bbUpperSeries = chart.addSeries(LineSeries, { color: '#e5e7eb', lineWidth: 1, lineStyle: 2, title: `BB Upper (${bbStdDev})` });
+        const bbLowerSeries = chart.addSeries(LineSeries, { color: '#e5e7eb', lineWidth: 1, lineStyle: 2, title: `BB Lower (${bbStdDev})` });
+        const bbMiddleSeries = chart.addSeries(LineSeries, { color: '#a78bfa', lineWidth: 1, title: `BB Mid` });
+
         if (showSMA10) sma10Series.setData(sma10);
         if (showSMA20) sma20Series.setData(sma20);
         if (showSMA50) sma50Series.setData(sma50);
 
-        chart.timeScale().fitContent();
+        if (showBB && bollingerData.length > 0) {
+            bbUpperSeries.setData(bollingerData.map(d => ({ time: d.time as any, value: d.upper })));
+            bbMiddleSeries.setData(bollingerData.map(d => ({ time: d.time as any, value: d.middle })));
+            bbLowerSeries.setData(bollingerData.map(d => ({ time: d.time as any, value: d.lower })));
+        }
+
+        if (visibleRangeRef.current) {
+            chart.timeScale().setVisibleLogicalRange(visibleRangeRef.current);
+        } else {
+            chart.timeScale().fitContent();
+        }
 
         const handleResize = () => {
             if (chartContainerRef.current) {
@@ -251,14 +480,15 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
         window.addEventListener('resize', handleResize);
 
         return () => {
+            visibleRangeRef.current = chart.timeScale().getVisibleLogicalRange();
             window.removeEventListener('resize', handleResize);
             chart.remove();
         };
-    }, [chartData, showSMA10, showSMA20, showSMA50, sma10, sma20, sma50]);
+    }, [chartData, showSMA10, showSMA20, showSMA50, sma10, sma20, sma50, showBB, bollingerData]);
 
     // --- Effects: Price Impact ---
     useEffect(() => {
-        if (quantity <= 0 || !selectedAsset) {
+        if (quantity <= 0 || !selectedAsset || executionType === 'LIMIT') {
             setImpact(null);
             return;
         }
@@ -298,23 +528,29 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
     const handleOrderSubmit = async () => {
         if (quantity <= 0 || !selectedAsset) return;
         try {
-            const res = await fetch('/api/trade', {
+            const apiEndpoint = executionType === 'LIMIT' ? '/api/trade/limit' : '/api/trade';
+            const reqBody = {
+                userId: user.id,
+                assetId: selectedAsset.id,
+                type: orderType,
+                quantity,
+                leverage,
+                takeProfitPrice: takeProfitPrice === '' ? undefined : takeProfitPrice,
+                stopLossPrice: stopLossPrice === '' ? undefined : stopLossPrice,
+                limitPrice: executionType === 'LIMIT' && limitPrice !== '' ? limitPrice : undefined
+            };
+
+            const res = await fetch(apiEndpoint, {
                 method: 'POST',
-                body: JSON.stringify({
-                    userId: user.id,
-                    assetId: selectedAsset.id,
-                    type: orderType,
-                    quantity,
-                    leverage,
-                    takeProfitPrice: takeProfitPrice === '' ? undefined : takeProfitPrice,
-                    stopLossPrice: stopLossPrice === '' ? undefined : stopLossPrice
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(reqBody)
             });
             const json = await res.json();
             if (res.ok) {
-                alert(`Trade Successful: ${json.message}`);
+                alert(`${executionType === 'LIMIT' ? 'Limit Order Placed' : 'Trade Successful'}: ${json.message}`);
                 router.refresh(); // Optimistic server re-fetch without state wipe
                 setQuantity(0);
+                if (executionType === 'LIMIT') setLimitPrice('');
                 setTakeProfitPrice('');
                 setStopLossPrice('');
             } else {
@@ -381,61 +617,132 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
         }
     };
 
+    // --- Mock Order Book ---
+    const orderBook = useMemo(() => {
+        if (!selectedAsset) return { asks: [], bids: [] };
+        const asks = [];
+        const bids = [];
+        const base = selectedAsset.basePrice;
+
+        // Pseudo-random generator based on asset id to keep it stable-ish
+        const seed = parseInt(selectedAsset.id.substring(0, 8), 16) || 1234;
+        let runningSeed = seed;
+        const random = () => {
+            const x = Math.sin(runningSeed++) * 10000;
+            return x - Math.floor(x);
+        };
+
+        let currentAskPrice = base;
+        let currentBidPrice = base;
+
+        for (let i = 0; i < 25; i++) {
+            // Asks go up
+            const askSpread = (random() * 0.005 * base) + 0.01;
+            currentAskPrice += askSpread;
+            const askSize = Math.floor(random() * 500) + 10;
+            asks.unshift({ price: currentAskPrice, size: askSize, total: currentAskPrice * askSize });
+
+            // Bids go down
+            const bidSpread = (random() * 0.005 * base) + 0.01;
+            currentBidPrice -= bidSpread;
+            const bidSize = Math.floor(random() * 500) + 10;
+            bids.push({ price: currentBidPrice, size: bidSize, total: currentBidPrice * bidSize });
+        }
+
+        return { asks, bids };
+    }, [selectedAsset]);
+
     return (
-        <div className="flex h-screen bg-gray-950 text-gray-100 font-sans overflow-hidden">
+        <div className="flex flex-col lg:flex-row h-screen bg-gray-950 text-gray-100 font-sans overflow-y-auto lg:overflow-hidden">
             {/* --- Left Sidebar: Market Browser --- */}
-            <aside className="w-80 flex flex-col border-r border-gray-800 bg-gray-900">
+            <aside className={`w-full lg:w-80 flex-shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-800 bg-gray-900 ${selectedAssetId && activeTab === 'TRADE' ? 'hidden lg:flex' : 'flex min-h-[50vh] lg:h-full'}`}>
                 <div className="flex border-b border-gray-800">
                     <button
                         onClick={() => setActiveTab('TRADE')}
-                        className={`flex-1 py-4 font-bold text-sm tracking-widest uppercase transition-colors ${activeTab === 'TRADE' ? 'bg-gray-800 text-white border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}
+                        className={`flex-1 py-3 font-bold text-xs tracking-widest uppercase transition-colors ${activeTab === 'TRADE' ? 'bg-gray-800 text-white border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}
                     >
                         Market
                     </button>
                     <button
+                        onClick={() => setActiveTab('SECTORS')}
+                        className={`flex-1 py-3 font-bold text-xs tracking-widest uppercase transition-colors ${activeTab === 'SECTORS' ? 'bg-gray-800 text-white border-b-2 border-green-500' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}
+                    >
+                        Sectors
+                    </button>
+                    <button
                         onClick={() => setActiveTab('BANKING')}
-                        className={`flex-1 py-4 font-bold text-sm tracking-widest uppercase transition-colors ${activeTab === 'BANKING' ? 'bg-gray-800 text-white border-b-2 border-purple-500' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}
+                        className={`flex-1 py-3 font-bold text-xs tracking-widest uppercase transition-colors ${activeTab === 'BANKING' ? 'bg-gray-800 text-white border-b-2 border-purple-500' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}
                     >
                         Banking
                     </button>
                 </div>
 
-                <div className="p-4 border-b border-gray-800">
-                    <h2 className="text-xl font-bold text-white mb-4">Marketplace</h2>
-                    <input
-                        type="text"
-                        placeholder="Search assets..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 mb-2"
-                    />
-                    <select
-                        value={filterSector}
-                        onChange={(e) => setFilterSector(e.target.value)}
-                        className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-                    >
-                        {sectors.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                </div>
-                <div className="flex-1 overflow-y-auto">
-                    {filteredAssets.map(asset => (
-                        <div
-                            key={asset.id}
-                            onClick={() => setSelectedAssetId(asset.id)}
-                            className={`p-4 border-b border-gray-800 cursor-pointer hover:bg-gray-800 transition-colors ${selectedAssetId === asset.id ? 'bg-gray-800 border-l-4 border-l-blue-500' : ''}`}
-                        >
-                            <div className="flex justify-between items-baseline mb-1">
-                                <span className="font-bold text-white">{asset.symbol}</span>
-                                <span className="text-sm text-gray-400">Δ {asset.basePrice.toFixed(2)}</span>
-                            </div>
-                            <div className="text-xs text-gray-500 truncate">{asset.name}</div>
+                {activeTab === 'SECTORS' ? (
+                    <div className="flex-1 flex flex-col overflow-hidden">
+                        <div className="p-4 border-b border-gray-800">
+                            <h2 className="text-xl font-bold text-white mb-1">Market Sectors</h2>
+                            <p className="text-xs text-gray-500">View price-weighted sector indices</p>
                         </div>
-                    ))}
-                </div>
+                        <div className="flex-1 overflow-y-auto">
+                            {uniqueSectors.map(sector => {
+                                const count = assets.filter(a => a.sector === sector).length;
+                                const avgPrice = assets.filter(a => a.sector === sector).reduce((acc, a) => acc + a.basePrice, 0) / count;
+                                return (
+                                    <div
+                                        key={sector}
+                                        onClick={() => setSelectedSector(sector)}
+                                        className={`p-4 border-b border-gray-800 cursor-pointer hover:bg-gray-800 transition-colors ${selectedSector === sector ? 'bg-gray-800 border-l-4 border-l-green-500' : ''}`}
+                                    >
+                                        <div className="flex justify-between items-baseline mb-1">
+                                            <span className="font-bold text-white text-sm">{sector}</span>
+                                            <span className="text-xs text-green-400 font-mono">Δ {avgPrice.toFixed(2)}</span>
+                                        </div>
+                                        <div className="text-xs text-gray-500">{count} companies</div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                        <div className="p-4 border-b border-gray-800">
+                            <h2 className="text-xl font-bold text-white mb-4">Marketplace</h2>
+                            <input
+                                type="text"
+                                placeholder="Search assets..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 mb-2"
+                            />
+                            <select
+                                value={filterSector}
+                                onChange={(e) => setFilterSector(e.target.value)}
+                                className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                            >
+                                {sectors.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                        </div>
+                        <div className="flex-1 overflow-y-auto">
+                            {filteredAssets.map(asset => (
+                                <div
+                                    key={asset.id}
+                                    onClick={() => setSelectedAssetId(asset.id)}
+                                    className={`p-4 border-b border-gray-800 cursor-pointer hover:bg-gray-800 transition-colors ${selectedAssetId === asset.id ? 'bg-gray-800 border-l-4 border-l-blue-500' : ''}`}
+                                >
+                                    <div className="flex justify-between items-baseline mb-1">
+                                        <span className="font-bold text-white">{asset.symbol}</span>
+                                        <span className="text-sm text-gray-400">Δ {asset.basePrice.toFixed(2)}</span>
+                                    </div>
+                                    <div className="text-xs text-gray-500 truncate">{asset.name}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )}
             </aside>
 
             {/* --- Main Content --- */}
-            <main className="flex-1 flex flex-col min-w-0 min-h-0 relative">
+            <main className={`flex-1 flex flex-col min-w-0 min-h-0 relative ${!selectedAssetId && activeTab === 'TRADE' ? 'hidden lg:flex' : 'flex'}`}>
 
                 {/* --- News Ticker --- */}
                 {news.length > 0 && (
@@ -468,15 +775,17 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                 )}
 
                 {/* Header: Portfolio Summary */}
-                <header className="bg-gray-900 border-b border-gray-800 p-4 flex justify-between items-center shadow-lg">
-                    <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 flex-shrink-0">
-                            <img src="/logo.png" alt="Logo" className="object-contain w-full h-full drop-shadow-lg" />
+                <header className="bg-gray-900 border-b border-gray-800 p-4 flex flex-col lg:flex-row justify-between items-center shadow-lg gap-4">
+                    <div className="flex items-center gap-4 w-full lg:w-auto justify-between lg:justify-start">
+                        <div className="flex items-center gap-4">
+                            <div className="h-10 w-10 flex-shrink-0">
+                                <img src="/logo.png" alt="Logo" className="object-contain w-full h-full drop-shadow-lg" />
+                            </div>
+                            <h1 className="text-xl font-black tracking-widest uppercase text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">Market Master Engine</h1>
                         </div>
-                        <h1 className="text-xl font-black tracking-widest uppercase text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">Market Master Engine</h1>
                     </div>
 
-                    <div className="flex items-center gap-6">
+                    <div className="flex flex-wrap items-center justify-center gap-3 lg:gap-6 w-full lg:w-auto">
                         <div className="text-sm font-mono text-gray-400">
                             <span className="uppercase text-xs mr-2 font-bold tracking-widest">Callsign:</span>
                             <span className="text-white bg-gray-800 px-3 py-1 rounded shadow-inner border border-gray-700">{user.username || user.id}</span>
@@ -530,8 +839,27 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                 {/* Dashboard Content */}
                 {activeTab === 'BANKING' ? (
                     <Banking user={user} allUsers={allUsers} />
+                ) : activeTab === 'SECTORS' ? (
+                    <SectorIndexView
+                        selectedSector={selectedSector}
+                        sectorAssets={sectorAssets}
+                        sectorIndexData={sectorIndexData}
+                        onSelectAsset={(id) => { setSelectedAssetId(id); setActiveTab('TRADE'); }}
+                        onSelectSector={setSelectedSector}
+                        uniqueSectors={uniqueSectors}
+                        allAssets={assets}
+                    />
                 ) : (
-                    <div className="flex-1 overflow-y-auto p-6 grid grid-cols-12 gap-6">
+                    <div className="flex-1 overflow-y-auto p-4 lg:p-6 grid grid-cols-12 gap-4 lg:gap-6">
+                        {/* Mobile Back Button */}
+                        <div className="col-span-12 lg:hidden">
+                            <button
+                                onClick={() => setSelectedAssetId('')}
+                                className="text-blue-400 font-bold uppercase text-xs hover:text-white flex items-center gap-2 px-2 py-1 bg-gray-800 rounded border border-gray-700"
+                            >
+                                &larr; Back to Market List
+                            </button>
+                        </div>
 
                         {selectedAsset ? (
                             <>
@@ -581,13 +909,67 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                                     <div className="bg-gray-900 rounded-xl p-4 shadow-sm border border-gray-800 flex-1 min-h-[450px] flex flex-col">
                                         <div className="flex justify-between items-center mb-2 px-2">
                                             <h3 className="font-semibold text-gray-300">Price History</h3>
-                                            <div className="flex gap-3 text-xs">
+                                            <div className="flex gap-3 text-xs flex-wrap items-center">
                                                 <label className="flex items-center gap-1 cursor-pointer hover:text-white"><input type="checkbox" checked={showSMA10} onChange={e => setShowSMA10(e.target.checked)} className="accent-blue-500" /> SMA 10</label>
                                                 <label className="flex items-center gap-1 cursor-pointer hover:text-white"><input type="checkbox" checked={showSMA20} onChange={e => setShowSMA20(e.target.checked)} className="accent-blue-500" /> SMA 20</label>
                                                 <label className="flex items-center gap-1 cursor-pointer hover:text-white"><input type="checkbox" checked={showSMA50} onChange={e => setShowSMA50(e.target.checked)} className="accent-blue-500" /> SMA 50</label>
+
+                                                <div className="w-px h-4 bg-gray-700 mx-1"></div>
+
+                                                <label className="flex items-center gap-1 cursor-pointer hover:text-white"><input type="checkbox" checked={showBB} onChange={e => setShowBB(e.target.checked)} className="accent-purple-500" /> Bollinger Bands</label>
+                                                {showBB && (
+                                                    <select
+                                                        value={bbStdDev}
+                                                        onChange={e => setBbStdDev(Number(e.target.value))}
+                                                        className="bg-gray-800 border border-gray-700 rounded px-1 text-gray-300 focus:outline-none focus:border-purple-500"
+                                                    >
+                                                        <option value={1}>1σ</option>
+                                                        <option value={2}>2σ</option>
+                                                        <option value={3}>3σ</option>
+                                                    </select>
+                                                )}
                                             </div>
                                         </div>
                                         <div ref={chartContainerRef} className="flex-1 w-full" />
+                                    </div>
+
+                                    {/* Order Book Panel */}
+                                    <div className="bg-gray-900 rounded-xl p-4 shadow-sm border border-gray-800 flex-1 min-h-[400px]">
+                                        <h3 className="font-semibold text-gray-300 mb-4 px-2">Market Depth - Order Book</h3>
+                                        <div className="grid grid-cols-2 gap-4 h-full pl-2 pr-2">
+                                            {/* Bids */}
+                                            <div>
+                                                <div className="flex justify-between text-xs text-gray-500 uppercase font-bold border-b border-gray-800 pb-2 mb-2">
+                                                    <span>Bid Vol</span>
+                                                    <span>Price</span>
+                                                </div>
+                                                <div className="space-y-1 h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                                                    {orderBook.bids.map((bid, i) => (
+                                                        <div key={`bid-${i}`} className="flex justify-between text-sm hover:bg-gray-800 cursor-default px-1 rounded relative overflow-hidden group">
+                                                            <div className="absolute top-0 right-0 bottom-0 bg-green-500/10 z-0 transition-all" style={{ width: `${Math.min(100, (bid.size / 500) * 100)}%` }}></div>
+                                                            <span className="text-gray-400 z-10">{bid.size}</span>
+                                                            <span className="text-green-500 font-mono z-10">{bid.price.toFixed(2)}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            {/* Asks */}
+                                            <div>
+                                                <div className="flex justify-between text-xs text-gray-500 uppercase font-bold border-b border-gray-800 pb-2 mb-2">
+                                                    <span>Price</span>
+                                                    <span>Ask Vol</span>
+                                                </div>
+                                                <div className="space-y-1 h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                                                    {orderBook.asks.map((ask, i) => (
+                                                        <div key={`ask-${i}`} className="flex justify-between text-sm hover:bg-gray-800 cursor-default px-1 rounded relative overflow-hidden group">
+                                                            <div className="absolute top-0 left-0 bottom-0 bg-red-500/10 z-0 transition-all" style={{ width: `${Math.min(100, (ask.size / 500) * 100)}%` }}></div>
+                                                            <span className="text-red-500 font-mono z-10">{ask.price.toFixed(2)}</span>
+                                                            <span className="text-gray-400 z-10">{ask.size}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -619,6 +1001,22 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                                             </button>
                                         </div>
 
+                                        {/* Execution Type (Market/Limit) */}
+                                        <div className="flex gap-2 mb-4 bg-gray-950 p-1 border border-gray-800 rounded">
+                                            <button
+                                                onClick={() => setExecutionType('MARKET')}
+                                                className={`flex-1 py-1 text-xs font-bold uppercase tracking-widest rounded ${executionType === 'MARKET' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                                            >
+                                                Market
+                                            </button>
+                                            <button
+                                                onClick={() => setExecutionType('LIMIT')}
+                                                className={`flex-1 py-1 text-xs font-bold uppercase tracking-widest rounded ${executionType === 'LIMIT' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                                            >
+                                                Limit
+                                            </button>
+                                        </div>
+
                                         <div className="mb-4">
                                             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Quantity</label>
                                             <input
@@ -628,6 +1026,19 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                                                 className="w-full bg-gray-950 border border-gray-700 text-white p-3 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all font-mono mb-4"
                                                 placeholder="0.00"
                                             />
+
+                                            {executionType === 'LIMIT' && (
+                                                <div className="mb-4">
+                                                    <label className="block text-xs font-semibold text-yellow-500 uppercase tracking-wider mb-1">Limit Price</label>
+                                                    <input
+                                                        type="number"
+                                                        value={limitPrice}
+                                                        onChange={(e) => setLimitPrice(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                                        className="w-full bg-gray-950 border border-yellow-700/50 text-white p-3 rounded focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 outline-none transition-all font-mono"
+                                                        placeholder={`Target execution at e.g. ${(selectedAsset.basePrice * 0.98).toFixed(2)}`}
+                                                    />
+                                                </div>
+                                            )}
 
                                             {/* Leverage Slider */}
                                             <div className="mb-2 mt-4 flex justify-between items-center text-xs font-semibold uppercase tracking-wider">
@@ -670,7 +1081,7 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                                             <div className="flex justify-between text-sm mb-2">
                                                 <span className="text-gray-500">Price Impact</span>
                                                 <span className={`font-mono ${impact?.impact && impact.impact > 1 ? 'text-red-500' : 'text-green-500'}`}>
-                                                    {impactLoading ? '...' : impact ? `${impact.impact.toFixed(4)}%` : '--'}
+                                                    {executionType === 'LIMIT' ? 'LIMIT (0%)' : impactLoading ? '...' : impact ? `${impact.impact.toFixed(4)}%` : '--'}
                                                 </span>
                                             </div>
                                             {leverage > 1 && quantity > 0 && (
@@ -707,23 +1118,23 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                                             <div className="flex justify-between text-sm mb-2">
                                                 <span className="text-gray-500">Est. Fee (0.5%)</span>
                                                 <span className="font-mono text-gray-300">
-                                                    {impactLoading ? '...' : impact ? `Δ ${impact.fee.toFixed(2)}` : '--'}
+                                                    {executionType === 'LIMIT' && limitPrice !== '' ? `Δ ${((Number(limitPrice) * quantity) * 0.005).toFixed(2)}` : impactLoading ? '...' : impact ? `Δ ${impact.fee.toFixed(2)}` : '--'}
                                                 </span>
                                             </div>
                                             <div className="flex justify-between text-sm font-bold border-t border-gray-800 pt-2 mt-2">
                                                 <span className="text-gray-300">Total</span>
                                                 <span className="font-mono text-white text-lg">
-                                                    {impactLoading ? '...' : impact ? `Δ ${impact.estimatedTotal.toFixed(2)}` : '--'}
+                                                    {executionType === 'LIMIT' && limitPrice !== '' ? `Δ ${((Number(limitPrice) * quantity) * 1.005).toFixed(2)}` : impactLoading ? '...' : impact ? `Δ ${impact.estimatedTotal.toFixed(2)}` : '--'}
                                                 </span>
                                             </div>
                                         </div>
 
                                         <button
                                             onClick={handleOrderSubmit}
-                                            disabled={quantity <= 0 || impactLoading}
+                                            disabled={quantity <= 0 || (executionType === 'LIMIT' && limitPrice === '') || (executionType === 'MARKET' && impactLoading)}
                                             className={`w-full py-3 rounded font-bold text-white shadow-lg transition-all ${orderType === 'BUY' ? 'bg-green-600 hover:bg-green-500' : orderType === 'SELL' ? 'bg-red-600 hover:bg-red-500' : 'bg-purple-600 hover:bg-purple-500'} disabled:opacity-50 disabled:cursor-not-allowed`}
                                         >
-                                            {orderType} {selectedAsset.symbol}
+                                            {executionType === 'LIMIT' ? 'Place Limit' : orderType} {selectedAsset.symbol}
                                         </button>
                                     </div>
 

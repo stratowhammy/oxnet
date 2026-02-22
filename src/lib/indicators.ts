@@ -44,3 +44,43 @@ export function calculateSMA(data: Candle[], period: number): SMA[] {
 
     return smaData;
 }
+
+export interface BollingerBands {
+    time: string;
+    upper: number;
+    middle: number;
+    lower: number;
+}
+
+export function calculateBollingerBands(data: Candle[], period: number, stdDevMultiplier: number): BollingerBands[] {
+    const bbData: BollingerBands[] = [];
+    if (data.length < period) return [];
+
+    const smaData = calculateSMA(data, period);
+
+    // SMA data points match the data array from index `period - 1` onwards
+    for (let i = 0; i < smaData.length; i++) {
+        const sma = smaData[i];
+        const dataIndex = i + period - 1; // The corresponding candlestick for this SMA
+
+        // Calculate Standard Deviation
+        let sumSquaredDiffs = 0;
+        for (let j = 0; j < period; j++) {
+            const closePrice = data[dataIndex - j].close;
+            const diff = closePrice - sma.value;
+            sumSquaredDiffs += diff * diff;
+        }
+
+        const variance = sumSquaredDiffs / period;
+        const stdDev = Math.sqrt(variance);
+
+        bbData.push({
+            time: sma.time,
+            upper: sma.value + (stdDev * stdDevMultiplier),
+            middle: sma.value,
+            lower: sma.value - (stdDev * stdDevMultiplier),
+        });
+    }
+
+    return bbData;
+}
