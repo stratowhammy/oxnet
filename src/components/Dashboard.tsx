@@ -8,6 +8,11 @@ import { z } from 'zod';
 import Banking from './Banking';
 import CeoDecisionPanel from './CeoDecisionPanel';
 import ProductionPanel from './ProductionPanel';
+import MayorPanel from './MayorPanel';
+import UnionLeaderPanel from './UnionLeaderPanel';
+import PoliticianPanel from './PoliticianPanel';
+import SmallBusinessPanel from './SmallBusinessPanel';
+import FactoryOwnerPanel from './FactoryOwnerPanel';
 
 // --- Types ---
 type Asset = {
@@ -994,9 +999,8 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                                 {/* Sidebar Right: Buying/Portfolio (Col 4) */}
                                 <div className="col-span-12 lg:col-span-4 flex flex-col gap-6">
 
-                                    {/* CEO Decision Panel */}
+                                    {/* CEO panels */}
                                     {user.playerRole === 'CEO' && <CeoDecisionPanel />}
-                                    {/* CEO Production Management Panel */}
                                     {user.playerRole === 'CEO' && user.managedAssetId && (
                                         <ProductionPanel
                                             userId={user.id}
@@ -1004,6 +1008,18 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                                             assetSymbol={assets.find(a => a.id === user.managedAssetId)?.symbol ?? 'Company'}
                                         />
                                     )}
+                                    {/* Factory Owner panel */}
+                                    {user.playerRole === 'FACTORY_OWNER' && <FactoryOwnerPanel userId={user.id} />}
+                                    {/* Small Business Owner panel */}
+                                    {user.playerRole === 'SMALL_BUSINESS' && (
+                                        <SmallBusinessPanel userId={user.id} assetId={user.managedAssetId ?? undefined} />
+                                    )}
+                                    {/* Union Leader panel */}
+                                    {user.playerRole === 'UNION_LEADER' && <UnionLeaderPanel userId={user.id} />}
+                                    {/* Mayor panel */}
+                                    {user.playerRole === 'MAYOR' && <MayorPanel userId={user.id} />}
+                                    {/* Politician panel */}
+                                    {user.playerRole === 'POLITICIAN' && <PoliticianPanel userId={user.id} />}
 
                                     {/* Trading Panel */}
                                     <div className="bg-gray-900 rounded-xl p-6 shadow-sm border border-gray-800">

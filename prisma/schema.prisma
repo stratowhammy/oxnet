@@ -31,6 +31,15 @@ model User {
   limitOrders        LimitOrder[]
   ceoScenarios       CeoScenario[]
   consumerPurchases  ConsumerPurchase[]
+  // Role-specific relations
+  mayorOf            Municipality?             @relation("MayorOf")
+  facilityOwned      ProductionFacility?       @relation("FacilityOwner")
+  unionLeaderOf      WorkforcePool?            @relation("UnionLeaderOf")
+  proposedPolicies   PolicyProposal[]          @relation("ProposedPolicies")
+  policyVotes        PolicyVote[]
+  donationsGiven     CampaignDonation[]        @relation("DonationsGiven")
+  donationsReceived  CampaignDonation[]        @relation("DonationsReceived")
+  municipalBids      MunicipalContractBid[]
 }
 
 model Asset {
@@ -54,6 +63,7 @@ model Asset {
   buyerContracts     SupplyContract[]   @relation("BuyerContracts")
   sellerContracts    SupplyContract[]   @relation("SellerContracts")
   goodInventories    GoodInventory[]
+  productionFacility ProductionFacility?
 }
 
 model CeoScenario {
@@ -237,6 +247,7 @@ model Good {
   inventories         GoodInventory[]
   contracts           SupplyContract[]
   consumerPurchases   ConsumerPurchase[]
+  municipalContracts  MunicipalContract[]
 }
 
 // Declares that a company needs certain goods as inputs to run a production cycle
@@ -292,4 +303,141 @@ model ConsumerPurchase {
 
   user        User     @relation(fields: [userId], references: [id])
   good        Good     @relation(fields: [goodId], references: [id])
+}
+
+// ===== EXPANDED ROLE SYSTEM =====
+
+// City Mayor governs a Municipality
+model Municipality {
+  id            String              @id @default(cuid())
+  name          String              @unique   // e.g. "New Oxford"
+  mayorId       String?             @unique   // The User who is Mayor
+  goodsTaxRate  Float               @default(0.02)  // e.g. 0.02 = 2% on goods sold in this city
+  deltaReserve  Float               @default(0.0)   // Tax revenue accumulated
+  createdAt     DateTime            @default(now())
+
+  mayor         User?               @relation("MayorOf", fields: [mayorId], references: [id])
+  contracts     MunicipalContract[]
+}
+
+// A government procurement contract issued by the Mayor
+model MunicipalContract {
+  id               String                 @id @default(cuid())
+  municipalityId   String
+  goodId           String
+  quantityRequired Float
+  budgetDelta      Float                  // Max the mayor will pay
+  deadline         DateTime
+  status           String                 @default("OPEN")  // OPEN, AWARDED, FULFILLED, EXPIRED
+  awardedBidId     String?                @unique
+  createdAt        DateTime               @default(now())
+
+  municipality     Municipality           @relation(fields: [municipalityId], references: [id])
+  good             Good                   @relation(fields: [goodId], references: [id])
+  bids             MunicipalContractBid[]
+  awardedBid       MunicipalContractBid?  @relation("AwardedBid", fields: [awardedBidId], references: [id])
+}
+
+// A Small Business Owner (or any user) bidding on a municipal contract
+model MunicipalContractBid {
+  id                  String             @id @default(cuid())
+  contractId          String
+  bidderId            String
+  pricePerUnit        Float
+  submittedAt         DateTime           @default(now())
+
+  contract            MunicipalContract  @relation(fields: [contractId], references: [id])
+  bidder              User               @relation(fields: [bidderId], references: [id])
+  awardedContract     MunicipalContract? @relation("AwardedBid")
+}
+
+// A Factory Owner's production facility (extends Asset with workforce/capacity)
+model ProductionFacility {
+  id              String   @id @default(cuid())
+  assetId         String   @unique    // The Asset this facility belongs to
+  ownerId         String   @unique    // The Factory Owner user
+  maxCapacity     Int      @default(100)   // Units producible per cycle at full workforce
+  currentCapacity Int      @default(100)   // Reduced by strikes, low wages, etc.
+  wages           Float    @default(50.0)  // Delta per worker per cycle
+  headcount       Int      @default(10)
+  onStrike        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  asset           Asset    @relation(fields: [assetId], references: [id])
+  owner           User     @relation("FacilityOwner", fields: [ownerId], references: [id])
+  workforcePool   WorkforcePool?
+}
+
+// A Union Leader's workforce pool (represents workers at one or more facilities)
+model WorkforcePool {
+  id              String             @id @default(cuid())
+  unionLeaderId   String             @unique
+  facilityId      String             @unique
+  memberCount     Int                @default(0)
+  wagesDemand     Float              @default(50.0)   // What the union wants per worker/cycle
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  unionLeader     User               @relation("UnionLeaderOf", fields: [unionLeaderId], references: [id])
+  facility        ProductionFacility @relation(fields: [facilityId], references: [id])
+  strikes         StrikeAction[]
+}
+
+// A strike called by the Union Leader against a facility
+model StrikeAction {
+  id              String        @id @default(cuid())
+  workforcePoolId String
+  reason          String
+  startedAt       DateTime      @default(now())
+  endedAt         DateTime?
+  isActive        Boolean       @default(true)
+
+  workforcePool   WorkforcePool @relation(fields: [workforcePoolId], references: [id])
+}
+
+// A Politician's economy-wide policy proposal
+model PolicyProposal {
+  id            String        @id @default(cuid())
+  proposerId    String
+  title         String
+  description   String
+  policyType    String        // TARIFF, SUBSIDY, TAX_HOLIDAY, SECTOR_BAN
+  targetSector  String?       // Which sector is affected (null = economy-wide)
+  targetRole    String?       // Which player role is affected
+  effectValue   Float         // e.g. 0.05 = 5% tariff
+  status        String        @default("VOTING")  // VOTING, PASSED, REJECTED, ENACTED
+  votesFor      Int           @default(0)
+  votesAgainst  Int           @default(0)
+  endsAt        DateTime      // Voting deadline
+  createdAt     DateTime      @default(now())
+
+  proposer      User          @relation("ProposedPolicies", fields: [proposerId], references: [id])
+  votes         PolicyVote[]
+}
+
+// A user's vote on a policy proposal
+model PolicyVote {
+  id            String         @id @default(cuid())
+  proposalId    String
+  voterId       String
+  inFavor       Boolean
+  votedAt       DateTime       @default(now())
+
+  proposal      PolicyProposal @relation(fields: [proposalId], references: [id])
+  voter         User           @relation(fields: [voterId], references: [id])
+
+  @@unique([proposalId, voterId])
+}
+
+// A campaign donation from any user to a Politician
+model CampaignDonation {
+  id            String   @id @default(cuid())
+  donorId       String
+  recipientId   String   // The Politician's userId
+  amount        Float
+  message       String?
+  donatedAt     DateTime @default(now())
+
+  donor         User     @relation("DonationsGiven", fields: [donorId], references: [id])
+  recipient     User     @relation("DonationsReceived", fields: [recipientId], references: [id])
 }
