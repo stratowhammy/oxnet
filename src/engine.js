@@ -11,15 +11,15 @@ const __dirname = path.dirname(__filename);
 
 const prisma = new PrismaClient();
 
-// In-memory cache of news stories
-let newsOutput = [];
+const LLM_URL = process.env.LLM_URL || 'http://127.0.0.1:1234/v1/chat/completions';
+const LLM_MODEL = process.env.LLM_MODEL || 'qwen/qwen3-vl-4b';
+
+let aiContextText = '';
 try {
-    const newsPath = path.join(__dirname, '../news_output.json');
-    newsOutput = JSON.parse(fs.readFileSync(newsPath, 'utf8'));
-    console.log(`Loaded ${newsOutput.length} news stories`);
+    const contextPath = path.join(__dirname, '../ai_news_context.md');
+    aiContextText = fs.readFileSync(contextPath, 'utf8');
 } catch (e) {
-    console.error("Failed to load news_output.json. Please generate it first.");
-    process.exit(1);
+    console.error("Warning: ai_news_context.md not found.");
 }
 
 // In-memory tracker for OHLC intra-interval pricing
@@ -65,21 +65,93 @@ async function recordPriceHistories() {
 }
 
 // 2. Publish a News Story every 30 minutes
-async function publishNewsStory() {
-    // Find a story that hasn't been published yet
-    // We'll just randomly select one from the JSON and insert it.
-    const randomStory = newsOutput[Math.floor(Math.random() * newsOutput.length)];
+export async function publishNewsStory() {
+    const allAssets = await prisma.asset.findMany();
+    if (allAssets.length === 0) return;
+
+    // Pick random target asset for news
+    const targetAsset = allAssets[Math.floor(Math.random() * allAssets.length)];
+    const sector = targetAsset.sector;
+    const niche = targetAsset.niche;
+
+    console.log(`Generating AI news story for ${sector} - ${niche}...`);
+
+    // Fetch historical context
+    const dbHistory = await prisma.newsStory.findMany({
+        orderBy: { publishedAt: 'desc' },
+        take: 10
+    });
+    let historyLines = "No recent events recorded in history yet.";
+    if (dbHistory.length > 0) {
+        historyLines = dbHistory.map(item => `[${item.targetSector} - ${new Date(item.publishedAt).toLocaleDateString()}] ${item.headline}\nContent: ${item.context}`).join('\n\n');
+    }
+
+    const prompt = `
+${aiContextText}
+
+**NEW STORY REQUEST**
+Sector: "${sector}"
+Niche: "${niche}"
+
+Here are the most recent news events that occurred in this world. 
+You MUST review them to maintain narrative consistency. If relevant, follow up directly on one of these events or mention how the previous event led to this one. Refer to them as historical canon.
+
+Recent Historical News Events:
+${historyLines}
+
+Output strictly the JSON structure requested in your context rules.
+`;
+
+    let aiData;
+    try {
+        const response = await fetch(LLM_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: LLM_MODEL,
+                messages: [
+                    { role: "system", content: "You are a highly capable AI trained to output pure JSON data only." },
+                    { role: "user", content: prompt }
+                ],
+                temperature: 0.7
+            })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            if (data.choices && data.choices.length > 0) {
+                const content = data.choices[0].message.content.trim();
+                const cleaned = content.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
+                aiData = JSON.parse(cleaned);
+            }
+        }
+    } catch (e) {
+        console.error("LLM Generation failed", e.message);
+    }
+
+    if (!aiData) {
+        // Fallback
+        const isUp = Math.random() > 0.5;
+        aiData = {
+            Headline: `Breakthrough in ${niche}`,
+            Story: `Advances in ${niche} hold promise for the future. The companies involved are poised to take advantage of these new developments, leading to a new era of growth.`,
+            Expected_Economic_Outcome: `This should establish a stable outlook for the sector.`,
+            Direction: isUp ? "UP" : "DOWN",
+            Intensity_Weight: Math.floor(Math.random() * 5) + 1,
+            Competitor_Inversion: Math.random() > 0.7
+        };
+    }
 
     const newStory = await prisma.newsStory.create({
         data: {
-            headline: randomStory.Headline,
-            context: randomStory.Context,
-            targetSector: randomStory.Target_Sector,
-            targetSpecialty: randomStory.Target_Specialty,
-            impactScope: randomStory.Impact_Scope,
-            direction: randomStory.Direction,
-            intensityWeight: randomStory.Intensity_Weight,
-            competitorInversion: randomStory.Competitor_Inversion
+            headline: aiData.Headline || "Market Update",
+            context: `${aiData.Story}\n\n**Expected Economic Outcome**\n\n${aiData.Expected_Economic_Outcome}`,
+            targetSector: sector,
+            targetSpecialty: niche,
+            impactScope: Math.random() > 0.5 ? "SECTOR" : "SPECIALTY",
+            direction: aiData.Direction || "UP",
+            intensityWeight: aiData.Intensity_Weight || 1,
+            competitorInversion: aiData.Competitor_Inversion || false
         }
     });
 

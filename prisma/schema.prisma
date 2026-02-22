@@ -9,14 +9,20 @@ datasource db {
 
 model User {
   id           String        @id @default(cuid())
+  username     String?       @unique
+  password     String        @default("password")
   role         String        @default("STUDENT")
   deltaBalance Float         @default(100000.0) // Initial balance
   marginLimit  Float         @default(0.0)
   marginLoan   Float         @default(0.0)
+  lendingLimit Float         @default(0.0) // How much of balance they are willing to lend out
+  lendingRate  Float         @default(0.0) // Interest rate offered (e.g. 0.05 for 5%)
   portfolios   Portfolio[]
   transactions Transaction[]
   userGoals    UserGoal[]
   bids         GoalAuction[]
+  loansGiven   Loan[]        @relation("Lender")
+  loansTaken   Loan[]        @relation("Borrower")
 }
 
 model Asset {
@@ -124,4 +130,19 @@ model UserGoal {
   costPaid   Float
   user       User     @relation(fields: [userId], references: [id])
   goalCard   GoalCard @relation(fields: [goalCardId], references: [id])
+}
+
+model Loan {
+  id           String   @id @default(cuid())
+  lenderId     String
+  borrowerId   String
+  principal    Float
+  interestRate Float
+  amountOwed   Float
+  status       String   @default("ACTIVE") // "ACTIVE" or "REPAID"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  lender       User     @relation("Lender", fields: [lenderId], references: [id])
+  borrower     User     @relation("Borrower", fields: [borrowerId], references: [id])
 }

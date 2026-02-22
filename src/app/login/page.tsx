@@ -1,43 +1,100 @@
-import { loginAsStudent, loginAsAdmin } from '../actions';
+'use client';
+
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+    const router = useRouter();
+
+    const handleLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+        setLoading(true);
+
+        try {
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            if (res.ok) {
+                router.push('/');
+                router.refresh();
+            } else {
+                const data = await res.json();
+                setError(data.error || 'Failed to login');
+            }
+        } catch (err) {
+            setError('An error occurred during login.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
-        <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 text-white">
-            <div className="w-full max-w-sm p-8 bg-gray-800 rounded-lg shadow-xl border border-gray-700">
-                <h1 className="text-3xl font-bold mb-8 text-center bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                    OxNet Trading
-                </h1>
+        <main className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-4">
 
-                <div className="space-y-4">
-                    <form action={loginAsStudent}>
-                        <button
-                            type="submit"
-                            className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
-                        >
-                            <span>Login as Student</span>
-                        </button>
-                    </form>
+            <div className="w-48 h-48 mb-6">
+                <img src="/logo.png" alt="OxNet Logo" className="w-full h-full object-contain drop-shadow-2xl" />
+            </div>
 
-                    <div className="relative flex py-2 items-center">
-                        <div className="flex-grow border-t border-gray-600"></div>
-                        <span className="flex-shrink mx-4 text-gray-400 text-sm">Or</span>
-                        <div className="flex-grow border-t border-gray-600"></div>
+            <div className="bg-gray-900 border border-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-md">
+                <h1 className="text-3xl font-black text-white text-center mb-2 tracking-widest uppercase">Operator Login</h1>
+                <p className="text-gray-400 text-center mb-8 text-sm uppercase tracking-wider">Access the Exchange</p>
+
+                {error && (
+                    <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-3 rounded mb-6 text-sm text-center">
+                        {error}
+                    </div>
+                )}
+
+                <form onSubmit={handleLogin} className="space-y-6">
+                    <div>
+                        <label className="block text-gray-400 text-xs font-bold mb-2 uppercase tracking-widest">
+                            Callsign / Username
+                        </label>
+                        <input
+                            type="text"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            className="w-full bg-black border border-gray-700 rounded px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors font-mono"
+                            placeholder="e.g. ez18"
+                            required
+                        />
                     </div>
 
-                    <form action={loginAsAdmin}>
-                        <button
-                            type="submit"
-                            className="w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
-                        >
-                            <span>Login as Admin</span>
-                        </button>
-                    </form>
-                </div>
+                    <div>
+                        <label className="block text-gray-400 text-xs font-bold mb-2 uppercase tracking-widest">
+                            Passphrase
+                        </label>
+                        <input
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="w-full bg-black border border-gray-700 rounded px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors font-mono"
+                            placeholder="••••••••"
+                            required
+                        />
+                    </div>
 
-                <p className="mt-6 text-center text-sm text-gray-500">
-                    Select a role to continue to the dashboard.
-                </p>
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className={`w-full py-4 rounded font-bold uppercase tracking-widest transition-colors ${loading ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}
+                    >
+                        {loading ? 'Authenticating...' : 'Enter System'}
+                    </button>
+                </form>
             </div>
-        </div>
+
+            <div className="mt-12 text-center text-xs text-gray-600 uppercase tracking-widest">
+                OxNet Arbitrage Engine © 2026
+            </div>
+        </main>
     );
 }

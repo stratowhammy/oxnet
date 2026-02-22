@@ -39,6 +39,7 @@ export default async function Leaderboard() {
 
         return {
             id: user.id,
+            username: (user as any).username,
             totalNetPNL,
             realizedPNL,
             unrealizedPNL,
@@ -97,10 +98,10 @@ export default async function Leaderboard() {
                                         <td className="py-5 px-6">
                                             <div className="flex items-center gap-3">
                                                 <div className="h-10 w-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex flex-col justify-center items-center shadow-inner font-bold text-white text-sm uppercase ring-1 ring-gray-700">
-                                                    {user.id.substring(0, 2)}
+                                                    {(user.username || user.id).substring(0, 2)}
                                                 </div>
                                                 <div className="font-sans font-bold text-gray-200">
-                                                    {user.id}
+                                                    {user.username || user.id}
                                                 </div>
                                             </div>
                                         </td>
