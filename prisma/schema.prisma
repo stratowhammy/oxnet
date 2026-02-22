@@ -204,11 +204,13 @@ model LimitOrder {
 }
 
 model InviteCode {
-  code      String   @id           // 8-digit alphanumeric code
-  used      Boolean  @default(false)
-  usedById  String?                // userId who redeemed it
-  createdAt DateTime @default(now())
-  usedAt    DateTime?
+  code         String   @id           // 8-digit alphanumeric code
+  used         Boolean  @default(false)
+  usedById     String?                // userId who redeemed it
+  createdAt    DateTime @default(now())
+  usedAt       DateTime?
+  label        String?                // Admin-facing label, e.g. "Oxford 2026 - CEO slot"
+  allowedRoles String   @default("CEO,TRADER,HFM")  // Comma-separated list of roles user can pick from
 }
 
 model SectorIndex {

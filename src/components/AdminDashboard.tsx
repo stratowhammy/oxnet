@@ -61,9 +61,16 @@ export default function AdminDashboard() {
 
     // Invite codes
     const [codeCount, setCodeCount] = useState(1);
+    const [newInviteLabel, setNewInviteLabel] = useState('');
+    const [inviteAllowedRoles, setInviteAllowedRoles] = useState<string[]>(['CEO', 'TRADER', 'HFM']);
     const [generatingCodes, setGeneratingCodes] = useState(false);
-    const [inviteCodes, setInviteCodes] = useState<{ code: string; used: boolean; usedById?: string | null; createdAt: string }[]>([]);
+    const [inviteCodes, setInviteCodes] = useState<{ code: string; used: boolean; usedById?: string | null; createdAt: string; label?: string | null; allowedRoles: string }[]>([]);
     const [showInvitePanel, setShowInvitePanel] = useState(false);
+    const [editingCode, setEditingCode] = useState<string | null>(null);
+    const [editRoles, setEditRoles] = useState<string[]>([]);
+
+    const ALL_PLAYER_ROLES = ['CEO', 'FACTORY_OWNER', 'SMALL_BUSINESS', 'UNION_LEADER', 'MAYOR', 'POLITICIAN', 'TRADER', 'HFM'];
+    const ROLE_LABELS: Record<string, string> = { CEO: '🏢 CEO', FACTORY_OWNER: '🏭 Factory', SMALL_BUSINESS: '🏪 SBO', UNION_LEADER: '🔩 Union', MAYOR: '🏛️ Mayor', POLITICIAN: '🗳️ Politician', TRADER: '📈 Trader', HFM: '💰 HFM' };
 
     async function fetchUsers() {
         try {
@@ -212,9 +219,27 @@ export default function AdminDashboard() {
             const res = await fetch('/api/admin/invites');
             if (res.ok) {
                 const data = await res.json();
-                setInviteCodes(data.codes);
+                setInviteCodes(Array.isArray(data) ? data : []);
             }
         } catch (e) { console.error(e); }
+    }
+
+    async function handleSaveInviteRoles(code: string) {
+        try {
+            const res = await fetch('/api/admin/invites', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code, allowedRoles: editRoles })
+            });
+            if (res.ok) { showFeedback('success', `Roles saved for ${code}`); setEditingCode(null); fetchInviteCodes(); }
+            else { const d = await res.json(); showFeedback('error', d.error || 'Failed to save'); }
+        } catch { showFeedback('error', 'Network error'); }
+    }
+
+    async function handleDeleteCode(code: string) {
+        const res = await fetch(`/api/admin/invites?code=${code}`, { method: 'DELETE' });
+        if (res.ok) { showFeedback('success', `Code ${code} deleted`); fetchInviteCodes(); }
+        else { showFeedback('error', 'Cannot delete (may be used or locked)'); }
     }
 
     async function generateInviteCodes() {
@@ -223,11 +248,11 @@ export default function AdminDashboard() {
             const res = await fetch('/api/admin/invites', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ count: codeCount })
+                body: JSON.stringify({ count: Number(codeCount), label: newInviteLabel || undefined, allowedRoles: inviteAllowedRoles })
             });
             if (res.ok) {
-                const data = await res.json();
-                showFeedback('success', `Generated ${data.codes.length} invite code(s)`);
+                showFeedback('success', `Generated ${codeCount} invite code(s)`);
+                setNewInviteLabel('');
                 fetchInviteCodes();
             } else {
                 showFeedback('error', 'Failed to generate codes');
@@ -311,51 +336,112 @@ export default function AdminDashboard() {
             {showInvitePanel && (
                 <div className="px-6 pb-4">
                     <div className="bg-gray-900 border border-amber-800/50 rounded-xl p-6">
-                        <h3 className="text-lg font-bold text-amber-400 mb-4 uppercase tracking-widest">🔑 Invite Code Generator</h3>
-                        <div className="flex gap-3 items-end mb-4">
-                            <div>
-                                <label className="block text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">How many?</label>
-                                <input
-                                    type="number"
-                                    min={1} max={99}
-                                    value={codeCount}
-                                    onChange={e => setCodeCount(Math.min(99, Math.max(1, parseInt(e.target.value) || 1)))}
-                                    className="bg-black border border-gray-700 rounded px-3 py-2 text-white font-mono w-20 text-center"
-                                />
+                        <h3 className="text-lg font-bold text-amber-400 mb-4 uppercase tracking-widest">🔑 Invite Code Manager</h3>
+
+                        {/* Generate new codes */}
+                        <div className="mb-4 bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+                            <div className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-3">Generate New Codes</div>
+                            <div className="flex flex-wrap gap-3 items-end mb-3">
+                                <div>
+                                    <label className="block text-xs text-gray-500 mb-1">Count</label>
+                                    <input type="number" min={1} max={99} value={codeCount}
+                                        onChange={e => setCodeCount(Math.min(99, Math.max(1, parseInt(e.target.value) || 1)))}
+                                        className="bg-black border border-gray-700 rounded px-3 py-2 text-white font-mono w-20 text-center" />
+                                </div>
+                                <div className="flex-1 min-w-48">
+                                    <label className="block text-xs text-gray-500 mb-1">Label (optional)</label>
+                                    <input type="text" placeholder="e.g. Oxford 2026 — CEO batch"
+                                        value={newInviteLabel} onChange={e => setNewInviteLabel(e.target.value)}
+                                        className="w-full bg-black border border-gray-700 rounded px-3 py-2 text-white text-sm" />
+                                </div>
                             </div>
-                            <button
-                                onClick={generateInviteCodes}
-                                disabled={generatingCodes}
-                                className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs uppercase tracking-widest px-4 py-2.5 rounded transition-colors disabled:opacity-50"
-                            >
-                                {generatingCodes ? 'Generating...' : 'Generate Codes'}
-                            </button>
-                            {inviteCodes.filter(c => !c.used).length > 0 && (
-                                <button
-                                    onClick={() => {
+                            <div className="mb-3">
+                                <div className="text-xs text-gray-500 mb-2">Allowed Roles (users will choose from these)</div>
+                                <div className="flex flex-wrap gap-2">
+                                    {ALL_PLAYER_ROLES.map(r => (
+                                        <button key={r} type="button"
+                                            onClick={() => setInviteAllowedRoles(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r])}
+                                            className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${inviteAllowedRoles.includes(r)
+                                                    ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                                                    : 'bg-gray-800 border-gray-600 text-gray-500 hover:border-gray-400'
+                                                }`}>
+                                            {ROLE_LABELS[r] ?? r}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="flex gap-3">
+                                <button onClick={generateInviteCodes} disabled={generatingCodes || inviteAllowedRoles.length === 0}
+                                    className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs uppercase tracking-widest px-4 py-2.5 rounded transition-colors disabled:opacity-50">
+                                    {generatingCodes ? 'Generating...' : 'Generate'}
+                                </button>
+                                {inviteCodes.filter(c => !c.used).length > 0 && (
+                                    <button onClick={() => {
                                         const unused = inviteCodes.filter(c => !c.used).map(c => c.code).join('\n');
                                         navigator.clipboard.writeText(unused);
-                                        showFeedback('success', 'Unused codes copied to clipboard');
-                                    }}
-                                    className="bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold text-xs uppercase tracking-widest px-4 py-2.5 rounded border border-gray-700 transition-colors"
-                                >
-                                    📋 Copy Unused
-                                </button>
-                            )}
+                                        showFeedback('success', 'Unused codes copied!');
+                                    }} className="bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold text-xs uppercase tracking-widest px-4 py-2.5 rounded border border-gray-700 transition-colors">
+                                        📋 Copy Unused
+                                    </button>
+                                )}
+                            </div>
                         </div>
-                        <div className="max-h-60 overflow-y-auto space-y-1">
+
+                        {/* Existing codes list */}
+                        <div className="max-h-80 overflow-y-auto space-y-2">
                             {inviteCodes.length === 0 ? (
-                                <p className="text-gray-500 text-sm">No invite codes generated yet.</p>
-                            ) : (
-                                inviteCodes.map(c => (
-                                    <div key={c.code} className={`flex items-center justify-between px-3 py-2 rounded text-sm font-mono ${c.used ? 'bg-gray-800/30 text-gray-600' : 'bg-gray-800 text-white'}`}>
-                                        <span className="tracking-[0.2em]">{c.code}</span>
-                                        <span className={`text-xs uppercase font-bold ${c.used ? 'text-red-400' : 'text-green-400'}`}>
-                                            {c.used ? `Used${c.usedById ? ` by ${c.usedById.slice(0, 8)}...` : ''}` : 'Available'}
-                                        </span>
+                                <p className="text-gray-500 text-sm">No invite codes yet.</p>
+                            ) : inviteCodes.map(c => (
+                                <div key={c.code} className={`rounded-lg border px-4 py-3 text-sm ${c.used ? 'border-gray-700 bg-gray-800/20 opacity-60' : 'border-amber-800/40 bg-gray-800/50'}`}>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <div className="flex items-center gap-3">
+                                            <span className="font-mono tracking-[0.25em] text-white font-bold">{c.code}</span>
+                                            {c.label && <span className="text-xs text-gray-400 italic">{c.label}</span>}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${c.used ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
+                                                {c.used ? 'USED' : 'OPEN'}
+                                            </span>
+                                            {!c.used && (
+                                                <>
+                                                    <button onClick={() => { setEditingCode(c.code); setEditRoles(c.allowedRoles.split(',').map(r => r.trim())); }}
+                                                        className="text-xs text-amber-400 hover:text-amber-300 font-bold">Edit Roles</button>
+                                                    <button onClick={() => handleDeleteCode(c.code)}
+                                                        className="text-xs text-red-500 hover:text-red-300 font-bold">Delete</button>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
-                                ))
-                            )}
+                                    <div className="flex flex-wrap gap-1">
+                                        {c.allowedRoles.split(',').map(r => r.trim()).filter(Boolean).map(r => (
+                                            <span key={r} className="text-xs bg-gray-700/50 text-gray-300 px-2 py-0.5 rounded-full">{ROLE_LABELS[r] ?? r}</span>
+                                        ))}
+                                    </div>
+                                    {editingCode === c.code && (
+                                        <div className="mt-3 pt-3 border-t border-gray-700">
+                                            <div className="text-xs text-gray-400 mb-2">Toggle allowed roles:</div>
+                                            <div className="flex flex-wrap gap-2 mb-3">
+                                                {ALL_PLAYER_ROLES.map(r => (
+                                                    <button key={r} type="button"
+                                                        onClick={() => setEditRoles(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r])}
+                                                        className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${editRoles.includes(r)
+                                                                ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                                                                : 'bg-gray-800 border-gray-600 text-gray-500 hover:border-gray-400'
+                                                            }`}>
+                                                        {ROLE_LABELS[r] ?? r}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => handleSaveInviteRoles(c.code)}
+                                                    className="px-4 py-1.5 rounded bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold">Save</button>
+                                                <button onClick={() => setEditingCode(null)}
+                                                    className="px-4 py-1.5 rounded bg-gray-700 text-gray-400 hover:text-white text-xs font-bold">Cancel</button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>
