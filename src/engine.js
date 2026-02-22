@@ -171,20 +171,29 @@ CRITICAL: Subject must be '${companyName}'. Impact must be logical based on nich
         };
     }
 
-    const newStory = await prisma.newsStory.create({
-        data: {
-            headline: aiData.Headline || "Market Update",
-            context: `${aiData.Story}\n\n**Expected Economic Outcome**\n\n${aiData.Expected_Economic_Outcome}`,
-            targetSector: sector,
-            targetSpecialty: niche,
-            impactScope: Math.random() > 0.5 ? "SECTOR" : "SPECIALTY",
-            direction: aiData.Direction || "UP",
-            intensityWeight: aiData.Intensity_Weight || 1,
-            competitorInversion: aiData.Competitor_Inversion || false
-        }
-    });
+    // Harden AI outputs: Ensure correct types for Prisma
+    const direction = (String(aiData.Direction || 'UP').toUpperCase() === 'DOWN') ? 'DOWN' : 'UP';
+    const intensity = Number(aiData.Intensity_Weight) || 3;
+    const inversion = (aiData.Competitor_Inversion === true || String(aiData.Competitor_Inversion).toLowerCase() === 'true');
 
-    console.log(`[${new Date().toISOString()}] NEWS PUBLISHED: ${newStory.headline}`);
+    try {
+        const newStory = await prisma.newsStory.create({
+            data: {
+                headline: aiData.Headline || "Market Update",
+                context: `${aiData.Story}\n\n**Expected Economic Outcome**\n\n${aiData.Expected_Economic_Outcome}`,
+                targetSector: sector,
+                targetSpecialty: niche,
+                impactScope: Math.random() > 0.5 ? "SECTOR" : "SPECIALTY",
+                direction: direction,
+                intensityWeight: intensity,
+                competitorInversion: inversion
+            }
+        });
+
+        console.log(`[AI News] Published: ${newStory.headline}`);
+    } catch (dbErr) {
+        console.error("Failed to save AI news story to DB:", dbErr.message);
+    }
 }
 
 // 3. Trade Simulator (Runs every ~1 minute)
@@ -665,25 +674,39 @@ Write a news story about this CEO decision and its market impact. The story shou
                 };
             }
 
-            await prisma.newsStory.create({
-                data: {
-                    headline: aiData.Headline || `${decision.asset.name}: CEO Decision Shakes Market`,
-                    context: `${aiData.Story}\n\n**Expected Economic Outcome**\n\n${aiData.Expected_Economic_Outcome}`,
-                    targetSector: decision.asset.sector,
-                    targetSpecialty: decision.asset.niche,
-                    impactScope: 'SPECIALTY',
-                    direction: aiData.Direction || 'UP',
-                    intensityWeight: aiData.Intensity_Weight || 3,
-                    competitorInversion: aiData.Competitor_Inversion || false,
-                }
-            });
+            // Harden AI outputs: Ensure correct types for Prisma
+            const direction = (String(aiData.Direction || 'UP').toUpperCase() === 'DOWN') ? 'DOWN' : 'UP';
+            const intensity = Number(aiData.Intensity_Weight) || 3;
+            const inversion = (aiData.Competitor_Inversion === true || String(aiData.Competitor_Inversion).toLowerCase() === 'true');
 
-            await prisma.ceoScenario.update({
-                where: { id: decision.id },
-                data: { newsPublished: true },
-            });
+            try {
+                await prisma.newsStory.create({
+                    data: {
+                        headline: aiData.Headline || `${decision.asset.name}: CEO Decision Shakes Market`,
+                        context: `${aiData.Story}\n\n**Expected Economic Outcome**\n\n${aiData.Expected_Economic_Outcome}`,
+                        targetSector: decision.asset.sector,
+                        targetSpecialty: decision.asset.niche,
+                        impactScope: 'SPECIALTY',
+                        direction: direction,
+                        intensityWeight: intensity,
+                        competitorInversion: inversion,
+                    }
+                });
 
-            console.log(`[CEO News] Published story for ${decision.asset.symbol} based on CEO decision.`);
+                await prisma.ceoScenario.update({
+                    where: { id: decision.id },
+                    data: { newsPublished: true },
+                });
+
+                console.log(`[CEO News] Published story for ${decision.asset.symbol} based on CEO decision.`);
+            } catch (dbErr) {
+                console.error(`Failed to save CEO news story to DB for ${decision.asset.symbol}:`, dbErr.message);
+                // Mark as published anyway to avoid infinite retry loops if the data is consistently bad
+                await prisma.ceoScenario.update({
+                    where: { id: decision.id },
+                    data: { newsPublished: true },
+                });
+            }
         }
     } catch (e) {
         console.error('Error processing CEO decisions:', e);
@@ -799,15 +822,23 @@ function isWithinTradingHours() {
     return day >= 1 && day <= 5 && hour >= 8 && hour < 16;
 }
 
-// Scheduled wrapper for news: only publish during trading hours
+// Scheduled wrapper for news: only publish during trading hours unless 24/7 is enabled
 async function scheduledPublishNewsStory() {
-    if (!isWithinTradingHours()) {
-        console.log(`[${new Date().toISOString()}] Outside trading hours (8AM-4PM EST Mon-Fri), skipping news publish.`);
-        return;
+    try {
+        const setting = await prisma.globalSetting.findUnique({ where: { key: 'NEWS_24_7' } });
+        const is247 = setting?.value === 'true';
+
+        if (!is247 && !isWithinTradingHours()) {
+            console.log(`[${new Date().toISOString()}] Outside trading hours (8AM-4PM EST Mon-Fri) and 24/7 news is DISABLED, skipping news publish.`);
+            return;
+        }
+
+        // Reload context before publishing in case it was refreshed
+        reloadAIContext();
+        await publishNewsStory();
+    } catch (e) {
+        console.error("Error in scheduled news publish:", e);
     }
-    // Reload context before publishing in case it was refreshed
-    reloadAIContext();
-    await publishNewsStory();
 }
 
 console.log("Starting OxNet Background Engine...");
