@@ -6,7 +6,6 @@ import { createChart, ColorType, ISeriesApi, CandlestickSeries, LineSeries } fro
 import { calculateSMA, calculateBollingerBands, Candle, BollingerBands } from '@/lib/indicators';
 import { z } from 'zod';
 import Banking from './Banking';
-import CeoDecisionPanel from './CeoDecisionPanel';
 
 // --- Types ---
 type Asset = {
@@ -367,6 +366,8 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
     const [showSMA10, setShowSMA10] = useState(false);
     const [showSMA20, setShowSMA20] = useState(false);
     const [showSMA50, setShowSMA50] = useState(false);
+    const [showSMA100, setShowSMA100] = useState(false);
+    const [showSMA200, setShowSMA200] = useState(false);
 
     // BB Toggles
     const [showBB, setShowBB] = useState(false);
@@ -382,11 +383,6 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
     const [impactLoading, setImpactLoading] = useState(false);
     const [takeProfitPrice, setTakeProfitPrice] = useState<number | ''>('');
     const [stopLossPrice, setStopLossPrice] = useState<number | ''>('');
-
-    // --- State: Callsign ---
-    const [showCallsignModal, setShowCallsignModal] = useState(false);
-    const [newCallsign, setNewCallsign] = useState('');
-    const [callsignLoading, setCallsignLoading] = useState(false);
 
     // --- Effects: Chart Data ---
     useEffect(() => {
@@ -420,6 +416,8 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
     const sma10 = useMemo(() => calculateSMA(chartData, 10), [chartData]);
     const sma20 = useMemo(() => calculateSMA(chartData, 20), [chartData]);
     const sma50 = useMemo(() => calculateSMA(chartData, 50), [chartData]);
+    const sma100 = useMemo(() => calculateSMA(chartData, 100), [chartData]);
+    const sma200 = useMemo(() => calculateSMA(chartData, 200), [chartData]);
 
     // Default to 20 period for BB
     const bollingerData = useMemo(() => showBB ? calculateBollingerBands(chartData, 20, bbStdDev) : [], [chartData, showBB, bbStdDev]);
@@ -456,6 +454,8 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
         const sma10Series = chart.addSeries(LineSeries, { color: '#fbbf24', lineWidth: 1, title: 'SMA 10' });
         const sma20Series = chart.addSeries(LineSeries, { color: '#f97316', lineWidth: 1, title: 'SMA 20' });
         const sma50Series = chart.addSeries(LineSeries, { color: '#3b82f6', lineWidth: 1, title: 'SMA 50' });
+        const sma100Series = chart.addSeries(LineSeries, { color: '#ef4444', lineWidth: 1, title: 'SMA 100' });
+        const sma200Series = chart.addSeries(LineSeries, { color: '#8b5cf6', lineWidth: 1, title: 'SMA 200' });
 
         const bbUpperSeries = chart.addSeries(LineSeries, { color: '#e5e7eb', lineWidth: 1, lineStyle: 2, title: `BB Upper (${bbStdDev})` });
         const bbLowerSeries = chart.addSeries(LineSeries, { color: '#e5e7eb', lineWidth: 1, lineStyle: 2, title: `BB Lower (${bbStdDev})` });
@@ -464,6 +464,8 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
         if (showSMA10) sma10Series.setData(sma10);
         if (showSMA20) sma20Series.setData(sma20);
         if (showSMA50) sma50Series.setData(sma50);
+        if (showSMA100) sma100Series.setData(sma100);
+        if (showSMA200) sma200Series.setData(sma200);
 
         if (showBB && bollingerData.length > 0) {
             bbUpperSeries.setData(bollingerData.map(d => ({ time: d.time as any, value: d.upper })));
@@ -473,8 +475,13 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
 
         if (visibleRangeRef.current) {
             chart.timeScale().setVisibleLogicalRange(visibleRangeRef.current);
-        } else {
-            chart.timeScale().fitContent();
+        } else if (chartData.length > 0) {
+            // Default view: Last 100 candles
+            const lastIndex = chartData.length - 1;
+            chart.timeScale().setVisibleLogicalRange({
+                from: lastIndex - 100,
+                to: lastIndex,
+            });
         }
 
         const handleResize = () => {
@@ -485,11 +492,12 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
         window.addEventListener('resize', handleResize);
 
         return () => {
-            visibleRangeRef.current = chart.timeScale().getVisibleLogicalRange();
+            const timeScale = chart.timeScale();
+            visibleRangeRef.current = timeScale.getVisibleLogicalRange();
             window.removeEventListener('resize', handleResize);
             chart.remove();
         };
-    }, [chartData, showSMA10, showSMA20, showSMA50, sma10, sma20, sma50, showBB, bollingerData]);
+    }, [chartData, showSMA10, showSMA20, showSMA50, showSMA100, showSMA200, sma10, sma20, sma50, sma100, sma200, showBB, bollingerData, bbStdDev]);
 
     // --- Effects: Price Impact ---
     useEffect(() => {
@@ -591,34 +599,6 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
             }
         } catch (e) {
             alert('Failed to close position.');
-        }
-    };
-
-    const handleChangeCallsign = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newCallsign.trim()) return;
-
-        setCallsignLoading(true);
-        try {
-            const res = await fetch('/api/user/callsign', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ newCallsign })
-            });
-            const data = await res.json();
-
-            if (res.ok) {
-                alert('Callsign successfully updated.');
-                setShowCallsignModal(false);
-                setNewCallsign('');
-                router.refresh();
-            } else {
-                alert(`Error: ${data.error}`);
-            }
-        } catch (e) {
-            alert("Network error.");
-        } finally {
-            setCallsignLoading(false);
         }
     };
 
@@ -834,12 +814,6 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                                 </a>
                             )}
                             <button
-                                onClick={() => setShowCallsignModal(true)}
-                                className="text-xs font-bold uppercase tracking-widest text-blue-400 hover:text-white px-3 py-2 border border-blue-900 hover:bg-blue-900/50 rounded transition-all"
-                            >
-                                Edit Callsign
-                            </button>
-                            <button
                                 onClick={handleLogout}
                                 className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white px-3 py-2 border border-gray-700 hover:bg-gray-800 rounded transition-all"
                             >
@@ -926,6 +900,8 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                                                 <label className="flex items-center gap-1 cursor-pointer hover:text-white"><input type="checkbox" checked={showSMA10} onChange={e => setShowSMA10(e.target.checked)} className="accent-blue-500" /> SMA 10</label>
                                                 <label className="flex items-center gap-1 cursor-pointer hover:text-white"><input type="checkbox" checked={showSMA20} onChange={e => setShowSMA20(e.target.checked)} className="accent-blue-500" /> SMA 20</label>
                                                 <label className="flex items-center gap-1 cursor-pointer hover:text-white"><input type="checkbox" checked={showSMA50} onChange={e => setShowSMA50(e.target.checked)} className="accent-blue-500" /> SMA 50</label>
+                                                <label className="flex items-center gap-1 cursor-pointer hover:text-white"><input type="checkbox" checked={showSMA100} onChange={e => setShowSMA100(e.target.checked)} className="accent-blue-500" /> SMA 100</label>
+                                                <label className="flex items-center gap-1 cursor-pointer hover:text-white"><input type="checkbox" checked={showSMA200} onChange={e => setShowSMA200(e.target.checked)} className="accent-blue-500" /> SMA 200</label>
 
                                                 <div className="w-px h-4 bg-gray-700 mx-1"></div>
 
@@ -988,9 +964,6 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
 
                                 {/* Sidebar Right: Buying/Portfolio (Col 4) */}
                                 <div className="col-span-12 lg:col-span-4 flex flex-col gap-6">
-
-                                    {/* CEO Decision Panel */}
-                                    {user.playerRole === 'CEO' && <CeoDecisionPanel />}
 
                                     {/* Trading Panel */}
                                     <div className="bg-gray-900 rounded-xl p-6 shadow-sm border border-gray-800">

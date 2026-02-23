@@ -49,11 +49,7 @@ async function assignRoleGoals(userId: string, role: string, managedAssetId?: st
 }
 
 async function generateHandle(role: string, companyName?: string): Promise<string> {
-    const roleContext = role === 'CEO'
-        ? `a CEO running the company "${companyName}"`
-        : role === 'HEDGE_FUND'
-            ? 'a hedge fund manager'
-            : 'a retail investor';
+    const roleContext = 'a retail investor';
 
     const prompt = `Generate a single unique, memorable trading handle/callsign for ${roleContext} on a stock exchange simulation. 
 The handle should be creative, 1-2 words, no spaces, alphanumeric only (like a gamertag). 
@@ -114,27 +110,14 @@ export async function POST(request: Request) {
 
         // STEP 1: Pick role → generate handle
         if (step === 'PICK_ROLE') {
-            if (!['CEO', 'HEDGE_FUND', 'RETAIL'].includes(role)) {
+            if (role !== 'RETAIL') {
                 return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
-            }
-
-            if (role === 'CEO') {
-                if (!assetId) return NextResponse.json({ error: 'CEO requires a company' }, { status: 400 });
-                const existingCeo = await prisma.user.findFirst({
-                    where: { managedAssetId: assetId, playerRole: 'CEO' }
-                });
-                if (existingCeo) return NextResponse.json({ error: 'Company already has a CEO' }, { status: 409 });
-                const asset = await prisma.asset.findUnique({ where: { id: assetId } });
-                if (!asset) return NextResponse.json({ error: 'Asset not found' }, { status: 404 });
             }
 
             let handle = '';
             let attempts = 0;
             while (attempts < 5) {
-                const companyName = role === 'CEO' && assetId
-                    ? (await prisma.asset.findUnique({ where: { id: assetId } }))?.name
-                    : undefined;
-                handle = await generateHandle(role, companyName || undefined);
+                handle = await generateHandle(role);
                 const exists = await prisma.user.findUnique({ where: { username: handle } });
                 if (!exists) break;
                 attempts++;
@@ -144,7 +127,7 @@ export async function POST(request: Request) {
                 handle = `Trader${Date.now().toString(36)}`;
             }
 
-            return NextResponse.json({ step: 'SET_PASSWORD', handle, role, assetId: assetId || null });
+            return NextResponse.json({ step: 'SET_PASSWORD', handle, role, assetId: null });
         }
 
         // STEP 2: Set password & finalize
@@ -155,7 +138,7 @@ export async function POST(request: Request) {
                 return NextResponse.json({ error: 'Handle and password (min 4 chars) required' }, { status: 400 });
             }
 
-            if (!['CEO', 'HEDGE_FUND', 'RETAIL'].includes(role)) {
+            if (role !== 'RETAIL') {
                 return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
             }
 
@@ -173,29 +156,16 @@ export async function POST(request: Request) {
                 onboarded: true,
             };
 
-            if (role === 'CEO') {
-                if (!assetId) return NextResponse.json({ error: 'CEO requires a company' }, { status: 400 });
-                const existingCeo = await prisma.user.findFirst({
-                    where: { managedAssetId: assetId, playerRole: 'CEO' }
-                });
-                if (existingCeo) return NextResponse.json({ error: 'Company already has a CEO' }, { status: 409 });
-                updateData.managedAssetId = assetId;
-            }
-
-            if (role === 'HEDGE_FUND') {
-                updateData.hedgeFundBalance = 10_000_000;
-            }
-
             const updated = await prisma.user.update({
                 where: { id: userId },
                 data: updateData,
             });
 
             // Auto-assign 2 role-aligned goal cards
-            await assignRoleGoals(userId, role, role === 'CEO' ? assetId : null);
+            await assignRoleGoals(userId, role, null);
 
             return NextResponse.json({
-                message: `Welcome, ${handle}! You are now a ${role === 'CEO' ? 'CEO' : role === 'HEDGE_FUND' ? 'Hedge Fund Manager' : 'Retail Investor'}.`,
+                message: `Welcome, ${handle}! You are now a Retail Investor.`,
                 playerRole: updated.playerRole,
                 username: updated.username,
             });

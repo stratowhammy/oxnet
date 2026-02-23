@@ -42,5 +42,5 @@ body {
 }
 
 .animate-ribbon {
-  animation: ribbon-scroll 150s linear infinite;
+  animation: ribbon-scroll 300s linear infinite;
 }

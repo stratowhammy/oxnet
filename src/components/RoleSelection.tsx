@@ -20,7 +20,7 @@ type Step = 'ROLE' | 'PASSWORD';
 
 export default function RoleSelection({ userId, username, availableCompanies }: RoleSelectionProps) {
     const [step, setStep] = useState<Step>('ROLE');
-    const [selectedRole, setSelectedRole] = useState<'CEO' | 'HEDGE_FUND' | 'RETAIL' | null>(null);
+    const [selectedRole, setSelectedRole] = useState<'RETAIL'>('RETAIL');
     const [selectedCompany, setSelectedCompany] = useState('');
     const [generatedHandle, setGeneratedHandle] = useState('');
     const [password, setPassword] = useState('');
@@ -31,10 +31,6 @@ export default function RoleSelection({ userId, username, availableCompanies }: 
     // Step 1: Pick role → get AI-generated handle
     async function handleRoleSubmit() {
         if (!selectedRole) return;
-        if (selectedRole === 'CEO' && !selectedCompany) {
-            setError('Select a company to manage');
-            return;
-        }
         setSubmitting(true);
         setError('');
 
@@ -44,8 +40,7 @@ export default function RoleSelection({ userId, username, availableCompanies }: 
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     step: 'PICK_ROLE',
-                    role: selectedRole,
-                    assetId: selectedRole === 'CEO' ? selectedCompany : undefined
+                    role: selectedRole
                 })
             });
             const data = await res.json();
@@ -82,7 +77,6 @@ export default function RoleSelection({ userId, username, availableCompanies }: 
                 body: JSON.stringify({
                     step: 'FINALIZE',
                     role: selectedRole,
-                    assetId: selectedRole === 'CEO' ? selectedCompany : undefined,
                     handle: generatedHandle,
                     password: password,
                 })
@@ -101,28 +95,6 @@ export default function RoleSelection({ userId, username, availableCompanies }: 
     }
 
     const roles = [
-        {
-            key: 'CEO' as const,
-            title: 'Chief Executive Officer',
-            subtitle: 'Lead a listed company',
-            icon: '🏢',
-            color: 'from-amber-900/40 to-yellow-900/40',
-            border: 'border-yellow-700',
-            highlight: 'text-yellow-400',
-            description: 'Take the helm of a listed company. Face daily business decisions that directly impact your company\'s stock price and make headlines in The Market Master Journal.',
-            details: ['Manage one listed company', 'Daily AI-generated business scenarios', 'Your decisions become news stories', 'Starting balance: Δ 100,000'],
-        },
-        {
-            key: 'HEDGE_FUND' as const,
-            title: 'Hedge Fund Manager',
-            subtitle: 'Manage a Δ10M fund',
-            icon: '📊',
-            color: 'from-blue-900/40 to-cyan-900/40',
-            border: 'border-blue-700',
-            highlight: 'text-blue-400',
-            description: 'Manage a Δ10,000,000 institutional fund. Earn 10% of every profitable trade as a personal bonus. But beware — if your fund drops below Δ7,500,000, you lose your position.',
-            details: ['Fund capital: Δ 10,000,000', 'Earn 10% of positive trade PNL', 'Demoted to Retail if fund < Δ 7.5M', 'Personal balance: Δ 100,000'],
-        },
         {
             key: 'RETAIL' as const,
             title: 'Retail Investor',
@@ -161,18 +133,14 @@ export default function RoleSelection({ userId, username, availableCompanies }: 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl w-full mb-8">
                         {roles.map(r => {
                             const isSelected = selectedRole === r.key;
-                            const isDisabled = r.key === 'CEO' && availableCompanies.length === 0;
 
                             return (
                                 <button
                                     key={r.key}
-                                    onClick={() => !isDisabled && setSelectedRole(r.key)}
-                                    disabled={isDisabled}
+                                    onClick={() => setSelectedRole(r.key)}
                                     className={`relative text-left p-6 rounded-xl border-2 transition-all duration-300 ${isSelected
-                                            ? `bg-gradient-to-br ${r.color} ${r.border} scale-[1.02] shadow-xl`
-                                            : isDisabled
-                                                ? 'bg-gray-900/50 border-gray-800 opacity-40 cursor-not-allowed'
-                                                : 'bg-gray-900 border-gray-800 hover:border-gray-600 hover:bg-gray-800/50'
+                                        ? `bg-gradient-to-br ${r.color} ${r.border} scale-[1.02] shadow-xl`
+                                        : 'bg-gray-900 border-gray-800 hover:border-gray-600 hover:bg-gray-800/50'
                                         }`}
                                 >
                                     {isSelected && (
@@ -194,39 +162,19 @@ export default function RoleSelection({ userId, username, availableCompanies }: 
                                             </li>
                                         ))}
                                     </ul>
-                                    {isDisabled && (
-                                        <div className="mt-3 text-xs text-red-400 font-bold uppercase">All companies taken</div>
-                                    )}
                                 </button>
                             );
                         })}
                     </div>
 
-                    {/* CEO Company Selection */}
-                    {selectedRole === 'CEO' && availableCompanies.length > 0 && (
-                        <div className="max-w-md w-full mb-8 bg-gray-900 border border-gray-800 rounded-xl p-6">
-                            <label className="block text-xs text-gray-400 font-bold uppercase tracking-widest mb-3">Select Your Company</label>
-                            <select
-                                value={selectedCompany}
-                                onChange={e => setSelectedCompany(e.target.value)}
-                                className="w-full bg-black border border-gray-700 rounded px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-yellow-500"
-                            >
-                                <option value="">-- Choose a company --</option>
-                                {availableCompanies.map(c => (
-                                    <option key={c.id} value={c.id}>
-                                        {c.symbol} — {c.name} ({c.sector})
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
+
 
                     <button
                         onClick={handleRoleSubmit}
                         disabled={!selectedRole || submitting}
                         className={`px-8 py-4 rounded-xl font-black text-lg uppercase tracking-widest transition-all ${!selectedRole || submitting
-                                ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                                : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg hover:shadow-xl hover:scale-[1.02]'
+                            ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                            : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg hover:shadow-xl hover:scale-[1.02]'
                             }`}
                     >
                         {submitting ? 'Generating your identity...' : 'Continue'}
@@ -273,8 +221,8 @@ export default function RoleSelection({ userId, username, availableCompanies }: 
                             onClick={handlePasswordSubmit}
                             disabled={submitting || password.length < 4}
                             className={`w-full py-4 rounded-xl font-black text-lg uppercase tracking-widest transition-all ${submitting || password.length < 4
-                                    ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                                    : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white shadow-lg'
+                                ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                                : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white shadow-lg'
                                 }`}
                         >
                             {submitting ? 'Finalizing...' : 'Enter the Exchange'}

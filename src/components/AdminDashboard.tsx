@@ -44,6 +44,7 @@ export default function AdminDashboard() {
     const [balanceInput, setBalanceInput] = useState('');
     const [modal, setModal] = useState<ModalType>(null);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const [newsScheduleMode, setNewsScheduleMode] = useState<'MODE_24_7' | 'MODE_M_F_8_4'>('MODE_24_7');
 
     // Add user form
     const [newUsername, setNewUsername] = useState('');
@@ -79,7 +80,38 @@ export default function AdminDashboard() {
         }
     }
 
-    useEffect(() => { fetchUsers(); }, []);
+    async function fetchGlobalSettings() {
+        try {
+            const res = await fetch('/api/admin/settings');
+            if (res.ok) {
+                const data = await res.json();
+                setNewsScheduleMode(data.NEWS_SCHEDULE_MODE || 'MODE_24_7');
+            }
+        } catch (e) {
+            console.error('Failed to fetch settings:', e);
+        }
+    }
+
+    async function toggleNewsSchedule() {
+        const newMode = newsScheduleMode === 'MODE_24_7' ? 'MODE_M_F_8_4' : 'MODE_24_7';
+        try {
+            const res = await fetch('/api/admin/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: 'NEWS_SCHEDULE_MODE', value: newMode })
+            });
+            if (res.ok) {
+                setNewsScheduleMode(newMode);
+                showFeedback('success', `News Schedule changed to ${newMode === 'MODE_24_7' ? '24/7 (30 mins)' : 'Trading Hours (10 mins)'}`);
+            } else {
+                showFeedback('error', 'Failed to update schedule');
+            }
+        } catch (e) {
+            showFeedback('error', 'Network error');
+        }
+    }
+
+    useEffect(() => { fetchUsers(); fetchGlobalSettings(); }, []);
 
     function showFeedback(type: 'success' | 'error', message: string) {
         setFeedback({ type, message });
@@ -302,9 +334,15 @@ export default function AdminDashboard() {
                 <button onClick={() => { setShowInvitePanel(!showInvitePanel); if (!showInvitePanel) fetchInviteCodes(); }} className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs uppercase tracking-widest px-4 py-2.5 rounded transition-colors">
                     🔑 Invite Codes
                 </button>
-                <button onClick={fetchUsers} className="bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold text-xs uppercase tracking-widest px-4 py-2.5 rounded border border-gray-700 transition-colors ml-auto">
+                <button onClick={fetchUsers} className="bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold text-xs uppercase tracking-widest px-4 py-2.5 rounded border border-gray-700 transition-colors">
                     ↻ Refresh
                 </button>
+                <div className="ml-auto flex items-center gap-3 bg-gray-900 border border-gray-800 px-4 py-1.5 rounded">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">News Schedule:</span>
+                    <button onClick={toggleNewsSchedule} className={`text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded transition-colors ${newsScheduleMode === 'MODE_24_7' ? 'bg-red-900/50 text-red-400 border border-red-800' : 'bg-green-900/50 text-green-400 border border-green-800'}`}>
+                        {newsScheduleMode === 'MODE_24_7' ? '24/7 (30m)' : 'Mon-Fri 8-4 (10m)'}
+                    </button>
+                </div>
             </div>
 
             {/* Invite Code Panel */}
@@ -359,7 +397,8 @@ export default function AdminDashboard() {
                         </div>
                     </div>
                 </div>
-            )}
+            )
+            }
 
             {/* User Table */}
             <div className="px-6 pb-6">
@@ -515,57 +554,59 @@ export default function AdminDashboard() {
             </div>
 
             {/* --- Modals --- */}
-            {modal && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setModal(null)}>
-                    <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
-                        {modal === 'ADD_USER' && (
-                            <>
-                                <h2 className="text-xl font-black text-white mb-4 uppercase tracking-widest">Add Student</h2>
-                                <form onSubmit={handleAddUser} className="space-y-4">
-                                    <div>
-                                        <label className="block text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Username</label>
-                                        <input type="text" value={newUsername} onChange={e => setNewUsername(e.target.value)}
-                                            className="w-full bg-black border border-gray-700 rounded px-3 py-2 text-white font-mono focus:outline-none focus:border-blue-500"
-                                            placeholder="e.g. trader99" required />
+            {
+                modal && (
+                    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setModal(null)}>
+                        <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
+                            {modal === 'ADD_USER' && (
+                                <>
+                                    <h2 className="text-xl font-black text-white mb-4 uppercase tracking-widest">Add Student</h2>
+                                    <form onSubmit={handleAddUser} className="space-y-4">
+                                        <div>
+                                            <label className="block text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Username</label>
+                                            <input type="text" value={newUsername} onChange={e => setNewUsername(e.target.value)}
+                                                className="w-full bg-black border border-gray-700 rounded px-3 py-2 text-white font-mono focus:outline-none focus:border-blue-500"
+                                                placeholder="e.g. trader99" required />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Password</label>
+                                            <input type="text" value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                                                className="w-full bg-black border border-gray-700 rounded px-3 py-2 text-white font-mono focus:outline-none focus:border-blue-500"
+                                                placeholder="Password" required />
+                                        </div>
+                                        <div className="flex gap-3 justify-end">
+                                            <button type="button" onClick={() => setModal(null)} className="text-gray-400 hover:text-white text-xs font-bold uppercase px-3 py-2">Cancel</button>
+                                            <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase px-4 py-2 rounded">Create</button>
+                                        </div>
+                                    </form>
+                                </>
+                            )}
+                            {modal === 'BULK_IMPORT' && (
+                                <>
+                                    <h2 className="text-xl font-black text-white mb-2 uppercase tracking-widest">Bulk Import Students</h2>
+                                    <p className="text-xs text-gray-500 mb-4">Paste CSV data — Column A: username, Column B: password. One per line.</p>
+                                    <textarea value={bulkCSV} onChange={e => setBulkCSV(e.target.value)}
+                                        className="w-full h-40 bg-black border border-gray-700 rounded px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-purple-500 resize-none"
+                                        placeholder={`student1,pass123\nstudent2,pass456\nstudent3,pass789`} />
+                                    {bulkResults.length > 0 && (
+                                        <div className="mt-4 max-h-32 overflow-y-auto bg-gray-800 rounded p-3 border border-gray-700">
+                                            {bulkResults.map((r, i) => (
+                                                <div key={i} className={`text-xs font-mono ${r.status === 'CREATED' ? 'text-green-400' : 'text-yellow-400'}`}>
+                                                    {r.username}: {r.status}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <div className="flex gap-3 justify-end mt-4">
+                                        <button onClick={() => setModal(null)} className="text-gray-400 hover:text-white text-xs font-bold uppercase px-3 py-2">Close</button>
+                                        <button onClick={handleBulkImport} className="bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs uppercase px-4 py-2 rounded">Import</button>
                                     </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Password</label>
-                                        <input type="text" value={newPassword} onChange={e => setNewPassword(e.target.value)}
-                                            className="w-full bg-black border border-gray-700 rounded px-3 py-2 text-white font-mono focus:outline-none focus:border-blue-500"
-                                            placeholder="Password" required />
-                                    </div>
-                                    <div className="flex gap-3 justify-end">
-                                        <button type="button" onClick={() => setModal(null)} className="text-gray-400 hover:text-white text-xs font-bold uppercase px-3 py-2">Cancel</button>
-                                        <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase px-4 py-2 rounded">Create</button>
-                                    </div>
-                                </form>
-                            </>
-                        )}
-                        {modal === 'BULK_IMPORT' && (
-                            <>
-                                <h2 className="text-xl font-black text-white mb-2 uppercase tracking-widest">Bulk Import Students</h2>
-                                <p className="text-xs text-gray-500 mb-4">Paste CSV data — Column A: username, Column B: password. One per line.</p>
-                                <textarea value={bulkCSV} onChange={e => setBulkCSV(e.target.value)}
-                                    className="w-full h-40 bg-black border border-gray-700 rounded px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-purple-500 resize-none"
-                                    placeholder={`student1,pass123\nstudent2,pass456\nstudent3,pass789`} />
-                                {bulkResults.length > 0 && (
-                                    <div className="mt-4 max-h-32 overflow-y-auto bg-gray-800 rounded p-3 border border-gray-700">
-                                        {bulkResults.map((r, i) => (
-                                            <div key={i} className={`text-xs font-mono ${r.status === 'CREATED' ? 'text-green-400' : 'text-yellow-400'}`}>
-                                                {r.username}: {r.status}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                                <div className="flex gap-3 justify-end mt-4">
-                                    <button onClick={() => setModal(null)} className="text-gray-400 hover:text-white text-xs font-bold uppercase px-3 py-2">Close</button>
-                                    <button onClick={handleBulkImport} className="bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs uppercase px-4 py-2 rounded">Import</button>
-                                </div>
-                            </>
-                        )}
+                                </>
+                            )}
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }

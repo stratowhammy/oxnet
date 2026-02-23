@@ -822,17 +822,36 @@ function isWithinTradingHours() {
     return day >= 1 && day <= 5 && hour >= 8 && hour < 16;
 }
 
-// Scheduled wrapper for news: only publish during trading hours unless 24/7 is enabled
+// Scheduled wrapper for news: Checks every minute, publishes based on schedule mode
 async function scheduledPublishNewsStory() {
     try {
-        const setting = await prisma.globalSetting.findUnique({ where: { key: 'NEWS_24_7' } });
-        const is247 = setting?.value === 'true';
+        const setting = await prisma.globalSetting.findUnique({ where: { key: 'NEWS_SCHEDULE_MODE' } });
+        const mode = setting?.value || 'MODE_24_7'; // Default to 24/7 if not set
 
-        if (!is247 && !isWithinTradingHours()) {
-            console.log(`[${new Date().toISOString()}] Outside trading hours (8AM-4PM EST Mon-Fri) and 24/7 news is DISABLED, skipping news publish.`);
-            return;
+        const lastStory = await prisma.newsStory.findFirst({
+            orderBy: { publishedAt: 'desc' }
+        });
+
+        const now = new Date();
+        const lastPublishedAt = lastStory ? lastStory.publishedAt : new Date(0);
+        const minsSinceLastPublish = (now.getTime() - lastPublishedAt.getTime()) / (1000 * 60);
+
+        if (mode === 'MODE_M_F_8_4') {
+            if (!isWithinTradingHours()) {
+                console.log(`[${now.toISOString()}] Outside trading hours (8AM-4PM EST Mon-Fri), skipping news publish.`);
+                return;
+            }
+            if (minsSinceLastPublish < 10) {
+                return; // Wait until 10 mins have passed
+            }
+        } else {
+            // MODE_24_7
+            if (minsSinceLastPublish < 30) {
+                return; // Wait until 30 mins have passed
+            }
         }
 
+        console.log(`[${now.toISOString()}] Publishing news story. Mode: ${mode}`);
         // Reload context before publishing in case it was refreshed
         reloadAIContext();
         await publishNewsStory();
@@ -858,7 +877,7 @@ initGoalWorker();
 
 setInterval(recordPriceHistories, FIVE_MINS);
 setInterval(recordSectorIndices, FIFTEEN_MINS); // Record sector indices every 15 minutes
-setInterval(scheduledPublishNewsStory, THIRTY_MINS);
+setInterval(scheduledPublishNewsStory, ONE_MIN); // Checks schedule every 1 minute
 setInterval(simulateTradeImpacts, THIRTY_SECONDS); // Run fake trades frequently
 setInterval(applySinusoidalMovements, ONE_MIN); // Force push underlying market graph every 1 minute
 setInterval(checkMarginCalls, THIRTY_SECONDS); // Run liquidations aggressively
