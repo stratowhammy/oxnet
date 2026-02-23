@@ -170,20 +170,97 @@ Rules:
             data: { used: true, usedById: newUser.id, usedAt: new Date() }
         });
 
-        // Create a welcome municipal event
+        // Generate Specialized News Events Based on Role
         try {
-            await prisma.municipalEvent.create({
-                data: {
-                    municipalityId: finalMunicipalityId,
-                    eventType: 'ANNOUNCEMENT',
-                    title: playerRole === 'MAYOR' ? `New Mayor Arrives: ${finalName}` : `New Resident: ${finalName}`,
-                    content: playerRole === 'MAYOR'
-                        ? `${finalName} has been appointed as the new Mayor of ${municipality.name}. ${backstory}`
-                        : `${finalName}, a new ${playerRole.replace(/_/g, ' ').toLowerCase()}, has taken up residence in ${municipality.name}. ${backstory}`,
+            if (playerRole === 'CEO' || playerRole === 'MAYOR') {
+                // Global News for CEO & Mayor
+                await prisma.newsStory.create({
+                    data: {
+                        headline: playerRole === 'MAYOR' ? `New Administration in ${municipality.name}` : `New Leadership: ${finalName} takes the helm`,
+                        context: playerRole === 'MAYOR'
+                            ? `${finalName} has been officially sworn in as the new Mayor of ${municipality.name}. Promises of economic reform are expected to follow. ${backstory}`
+                            : `${finalName} has been appointed as a new CEO within the federation. Markets are watching closely. ${backstory}`,
+                        targetSector: 'GENERAL',
+                        targetSpecialty: playerRole === 'MAYOR' ? 'Politics' : 'Corporate',
+                        impactScope: 'GLOBAL',
+                        direction: 'UP',
+                        intensityWeight: 3,
+                        competitorInversion: false
+                    }
+                });
+
+                // Also create local announcement for Mayor
+                if (playerRole === 'MAYOR') {
+                    await prisma.municipalEvent.create({
+                        data: {
+                            municipalityId: finalMunicipalityId,
+                            eventType: 'ANNOUNCEMENT',
+                            title: `New Mayor Arrives: ${finalName}`,
+                            content: `${finalName} has been appointed as the new Mayor of ${municipality.name}. ${backstory}`,
+                        }
+                    });
                 }
-            });
+            } else if (playerRole === 'FACTORY_OWNER' || playerRole === 'SMALL_BUSINESS') {
+                // AI-Generated Local News for Factory and Business Owners
+                let aiLocalNews = `${finalName}, a new ${playerRole.replace(/_/g, ' ').toLowerCase()}, has taken up residence in ${municipality.name}. ${backstory}`;
+                let aiHeadline = `New Local Business Leader: ${finalName}`;
+
+                try {
+                    const prompt = playerRole === 'FACTORY_OWNER'
+                        ? `Write a short 3-sentence local newspaper story for ${municipality.name} about ${finalName}, a new factory owner who just took ownership of a local facility that employs many people. Output ONLY a JSON object: {"headline": "...", "content": "..."}`
+                        : `Write a short 3-sentence local newspaper story for ${municipality.name} about ${finalName} establishing a new small business in the area. Output ONLY a JSON object: {"headline": "...", "content": "..."}`;
+
+                    const response = await fetch(LLM_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            model: LLM_MODEL,
+                            messages: [
+                                { role: 'system', content: 'You output only valid JSON. No markdown fences, no explanation.' },
+                                { role: 'user', content: prompt }
+                            ],
+                            temperature: 0.8
+                        })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.choices?.[0]?.message?.content) {
+                            const raw = data.choices[0].message.content.trim();
+                            const cleaned = raw.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
+                            const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+                            if (jsonMatch) {
+                                const parsed = JSON.parse(jsonMatch[0]);
+                                if (parsed.headline) aiHeadline = parsed.headline;
+                                if (parsed.content) aiLocalNews = parsed.content;
+                            }
+                        }
+                    }
+                } catch (aiErr) {
+                    console.error('Failed to generate AI local news, falling back:', aiErr);
+                }
+
+                await prisma.municipalEvent.create({
+                    data: {
+                        municipalityId: finalMunicipalityId,
+                        eventType: 'ANNOUNCEMENT',
+                        title: aiHeadline,
+                        content: aiLocalNews,
+                    }
+                });
+            } else {
+                // Default welcome event for all other roles
+                await prisma.municipalEvent.create({
+                    data: {
+                        municipalityId: finalMunicipalityId,
+                        eventType: 'ANNOUNCEMENT',
+                        title: `New Resident: ${finalName}`,
+                        content: `${finalName}, a new ${playerRole.replace(/_/g, ' ').toLowerCase()}, has taken up residence in ${municipality.name}. ${backstory}`,
+                    }
+                });
+            }
         } catch (e: any) {
-            console.error('Failed to create welcome event:', e);
+            console.error('Failed to create welcome event / news:', e);
         }
 
         // Set session cookie
