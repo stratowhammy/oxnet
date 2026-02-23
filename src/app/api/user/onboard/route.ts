@@ -55,7 +55,7 @@ async function generateHandle(role: string, companyName?: string): Promise<strin
             ? 'a hedge fund manager'
             : 'a retail investor';
 
-    const prompt = `Generate a single unique, memorable trading handle/callsign for ${roleContext} on a stock exchange simulation. 
+    const prompt = `Generate a single unique, memorable trading handle/identity for ${roleContext} on a stock exchange simulation. 
 The handle should be creative, 1-2 words, no spaces, alphanumeric only (like a gamertag). 
 Examples: "IronBull", "VaultKeeper", "DeltaHawk", "NightOwl99", "RedFox", "GhostTrader".
 Output ONLY the handle, nothing else. No quotes, no explanation.`;
@@ -83,7 +83,7 @@ Output ONLY the handle, nothing else. No quotes, no explanation.`;
                 return cleaned;
             }
         }
-    } catch (e) {
+    } catch (e: any) {
         console.error('Handle generation failed:', e);
     }
 

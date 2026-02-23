@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import bcrypt from 'bcryptjs';
 
 // GET /api/admin/users — List all users with portfolios
 export async function GET() {
@@ -35,10 +36,12 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: `Username "${username}" already exists` }, { status: 409 });
         }
 
+        const hashedPassword = await bcrypt.hash(password, 10);
+
         const user = await prisma.user.create({
             data: {
                 username,
-                password,
+                password: hashedPassword,
                 role: role || 'STUDENT',
                 deltaBalance: deltaBalance ?? 100000.0
             }

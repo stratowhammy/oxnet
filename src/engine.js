@@ -6,6 +6,8 @@ import { initBackupWorker } from './backupWorker.js';
 import { initGoalWorker } from './goalWorker.js';
 import { calculatePriceShift } from './lib/marketMath.js';
 import { runProductionCycle, PRODUCTION_CYCLE_INTERVAL } from './productionWorker.js';
+import { runLabourMarketUpdate } from './labourWorker.js';
+import { runMunicipalUpdate } from './municipalWorker.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -237,7 +239,7 @@ async function simulateTradeImpacts() {
         }
 
         // Calculate age of story in minutes to model natural market digestion
-        const ageInMinutes = (Date.now() - new Date(story.publishedAt).getTime()) / (1000 * 60);
+        const ageInMinutes = story.publishedAt ? (Date.now() - new Date(story.publishedAt).getTime()) / (1000 * 60) : 9999;
 
         // Exponential decay: volume spikes immediately upon release, then rapidly normalizes (half-life of 15m)
         const decayFactor = Math.exp(-ageInMinutes / 15);
@@ -599,20 +601,21 @@ async function processCeoDecisions() {
         });
 
         for (const decision of pendingDecisions) {
-            const choiceText = decision.chosenOption === 'A' ? decision.choiceA
-                : decision.chosenOption === 'B' ? decision.choiceB
-                    : decision.choiceC;
+            try {
+                const choiceText = decision.chosenOption === 'A' ? decision.choiceA
+                    : decision.chosenOption === 'B' ? decision.choiceB
+                        : decision.choiceC;
 
-            console.log(`[CEO News] Processing decision from ${decision.user.username} for ${decision.asset.symbol}...`);
+                console.log(`[CEO News] Processing decision from ${decision.user.username} for ${decision.asset.symbol}...`);
 
-            const colleagueInfo = await prisma.asset.findMany({
-                where: { sector: decision.asset.sector, symbol: { not: 'DELTA' } },
-                select: { name: true, symbol: true, niche: true, description: true }
-            });
+                const colleagueInfo = await prisma.asset.findMany({
+                    where: { sector: decision.asset.sector, symbol: { not: 'DELTA' } },
+                    select: { name: true, symbol: true, niche: true, description: true }
+                });
 
-            const sectorContext = colleagueInfo.map(a => `- ${a.name} (${a.symbol}): ${a.niche}`).join('\n');
+                const sectorContext = colleagueInfo.map(a => `- ${a.name} (${a.symbol}): ${a.niche}`).join('\n');
 
-            const rulesAndIdentity = `
+                const rulesAndIdentity = `
 # OxNet News Engine Rules
 You are the central intelligence behind the OxNet global economic simulation. Output purely functional JSON to manipulate the fictional economy.
 - No real-world companies exist.
@@ -620,7 +623,7 @@ You are the central intelligence behind the OxNet global economic simulation. Ou
 - Format: Strictly JSON { Headline, Story (5 lines), Expected_Economic_Outcome (2 lines), Direction, Intensity_Weight, Competitor_Inversion }.
 `;
 
-            const prompt = `
+                const prompt = `
 ${rulesAndIdentity}
 
 ## Sector Context: ${decision.asset.sector}
@@ -636,77 +639,87 @@ They chose: "${choiceText}"
 Write a news story about this CEO decision and its market impact. The story should feel like a real financial news article. Output standard JSON.
 `;
 
-            let aiData;
-            try {
-                const response = await fetch(LLM_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        model: LLM_MODEL,
-                        messages: [
-                            { role: 'system', content: 'You are a highly capable AI trained to output pure JSON data only.' },
-                            { role: 'user', content: prompt }
-                        ],
-                        temperature: 0.7
-                    })
-                });
+                let aiData;
+                try {
+                    const response = await fetch(LLM_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            model: LLM_MODEL,
+                            messages: [
+                                { role: 'system', content: 'You are a highly capable AI trained to output pure JSON data only.' },
+                                { role: 'user', content: prompt }
+                            ],
+                            temperature: 0.7
+                        })
+                    });
 
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.choices?.[0]?.message?.content) {
-                        const content = data.choices[0].message.content.trim();
-                        const cleaned = content.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
-                        aiData = JSON.parse(cleaned);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.choices?.[0]?.message?.content) {
+                            const content = data.choices[0].message.content.trim();
+                            const cleaned = content.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
+                            aiData = JSON.parse(cleaned);
+                        }
                     }
+                } catch (e) {
+                    console.error('CEO news generation failed:', e.message);
                 }
-            } catch (e) {
-                console.error('CEO news generation failed:', e.message);
-            }
 
-            if (!aiData) {
-                const isUp = Math.random() > 0.5;
-                aiData = {
-                    Headline: `${decision.asset.name} CEO Makes Bold Strategic Move`,
-                    Story: `The leadership at ${decision.asset.name} has made a significant strategic decision that analysts believe could reshape the company's position in the ${decision.asset.niche} market. The CEO's choice to ${choiceText.toLowerCase()} has drawn attention from institutional investors and competitors alike.`,
-                    Expected_Economic_Outcome: `Market observers anticipate this could have meaningful implications for the broader ${decision.asset.sector} sector in the coming sessions.`,
-                    Direction: isUp ? 'UP' : 'DOWN',
-                    Intensity_Weight: Math.floor(Math.random() * 5) + 3,
-                    Competitor_Inversion: Math.random() > 0.6
-                };
-            }
+                if (!aiData) {
+                    const isUp = Math.random() > 0.5;
+                    aiData = {
+                        Headline: `${decision.asset.name} CEO Makes Bold Strategic Move`,
+                        Story: `The leadership at ${decision.asset.name} has made a significant strategic decision that analysts believe could reshape the company's position in the ${decision.asset.niche} market. The CEO's choice to ${choiceText.toLowerCase()} has drawn attention from institutional investors and competitors alike.`,
+                        Expected_Economic_Outcome: `Market observers anticipate this could have meaningful implications for the broader ${decision.asset.sector} sector in the coming sessions.`,
+                        Direction: isUp ? 'UP' : 'DOWN',
+                        Intensity_Weight: Math.floor(Math.random() * 5) + 3,
+                        Competitor_Inversion: Math.random() > 0.6
+                    };
+                }
 
-            // Harden AI outputs: Ensure correct types for Prisma
-            const direction = (String(aiData.Direction || 'UP').toUpperCase() === 'DOWN') ? 'DOWN' : 'UP';
-            const intensity = Number(aiData.Intensity_Weight) || 3;
-            const inversion = (aiData.Competitor_Inversion === true || String(aiData.Competitor_Inversion).toLowerCase() === 'true');
+                // Harden AI outputs: Ensure correct types for Prisma
+                const direction = (String(aiData.Direction || 'UP').toUpperCase() === 'DOWN') ? 'DOWN' : 'UP';
+                const intensity = Number(aiData.Intensity_Weight) || 3;
+                const inversion = (aiData.Competitor_Inversion === true || String(aiData.Competitor_Inversion).toLowerCase() === 'true');
 
-            try {
-                await prisma.newsStory.create({
-                    data: {
-                        headline: aiData.Headline || `${decision.asset.name}: CEO Decision Shakes Market`,
-                        context: `${aiData.Story}\n\n**Expected Economic Outcome**\n\n${aiData.Expected_Economic_Outcome}`,
-                        targetSector: decision.asset.sector,
-                        targetSpecialty: decision.asset.niche,
-                        impactScope: 'SPECIALTY',
-                        direction: direction,
-                        intensityWeight: intensity,
-                        competitorInversion: inversion,
-                    }
-                });
+                try {
+                    await prisma.newsStory.create({
+                        data: {
+                            headline: aiData.Headline || `${decision.asset.name}: CEO Decision Shakes Market`,
+                            context: `${aiData.Story}\n\n**Expected Economic Outcome**\n\n${aiData.Expected_Economic_Outcome}`,
+                            targetSector: decision.asset.sector,
+                            targetSpecialty: decision.asset.niche,
+                            impactScope: 'SPECIALTY',
+                            direction: direction,
+                            intensityWeight: intensity,
+                            competitorInversion: inversion,
+                        }
+                    });
 
-                await prisma.ceoScenario.update({
-                    where: { id: decision.id },
-                    data: { newsPublished: true },
-                });
+                    await prisma.ceoScenario.update({
+                        where: { id: decision.id },
+                        data: { newsPublished: true },
+                    });
 
-                console.log(`[CEO News] Published story for ${decision.asset.symbol} based on CEO decision.`);
-            } catch (dbErr) {
-                console.error(`Failed to save CEO news story to DB for ${decision.asset.symbol}:`, dbErr.message);
-                // Mark as published anyway to avoid infinite retry loops if the data is consistently bad
-                await prisma.ceoScenario.update({
-                    where: { id: decision.id },
-                    data: { newsPublished: true },
-                });
+                    console.log(`[CEO News] Published story for ${decision.asset.symbol} based on CEO decision.`);
+                } catch (dbErr) {
+                    console.error(`Failed to save CEO news story to DB for ${decision.asset.symbol}:`, dbErr.message);
+                    // Mark as published anyway to avoid infinite retry loops if the data is consistently bad
+                    await prisma.ceoScenario.update({
+                        where: { id: decision.id },
+                        data: { newsPublished: true },
+                    });
+                }
+            } catch (innerErr) {
+                console.error(`Error processing individual CEO decision for ${decision.asset.symbol}:`, innerErr);
+                // Try to mark as published to avoid retry loop
+                try {
+                    await prisma.ceoScenario.update({
+                        where: { id: decision.id },
+                        data: { newsPublished: true }
+                    });
+                } catch { }
             }
         }
     } catch (e) {
@@ -799,23 +812,24 @@ async function refreshAIContext() {
 
 // ----- Scheduler Logic -----
 
-// 5 Minutes = 300,000 ms
+// Timing Constants
 const FIVE_MINS = 5 * 60 * 1000;
-// 15 Minutes = 900,000 ms
 const FIFTEEN_MINS = 15 * 60 * 1000;
-// 30 Minutes = 1,800,000 ms 
 const THIRTY_MINS = 30 * 60 * 1000;
-// 1 Minute = 60,000 ms
 const ONE_MIN = 60 * 1000;
-// 2 Minutes for CEO decision checks
 const TWO_MINS = 2 * 60 * 1000;
-// 30 Seconds for simulation loop to feel "live"
 const THIRTY_SECONDS = 30 * 1000;
 
+// Dynamic scheduler state
+let lastNewsPublishTime = 0;
+let mondayQueueReleased = false; // Prevents double-release on the same Monday
+
 // Helper: check if current time is within trading hours (8 AM - 4 PM EST, Mon-Fri)
-function isWithinTradingHours() {
+async function isWithinTradingHours() {
+    const newsMode = await getSetting('NEWS_MODE');
+    if (newsMode === '24_7') return true;
+
     const now = new Date();
-    // Convert to EST (America/New_York)
     const estString = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
     const est = new Date(estString);
     const day = est.getDay(); // 0=Sun, 6=Sat
@@ -823,33 +837,567 @@ function isWithinTradingHours() {
     return day >= 1 && day <= 5 && hour >= 8 && hour < 16;
 }
 
-// Scheduled wrapper for news: only publish during trading hours unless 24/7 is enabled
-async function scheduledPublishNewsStory() {
+// Helper: check if it's Monday 8 AM EST (within a 2-minute window)
+function isMondayMorning() {
+    const now = new Date();
+    const estString = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+    const est = new Date(estString);
+    return est.getDay() === 1 && est.getHours() === 8 && est.getMinutes() < 2;
+}
+
+// Helper: read a GlobalSetting key, returns value string or null
+async function getSetting(key) {
     try {
-        const setting = await prisma.globalSetting.findUnique({ where: { key: 'NEWS_24_7' } });
-        const is247 = setting?.value === 'true';
+        const s = await prisma.globalSetting.findUnique({ where: { key } });
+        return s?.value ?? null;
+    } catch { return null; }
+}
 
-        if (!is247 && !isWithinTradingHours()) {
-            console.log(`[${new Date().toISOString()}] Outside trading hours (8AM-4PM EST Mon-Fri) and 24/7 news is DISABLED, skipping news publish.`);
-            return;
+// ----- Dynamic News Scheduler (runs every 1 min) -----
+async function dynamicNewsScheduler() {
+    try {
+        const newsMode = (await getSetting('NEWS_MODE')) || 'TRADING_HOURS';
+        const now = Date.now();
+
+        if (newsMode === '24_7') {
+            // Mode A: Publish every 30 minutes, all day, every day
+            if (now - lastNewsPublishTime >= THIRTY_MINS) {
+                reloadAIContext();
+                await publishNewsStory();
+                lastNewsPublishTime = now;
+            }
+        } else {
+            // Mode B: Publish every 15 minutes, only during trading hours
+            if (!isWithinTradingHours()) {
+                return; // Skip entirely outside market hours
+            }
+            if (now - lastNewsPublishTime >= FIFTEEN_MINS) {
+                reloadAIContext();
+                await publishNewsStory();
+                lastNewsPublishTime = now;
+            }
         }
-
-        // Reload context before publishing in case it was refreshed
-        reloadAIContext();
-        await publishNewsStory();
     } catch (e) {
-        console.error("Error in scheduled news publish:", e);
+        console.error("Error in dynamic news scheduler:", e);
     }
 }
 
+// ----- Monday Morning Queue Release -----
+async function releaseMondayQueue() {
+    try {
+        // Only run on Monday 8 AM and only once per Monday
+        if (!isMondayMorning()) {
+            mondayQueueReleased = false; // Reset flag for next Monday
+            return;
+        }
+        if (mondayQueueReleased) return;
+
+        const queued = await prisma.newsStory.findMany({
+            where: { publishedAt: null },
+            orderBy: { id: 'asc' }
+        });
+
+        if (queued.length === 0) return;
+
+        console.log(`[Monday Queue] Releasing ${queued.length} queued CEO decision stories...`);
+
+        // Drip-release stories with staggered timestamps (30 seconds apart)
+        for (let i = 0; i < queued.length; i++) {
+            const releaseTime = new Date(Date.now() + i * 30000); // 30s apart
+            await prisma.newsStory.update({
+                where: { id: queued[i].id },
+                data: { publishedAt: releaseTime }
+            });
+            console.log(`[Monday Queue] Released: ${queued[i].headline}`);
+        }
+
+        mondayQueueReleased = true;
+        console.log(`[Monday Queue] All ${queued.length} stories released.`);
+    } catch (e) {
+        console.error('Error releasing Monday queue:', e);
+    }
+}
+
+// ----- CEO Decision Processor (mode-aware) -----
+async function scheduledProcessCeoDecisions() {
+    try {
+        const newsMode = (await getSetting('NEWS_MODE')) || 'TRADING_HOURS';
+
+        if (newsMode === '24_7') {
+            // In 24/7 mode, always process immediately
+            await processCeoDecisions();
+            return;
+        }
+
+        // Trading Hours mode — check sub-toggle
+        const immediateStr = await getSetting('CEO_NEWS_IMMEDIATE');
+        const immediate = immediateStr === 'true';
+
+        if (immediate) {
+            // CEO stories publish immediately regardless of time
+            await processCeoDecisions();
+            return;
+        }
+
+        // Queue mode: generate stories but don't publish yet
+        await processCeoDecisionsQueued();
+    } catch (e) {
+        console.error('Error in scheduled CEO decision processing:', e);
+    }
+}
+
+// Generate CEO decision stories but queue them (publishedAt = null)
+async function processCeoDecisionsQueued() {
+    try {
+        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+
+        const pendingDecisions = await prisma.ceoScenario.findMany({
+            where: {
+                chosenOption: { not: null },
+                newsPublished: false,
+                answeredAt: { lte: tenMinutesAgo },
+            },
+            include: {
+                user: { select: { username: true } },
+                asset: { select: { name: true, symbol: true, sector: true, niche: true } },
+            }
+        });
+
+        for (const decision of pendingDecisions) {
+            try {
+                const choiceText = decision.chosenOption === 'A' ? decision.choiceA
+                    : decision.chosenOption === 'B' ? decision.choiceB
+                        : decision.choiceC;
+
+                console.log(`[CEO News QUEUED] Generating story for ${decision.asset.symbol} (will release Monday 8AM)...`);
+
+                const colleagueInfo = await prisma.asset.findMany({
+                    where: { sector: decision.asset.sector, symbol: { not: 'DELTA' } },
+                    select: { name: true, symbol: true, niche: true, description: true }
+                });
+
+                const sectorContext = colleagueInfo.map(a => `- ${a.name} (${a.symbol}): ${a.niche}`).join('\n');
+
+                const rulesAndIdentity = `
+# OxNet News Engine Rules
+You are the central intelligence behind the OxNet global economic simulation. Output purely functional JSON to manipulate the fictional economy.
+- No real-world companies exist.
+- Tone: Professional, objective, 8th-grade reading level.
+- Format: Strictly JSON { Headline, Story (5 lines), Expected_Economic_Outcome (2 lines), Direction, Intensity_Weight, Competitor_Inversion }.
+`;
+
+                const prompt = `
+${rulesAndIdentity}
+
+## Sector Context: ${decision.asset.sector}
+${sectorContext}
+
+**CEO DECISION NEWS STORY**
+The CEO of "${decision.asset.name}" (${decision.asset.symbol}) in the ${decision.asset.sector} sector (${decision.asset.niche}) was faced with this situation:
+
+"${decision.question}"
+
+They chose: "${choiceText}"
+
+Write a news story about this CEO decision and its market impact. The story should feel like a real financial news article. Output standard JSON.
+`;
+
+                let aiData;
+                try {
+                    const response = await fetch(LLM_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            model: LLM_MODEL,
+                            messages: [
+                                { role: 'system', content: 'You are a highly capable AI trained to output pure JSON data only.' },
+                                { role: 'user', content: prompt }
+                            ],
+                            temperature: 0.7
+                        })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.choices?.[0]?.message?.content) {
+                            const content = data.choices[0].message.content.trim();
+                            const cleaned = content.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
+                            aiData = JSON.parse(cleaned);
+                        }
+                    }
+                } catch (e) {
+                    console.error('CEO news generation failed:', e.message);
+                }
+
+                if (!aiData) {
+                    const isUp = Math.random() > 0.5;
+                    aiData = {
+                        Headline: `${decision.asset.name} CEO Makes Bold Strategic Move`,
+                        Story: `The leadership at ${decision.asset.name} has made a significant strategic decision that analysts believe could reshape the company's position in the ${decision.asset.niche} market. The CEO's choice to ${choiceText.toLowerCase()} has drawn attention from institutional investors and competitors alike.`,
+                        Expected_Economic_Outcome: `Market observers anticipate this could have meaningful implications for the broader ${decision.asset.sector} sector in the coming sessions.`,
+                        Direction: isUp ? 'UP' : 'DOWN',
+                        Intensity_Weight: Math.floor(Math.random() * 5) + 3,
+                        Competitor_Inversion: Math.random() > 0.6
+                    };
+                }
+
+                const direction = (String(aiData.Direction || 'UP').toUpperCase() === 'DOWN') ? 'DOWN' : 'UP';
+                const intensity = Number(aiData.Intensity_Weight) || 3;
+                const inversion = (aiData.Competitor_Inversion === true || String(aiData.Competitor_Inversion).toLowerCase() === 'true');
+
+                try {
+                    // Queued: publishedAt = null (will be released Monday 8 AM)
+                    await prisma.newsStory.create({
+                        data: {
+                            headline: aiData.Headline || `${decision.asset.name}: CEO Decision Shakes Market`,
+                            context: `${aiData.Story}\n\n**Expected Economic Outcome**\n\n${aiData.Expected_Economic_Outcome}`,
+                            targetSector: decision.asset.sector,
+                            targetSpecialty: decision.asset.niche,
+                            impactScope: 'SPECIALTY',
+                            direction: direction,
+                            intensityWeight: intensity,
+                            competitorInversion: inversion,
+                            publishedAt: null, // QUEUED — released on Monday 8AM
+                        }
+                    });
+
+                    await prisma.ceoScenario.update({
+                        where: { id: decision.id },
+                        data: { newsPublished: true },
+                    });
+
+                    console.log(`[CEO News QUEUED] Story queued for ${decision.asset.symbol}.`);
+                } catch (dbErr) {
+                    console.error(`Failed to queue CEO news story for ${decision.asset.symbol}:`, dbErr.message);
+                    await prisma.ceoScenario.update({
+                        where: { id: decision.id },
+                        data: { newsPublished: true },
+                    });
+                }
+            } catch (innerErr) {
+                console.error(`Error processing individual queued CEO decision for ${decision.asset.symbol}:`, innerErr);
+                try {
+                    await prisma.ceoScenario.update({
+                        where: { id: decision.id },
+                        data: { newsPublished: true }
+                    });
+                } catch { }
+            }
+        }
+    } catch (e) {
+        console.error('Error processing CEO decisions (queued):', e);
+    }
+}
+
+
+// ===== ELECTION ENGINE =====
+
+const NPC_NAMES = [
+    'Margaret Thornberry', 'Victor Castellano', 'Priya Subramaniam', 'Henry Ashworth',
+    'Diane Wu-Ortega', 'Samuel Bancroft', 'Elena Kozlov', 'Marcus Okonkwo',
+    'Patricia Sterling', 'Rajesh Dhawan', 'Sofia Marchetti', 'William Bryce',
+    'Amara Nwosu', 'Thomas Blackwell', 'Chen Liwei', 'Isabella Fontaine',
+    'David Rutherford', 'Keiko Tanaka', 'George Pemberton', 'Nadia Petrov',
+];
+
+const NPC_BIOS = [
+    'A veteran public servant with decades of community experience.',
+    'A former educator who believes in grassroots governance.',
+    'A local business leader focused on economic growth and jobs.',
+    'A community organizer passionate about infrastructure reform.',
+    'An environmental advocate pushing for sustainable development.',
+    'A fiscal conservative known for budget discipline.',
+    'A progressive reformer with a bold vision for the future.',
+    'A former military officer emphasizing security and order.',
+    'A healthcare professional campaigning on public wellness.',
+    'A tech entrepreneur proposing digital modernization.',
+];
+
+// Check if we need to create new elections (runs every 30 min)
+async function manageElections() {
+    try {
+        const municipalities = await prisma.municipality.findMany();
+
+        for (const muni of municipalities) {
+            // Check if there's already an active election for this municipality
+            const activeElection = await prisma.election.findFirst({
+                where: {
+                    municipalityId: muni.id,
+                    status: { in: ['CAMPAIGNING', 'VOTING'] }
+                }
+            });
+
+            if (activeElection) {
+                // Manage existing election lifecycle
+                const now = new Date();
+
+                if (activeElection.status === 'CAMPAIGNING' && now >= new Date(activeElection.votingStart)) {
+                    // Transition to voting
+                    await prisma.election.update({
+                        where: { id: activeElection.id },
+                        data: { status: 'VOTING' }
+                    });
+                    await prisma.municipalEvent.create({
+                        data: {
+                            municipalityId: muni.id,
+                            eventType: 'ELECTION',
+                            title: `🗳️ Voting Now Open — ${activeElection.electionType} Election`,
+                            content: `Polls are now open for the ${activeElection.electionType.toLowerCase()} election in ${muni.name}. All residents are encouraged to cast their ballot before polls close.`,
+                        }
+                    });
+                    console.log(`[Election] ${muni.name} — ${activeElection.electionType} election now in VOTING phase.`);
+                }
+
+                if (activeElection.status === 'VOTING' && now >= new Date(activeElection.votingEnd)) {
+                    // Tally votes and close election
+                    await tallyElection(activeElection.id, muni);
+                }
+
+                continue; // Don't create a new election while one is active
+            }
+
+            // Check when the last election was completed
+            const lastElection = await prisma.election.findFirst({
+                where: { municipalityId: muni.id, status: 'COMPLETED' },
+                orderBy: { votingEnd: 'desc' }
+            });
+
+            // Create a new election if none exists or the last one ended more than 3 days ago
+            const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+            if (!lastElection || new Date(lastElection.votingEnd) < threeDaysAgo) {
+                await createElection(muni, 'COUNCIL', 1);
+            }
+        }
+    } catch (e) {
+        console.error('Error managing elections:', e);
+    }
+}
+
+// Check federal elections (Rep, Senator, President) in the Capital District
+async function manageFederalElections() {
+    try {
+        const muni = await prisma.municipality.findUnique({ where: { id: 'capital-district' } });
+        if (!muni) return;
+
+        const syncTargets = [
+            { type: 'REPRESENTATIVE', rank: 2, count: 5, cooldown: 5 }, // 5 days
+            { type: 'SENATOR', rank: 3, count: 3, cooldown: 10 },        // 10 days
+            { type: 'PRESIDENT', rank: 4, count: 1, cooldown: 20 }         // 20 days
+        ];
+
+        for (const target of syncTargets) {
+            const active = await prisma.election.findFirst({
+                where: { municipalityId: muni.id, electionType: target.type, status: { in: ['CAMPAIGNING', 'VOTING'] } }
+            });
+
+            if (active) {
+                const now = new Date();
+                if (active.status === 'CAMPAIGNING' && now >= new Date(active.votingStart)) {
+                    await prisma.election.update({ where: { id: active.id }, data: { status: 'VOTING' } });
+                    console.log(`[Federal Election] ${target.type} now in VOTING.`);
+                }
+                if (active.status === 'VOTING' && now >= new Date(active.votingEnd)) {
+                    await tallyElection(active.id, muni, target.type, target.rank);
+                }
+                continue;
+            }
+
+            const last = await prisma.election.findFirst({
+                where: { municipalityId: muni.id, electionType: target.type, status: 'COMPLETED' },
+                orderBy: { votingEnd: 'desc' }
+            });
+
+            const cooldownMs = target.cooldown * 24 * 60 * 60 * 1000;
+            if (!last || new Date(last.votingEnd).getTime() < Date.now() - cooldownMs) {
+                await createElection(muni, target.type, target.rank);
+            }
+        }
+    } catch (e) {
+        console.error('manageFederalElections error:', e);
+    }
+}
+
+/**
+ * Resolves active policy proposals that have reached their deadline.
+ */
+async function managePolicyLifecycle() {
+    try {
+        const now = new Date();
+        const expired = await prisma.policyProposal.findMany({
+            where: {
+                status: 'VOTING',
+                endsAt: { lte: now }
+            }
+        });
+
+        for (const policy of expired) {
+            const passed = policy.votesFor > policy.votesAgainst;
+            const finalStatus = passed ? 'PASSED' : 'FAILED';
+
+            console.log(`[Policy] Resolving policy ${policy.title}: ${finalStatus} (${policy.votesFor} For, ${policy.votesAgainst} Against).`);
+
+            await prisma.policyProposal.update({
+                where: { id: policy.id },
+                data: { status: finalStatus }
+            });
+
+            // Trigger news on PASS
+            if (passed) {
+                await prisma.newsStory.create({
+                    data: {
+                        headline: `Legislative Alert: ${policy.title} HAS PASSED!`,
+                        context: `The federal assembly has voted in favor of ${policy.title}. Analysts expect a major impact on the ${policy.targetSector || 'national'} economy. ${policy.description}`,
+                        targetSector: policy.targetSector || 'GENERAL',
+                        targetSpecialty: 'National Policy',
+                        impactScope: policy.targetSector ? 'SECTOR' : 'GLOBAL',
+                        direction: policy.policyType === 'SUBSIDY' ? 'UP' : 'DOWN',
+                        intensityWeight: 1,
+                        competitorInversion: false
+                    }
+                });
+            }
+        }
+    } catch (e) {
+        console.error('managePolicyLifecycle error:', e);
+    }
+}
+
+async function createElection(municipality, electionType = 'COUNCIL', targetRank = 1) {
+    try {
+        const now = new Date();
+        const votingStart = new Date(now.getTime() + 24 * 60 * 60 * 1000); // Campaigning for 1 day
+        const votingEnd = new Date(votingStart.getTime() + 24 * 60 * 60 * 1000); // Voting for 1 day
+
+        const election = await prisma.election.create({
+            data: {
+                municipalityId: municipality.id,
+                electionType: electionType,
+                status: 'CAMPAIGNING',
+                campaignStart: now,
+                votingStart,
+                votingEnd,
+            }
+        });
+
+        // Add NPC candidates (2-3)
+        const npcCount = 2 + Math.floor(Math.random() * 2); // 2 or 3
+        const usedNames = new Set();
+        for (let i = 0; i < npcCount; i++) {
+            let name;
+            do { name = NPC_NAMES[Math.floor(Math.random() * NPC_NAMES.length)]; } while (usedNames.has(name));
+            usedNames.add(name);
+            const bio = NPC_BIOS[Math.floor(Math.random() * NPC_BIOS.length)];
+
+            await prisma.candidate.create({
+                data: {
+                    electionId: election.id,
+                    isNpc: true,
+                    npcName: name,
+                    npcBio: bio,
+                }
+            });
+        }
+
+        // Add real POLITICIAN players eligible for this rank
+        const eligibleRank = targetRank - 1;
+        const politicians = await prisma.user.findMany({
+            where: {
+                municipalityId: municipality.id,
+                playerRole: 'POLITICIAN',
+                politicalRank: eligibleRank,
+            }
+        });
+
+        for (const pol of politicians) {
+            await prisma.candidate.create({
+                data: {
+                    electionId: election.id,
+                    userId: pol.id,
+                    isNpc: false,
+                }
+            });
+        }
+
+        // Create campaign announcement event
+        const totalCandidates = npcCount + politicians.length;
+        await prisma.municipalEvent.create({
+            data: {
+                municipalityId: municipality.id,
+                eventType: 'ELECTION',
+                title: `📢 ${electionType} Election Announced in ${municipality.name}`,
+                content: `A new ${electionType.toLowerCase()} election has begun! ${totalCandidates} candidates are vying for office. The campaign period runs until ${votingStart.toLocaleDateString()}, with voting open until ${votingEnd.toLocaleDateString()}.`,
+            }
+        });
+
+        console.log(`[Election] Created ${electionType} election in ${municipality.name} with ${totalCandidates} candidates.`);
+    } catch (e) {
+        console.error(`Error creating election in ${municipality.name}:`, e);
+    }
+}
+
+async function tallyElection(electionId, municipality, electionType = 'COUNCIL', targetRank = 1) {
+    try {
+        const election = await prisma.election.findUnique({
+            where: { id: electionId },
+            include: {
+                candidates: {
+                    orderBy: { voteCount: 'desc' },
+                    include: { user: { select: { id: true, username: true } } }
+                }
+            }
+        });
+
+        if (!election || election.candidates.length === 0) return;
+
+        const winner = election.candidates[0];
+        const winnerName = winner.isNpc ? winner.npcName : winner.user?.username || 'Unknown';
+
+        // Mark election completed
+        await prisma.election.update({
+            where: { id: electionId },
+            data: { status: 'COMPLETED', winnerId: winner.userId || winner.id }
+        });
+
+        // If winner is a real player, promote them
+        if (!winner.isNpc && winner.userId) {
+            await prisma.user.update({
+                where: { id: winner.userId },
+                data: { politicalRank: targetRank }
+            });
+        }
+
+        // Create results announcement
+        const resultsText = election.candidates.map((c, i) => {
+            const name = c.isNpc ? c.npcName : c.user?.username;
+            return `${i + 1}. ${name} — ${c.voteCount} vote${c.voteCount !== 1 ? 's' : ''}`;
+        }).join('\n');
+
+        await prisma.municipalEvent.create({
+            data: {
+                municipalityId: municipality.id,
+                eventType: 'ELECTION',
+                title: `🏆 ${winnerName} Wins ${municipality.name} ${electionType} Election!`,
+                content: `The results are in. ${winnerName} has won the ${electionType.toLowerCase()} election in ${municipality.name}.\n\nFinal Results:\n${resultsText}`,
+            }
+        });
+
+        console.log(`[Election] ${municipality.name} — ${winnerName} wins with ${winner.voteCount} votes.`);
+    } catch (e) {
+        console.error('Error tallying election:', e);
+    }
+}
+
+
 console.log("Starting OxNet Background Engine...");
 
-// Initial kicks (news only if within trading hours)
+// Initial kicks
 recordPriceHistories();
 recordSectorIndices();
-scheduledPublishNewsStory();
+dynamicNewsScheduler(); // Replaces old scheduledPublishNewsStory
 simulateTradeImpacts();
 applySinusoidalMovements();
+manageElections(); // Manage municipality elections
+manageFederalElections(); // Manage federal elections
 
 // Kick off daily midnight backup cron
 initBackupWorker();
@@ -857,18 +1405,124 @@ initBackupWorker();
 // Kick off goal auction processing
 initGoalWorker();
 
+// Scheduled intervals
 setInterval(recordPriceHistories, FIVE_MINS);
-setInterval(recordSectorIndices, FIFTEEN_MINS); // Record sector indices every 15 minutes
-setInterval(scheduledPublishNewsStory, THIRTY_MINS);
-setInterval(simulateTradeImpacts, THIRTY_SECONDS); // Run fake trades frequently
-setInterval(applySinusoidalMovements, ONE_MIN); // Force push underlying market graph every 1 minute
-setInterval(checkMarginCalls, THIRTY_SECONDS); // Run liquidations aggressively
-setInterval(checkConditionalOrders, ONE_MIN); // Check TP/SL every 1 minute
-setInterval(executeLimitOrders, THIRTY_SECONDS); // Check limit orders frequently
-setInterval(processCeoDecisions, TWO_MINS); // Check for CEO decisions to turn into news
-setInterval(checkHedgeFundPerformance, FIVE_MINS); // Check HFM fund performance
-setInterval(refreshAIContext, THIRTY_MINS); // Refresh AI context file every 30 minutes
-setInterval(runProductionCycle, PRODUCTION_CYCLE_INTERVAL); // Run production cycle every 10 minutes
+setInterval(recordSectorIndices, FIFTEEN_MINS);
+setInterval(dynamicNewsScheduler, ONE_MIN);            // Dynamic: checks mode and timing each minute
+setInterval(simulateTradeImpacts, THIRTY_SECONDS);
+setInterval(applySinusoidalMovements, ONE_MIN);
+setInterval(checkMarginCalls, THIRTY_SECONDS);
+setInterval(checkConditionalOrders, ONE_MIN);
+setInterval(executeLimitOrders, THIRTY_SECONDS);
+setInterval(scheduledProcessCeoDecisions, TWO_MINS);   // Mode-aware CEO decision processing
+setInterval(checkHedgeFundPerformance, FIVE_MINS);
+setInterval(refreshAIContext, THIRTY_MINS);
+setInterval(runProductionCycle, PRODUCTION_CYCLE_INTERVAL);
+setInterval(runLabourMarketUpdate, PRODUCTION_CYCLE_INTERVAL);
+setInterval(runMunicipalUpdate, PRODUCTION_CYCLE_INTERVAL);
+setInterval(managePolicyLifecycle, THIRTY_MINS);
+setInterval(releaseMondayQueue, ONE_MIN);               // Check for Monday 8AM queue release
+setInterval(manageElections, THIRTY_MINS);            // Manage municipality elections (every 30m)
+setInterval(manageFederalElections, THIRTY_MINS);     // Manage federal elections (every 30m)
+setInterval(manageFederalPolicies, FIVE_MINS);         // Manage federal political layer
+
+async function manageFederalPolicies() {
+    console.log(`[${new Date().toISOString()}] Managing Federal Politics...`);
+    try {
+        // 1. NPC Voting Simulation
+        await simulateFederalNPCVoting();
+
+        // 2. Tally Expired Proposals
+        const now = new Date();
+        const expired = await prisma.policyProposal.findMany({
+            where: {
+                status: 'VOTING',
+                endsAt: { lte: now }
+            },
+            include: {
+                votes: true
+            }
+        });
+
+        for (const p of expired) {
+            const votesFor = p.votes.filter(v => v.support).length;
+            const votesAgainst = p.votes.length - votesFor;
+
+            const passed = votesFor > votesAgainst;
+            const newStatus = passed ? 'PASSED' : 'FAILED';
+
+            await prisma.policyProposal.update({
+                where: { id: p.id },
+                data: { status: newStatus }
+            });
+
+            console.log(`[Policy] ${p.title} - ${newStatus} (${votesFor} FOR, ${votesAgainst} AGAINST)`);
+
+            // Apply economic effects if passed
+            if (passed) {
+                // Future expansion: Apply effects to marketMath or sector modifiers
+                // For now, we'll log it and let the AI News generator handle the narrative impact
+                await prisma.newsStory.create({
+                    data: {
+                        headline: `🏛️ FED PASSES: ${p.title}`,
+                        context: `The federal legislature has passed the ${p.title} policy. ${p.description}. Its effects on the market are expected immediately.`,
+                        targetSector: p.targetSector || 'ECONOMY',
+                        targetSpecialty: 'LEGISLATION',
+                        impactScope: p.targetSector ? 'SECTOR' : 'GLOBAL',
+                        direction: p.effectValue >= 0 ? 'UP' : 'DOWN',
+                        intensityWeight: Math.round(Math.abs(p.effectValue) * 10),
+                        competitorInversion: false
+                    }
+                });
+            }
+        }
+    } catch (e) {
+        console.error('manageFederalPolicies error:', e);
+    }
+}
+
+async function simulateFederalNPCVoting() {
+    try {
+        const activeProposals = await prisma.policyProposal.findMany({ where: { status: 'VOTING' } });
+        const npcs = await prisma.user.findMany({ where: { isNPC: true, politicalRank: { gte: 2 } } });
+
+        for (const p of activeProposals) {
+            for (const npc of npcs) {
+                // Check if already voted
+                const existing = await prisma.policyVote.findFirst({
+                    where: { voterId: npc.id, proposalId: p.id }
+                });
+                if (existing) continue;
+
+                // Simple personality-based logic for now
+                // Future: Use LLM for "Political Strategy" decisions
+                let support = Math.random() > 0.4; // Default bias towards action
+
+                // If philosophy matches title keywords, boost support
+                if (npc.philosophy && p.title) {
+                    const phil = npc.philosophy.toLowerCase();
+                    const title = p.title.toLowerCase();
+                    if (phil.includes('expansion') && title.includes('relief')) support = true;
+                    if (phil.includes('regulation') && title.includes('ban')) support = true;
+                }
+
+                await prisma.policyVote.create({
+                    data: {
+                        voterId: npc.id,
+                        proposalId: p.id,
+                        support
+                    }
+                });
+                console.log(`[NPC Vote] ${npc.username} voted ${support ? 'FOR' : 'AGAINST'} ${p.title}`);
+            }
+        }
+    } catch (e) {
+        console.error('simulateFederalNPCVoting error:', e);
+    }
+}
 
 // Initial production cycle kick
 runProductionCycle();
+runLabourMarketUpdate();
+runMunicipalUpdate();
+managePolicyLifecycle();

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import bcrypt from 'bcryptjs';
 
 // POST /api/admin/users/bulk — Bulk import users from CSV data
 export async function POST(request: Request) {
@@ -25,10 +26,11 @@ export async function POST(request: Request) {
                 continue;
             }
 
+            const hashedPassword = await bcrypt.hash(u.password, 10);
             await prisma.user.create({
                 data: {
                     username: u.username,
-                    password: u.password,
+                    password: hashedPassword,
                     role: 'STUDENT',
                     deltaBalance: 100000.0
                 }

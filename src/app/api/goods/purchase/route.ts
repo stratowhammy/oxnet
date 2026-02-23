@@ -35,29 +35,86 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Insufficient Δ balance' }, { status: 400 });
         }
 
+        const buyerMunicipality = user.municipalityId
+            ? await prisma.municipality.findUnique({ where: { id: user.municipalityId } })
+            : null;
+
+        const taxRate = buyerMunicipality?.goodsTaxRate ?? 0;
+        const taxAmount = totalCost * taxRate;
+
         // Execute the purchase in a transaction
-        await prisma.$transaction([
+        await prisma.$transaction(async (tx) => {
             // Deduct from buyer
-            prisma.user.update({ where: { id: userId }, data: { deltaBalance: { decrement: totalCost } } }),
-            // Add to seller (producer's company balance via basePrice appreciation)
+            await tx.user.update({ where: { id: userId }, data: { deltaBalance: { decrement: totalCost } } });
+
+            // Tax flow to municipality
+            if (buyerMunicipality && taxAmount > 0) {
+                await tx.municipality.update({
+                    where: { id: buyerMunicipality.id },
+                    data: { deltaReserve: { increment: taxAmount } }
+                });
+            }
             // Reduce inventory
-            prisma.goodInventory.update({
+            await tx.goodInventory.update({
                 where: { id: sellerInv!.id },
                 data: { quantity: { decrement: quantity } }
-            }),
+            });
+
+            // Update good total stock (just for tracking)
+            await tx.good.update({
+                where: { id: goodId },
+                data: { currentStockLevel: { decrement: quantity } }
+            });
+
             // Record the purchase
-            prisma.consumerPurchase.create({
+            await tx.consumerPurchase.create({
                 data: { userId, goodId, quantity, pricePaid: good.listPrice }
-            }),
-            // Apply demand-driven price boost to producer's stock
-            prisma.asset.update({
-                where: { id: good.producerId },
+            });
+
+            // Record transaction in ledger
+            await tx.transaction.create({
                 data: {
-                    basePrice: { multiply: 1 + (quantity / 1000) * 0.01 }, // tiny boost per unit sold
-                    demandPool: { multiply: 1 + (quantity / 1000) * 0.01 }
+                    userId,
+                    assetId: good.producerId,
+                    type: 'GOODS_PURCHASE',
+                    amount: quantity,
+                    price: good.listPrice,
+                    fee: 0,
+                    ticker: good.name.substring(0, 10).toUpperCase(),
+                    description: `Retail purchase of ${good.name}`
                 }
-            })
-        ]);
+            });
+
+            // Apply demand-driven price boost to producer's stock
+            const impact = (quantity / 500) * 0.01; // 1% boost per 500 units
+            const asset = await tx.asset.findUnique({ where: { id: good.producerId } });
+            if (asset) {
+                const newPrice = asset.basePrice * (1 + impact);
+                await tx.asset.update({
+                    where: { id: asset.id },
+                    data: {
+                        basePrice: newPrice,
+                        demandPool: newPrice * asset.supplyPool
+                    }
+                });
+            }
+
+            // NEWS TRIGGER: Large purchases make the news
+            if (totalCost >= 5000) {
+                await tx.newsStory.create({
+                    data: {
+                        headline: `Market Surge: ${quantity} units of ${good.name} purchased!`,
+                        context: `A major demand spike for ${good.name} has been detected. Analysts suggest this could signal a supply squeeze for ${good.producer.name}.`,
+                        targetSector: good.producer.sector,
+                        targetSpecialty: good.name,
+                        impactScope: 'COMPANY',
+                        direction: 'UP',
+                        intensityWeight: 1,
+                        competitorInversion: false
+                    }
+                });
+            }
+        });
 
         return NextResponse.json({ success: true, totalCost, quantity, good: good.name });
     } catch (e: any) {

@@ -13,6 +13,8 @@ import UnionLeaderPanel from './UnionLeaderPanel';
 import PoliticianPanel from './PoliticianPanel';
 import SmallBusinessPanel from './SmallBusinessPanel';
 import FactoryOwnerPanel from './FactoryOwnerPanel';
+import MunicipalEvents from './MunicipalEvents';
+import PoliticianInterview from './PoliticianInterview';
 
 // --- Types ---
 type Asset = {
@@ -61,7 +63,7 @@ type NewsStory = {
     impactScope: string;
     direction: string;
     intensityWeight: number;
-    publishedAt: Date;
+    publishedAt: Date | null;
 };
 
 // --- Mock Data Generator (moved from TradingInterface) ---
@@ -291,8 +293,9 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
     const [selectedNews, setSelectedNews] = useState<NewsStory | null>(null);
     const [showGlobalPortfolio, setShowGlobalPortfolio] = useState(false);
     const [showAssetDetails, setShowAssetDetails] = useState(false);
-    const [activeTab, setActiveTab] = useState<'TRADE' | 'BANKING' | 'SECTORS'>('TRADE');
+    const [activeTab, setActiveTab] = useState<'TRADE' | 'BANKING' | 'SECTORS' | 'LOCAL' | 'CAPITAL'>('TRADE');
     const [selectedSector, setSelectedSector] = useState<string | null>(null);
+    const [hasPendingVote, setHasPendingVote] = useState(false);
 
     // --- State: Data ---
     const [user, setUser] = useState<User>(initialUser);
@@ -307,6 +310,23 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
         setAssets(initialAssets);
         setNews(initialNews);
     }, [initialUser, initialAssets, initialNews]);
+
+    // Check for active elections the user hasn't voted in
+    useEffect(() => {
+        const checkElections = async () => {
+            try {
+                const res = await fetch('/api/elections');
+                if (res.ok) {
+                    const data = await res.json();
+                    const pending = data.some((e: any) => e.status === 'VOTING' && !e.hasVoted);
+                    setHasPendingVote(pending);
+                }
+            } catch (e) { console.error('Error checking elections:', e); }
+        };
+        checkElections();
+        const interval = setInterval(checkElections, 1000 * 60 * 5); // Check every 5m
+        return () => clearInterval(interval);
+    }, []);
 
     // Derived
     const selectedAsset = useMemo(() => assets.find(a => a.id === selectedAssetId), [assets, selectedAssetId]);
@@ -390,10 +410,7 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
     const [takeProfitPrice, setTakeProfitPrice] = useState<number | ''>('');
     const [stopLossPrice, setStopLossPrice] = useState<number | ''>('');
 
-    // --- State: Callsign ---
-    const [showCallsignModal, setShowCallsignModal] = useState(false);
-    const [newCallsign, setNewCallsign] = useState('');
-    const [callsignLoading, setCallsignLoading] = useState(false);
+
 
     // --- Effects: Chart Data ---
     useEffect(() => {
@@ -601,33 +618,7 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
         }
     };
 
-    const handleChangeCallsign = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newCallsign.trim()) return;
 
-        setCallsignLoading(true);
-        try {
-            const res = await fetch('/api/user/callsign', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ newCallsign })
-            });
-            const data = await res.json();
-
-            if (res.ok) {
-                alert('Callsign successfully updated.');
-                setShowCallsignModal(false);
-                setNewCallsign('');
-                router.refresh();
-            } else {
-                alert(`Error: ${data.error}`);
-            }
-        } catch (e) {
-            alert("Network error.");
-        } finally {
-            setCallsignLoading(false);
-        }
-    };
 
     // --- Mock Order Book ---
     const orderBook = useMemo(() => {
@@ -686,6 +677,18 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                         className={`flex-1 py-3 font-bold text-xs tracking-widest uppercase transition-colors ${activeTab === 'BANKING' ? 'bg-gray-800 text-white border-b-2 border-purple-500' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}
                     >
                         Banking
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('LOCAL')}
+                        className={`flex-1 py-3 font-bold text-[10px] tracking-tighter uppercase transition-colors ${activeTab === 'LOCAL' ? 'bg-gray-800 text-white border-b-2 border-cyan-500' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}
+                    >
+                        Local
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('CAPITAL')}
+                        className={`flex-1 py-3 font-bold text-[10px] tracking-tighter uppercase transition-colors ${activeTab === 'CAPITAL' ? 'bg-gray-800 text-white border-b-2 border-purple-500' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}
+                    >
+                        Capital
                     </button>
                 </div>
 
@@ -799,7 +802,7 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
 
                     <div className="flex flex-wrap items-center justify-center gap-3 lg:gap-6 w-full lg:w-auto">
                         <div className="text-sm font-mono text-gray-400">
-                            <span className="uppercase text-xs mr-2 font-bold tracking-widest">Callsign:</span>
+                            <span className="uppercase text-xs mr-2 font-bold tracking-widest">Identity:</span>
                             <span className="text-white bg-gray-800 px-3 py-1 rounded shadow-inner border border-gray-700">{user.username || user.id}</span>
                         </div>
                         <div className="flex bg-gray-800 p-1 rounded border border-gray-700">
@@ -844,12 +847,6 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                                 </a>
                             )}
                             <button
-                                onClick={() => setShowCallsignModal(true)}
-                                className="text-xs font-bold uppercase tracking-widest text-blue-400 hover:text-white px-3 py-2 border border-blue-900 hover:bg-blue-900/50 rounded transition-all"
-                            >
-                                Edit Callsign
-                            </button>
-                            <button
                                 onClick={handleLogout}
                                 className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white px-3 py-2 border border-gray-700 hover:bg-gray-800 rounded transition-all"
                             >
@@ -859,9 +856,35 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                     </div>
                 </header>
 
+                {/* Election Prompt */}
+                {hasPendingVote && activeTab !== 'LOCAL' && (
+                    <div className="bg-purple-900/40 border-b border-purple-500/50 px-6 py-2.5 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <span className="text-xl animate-bounce">🗳️</span>
+                            <div className="text-xs font-bold uppercase tracking-widest text-white">
+                                <span className="text-purple-400">Election Alert:</span> Voting is currently open in your municipality!
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setActiveTab('LOCAL')}
+                            className="bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-black uppercase tracking-tighter px-3 py-1.5 rounded transition-all shadow-lg shadow-purple-900/20"
+                        >
+                            Go to Polls →
+                        </button>
+                    </div>
+                )}
+
                 {/* Dashboard Content */}
                 {activeTab === 'BANKING' ? (
                     <Banking user={user} allUsers={allUsers} />
+                ) : activeTab === 'LOCAL' ? (
+                    <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+                        <MunicipalEvents />
+                    </div>
+                ) : activeTab === 'CAPITAL' ? (
+                    <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+                        <PoliticianInterview user={user} />
+                    </div>
                 ) : activeTab === 'SECTORS' ? (
                     <SectorIndexView
                         selectedSector={selectedSector}

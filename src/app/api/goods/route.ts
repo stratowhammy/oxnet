@@ -16,13 +16,13 @@ export async function GET() {
             orderBy: { listPrice: 'asc' }
         });
         return NextResponse.json(goods);
-    } catch (e) {
+    } catch (e: any) {
         return NextResponse.json({ error: e.message }, { status: 500 });
     }
 }
 
 // POST /api/goods — CEO creates or updates their company's good listing
-export async function POST(req) {
+export async function POST(req: Request) {
     try {
         const { userId, name, unit, baseProductionCost, listPrice, isListedForSale } = await req.json();
 
@@ -34,26 +34,35 @@ export async function POST(req) {
         const assetId = user.managedAssetId;
         if (!assetId) return NextResponse.json({ error: 'CEO has no managed company' }, { status: 400 });
 
-        // Upsert good for this producer
-        const good = await prisma.good.upsert({
-            where: {
-                // Use a findFirst workaround since there is no unique constraint on producerId alone
-                // In practice, create if not exists
-                id: 'nonexistent'
-            },
-            update: { listPrice, isListedForSale },
-            create: {
-                name,
-                unit,
-                producerId: assetId,
-                baseProductionCost,
-                listPrice,
-                isListedForSale: isListedForSale ?? false,
-            }
-        });
+        // Find existing good for this producer
+        let good = await prisma.good.findFirst({ where: { producerId: assetId } });
+
+        if (good) {
+            good = await prisma.good.update({
+                where: { id: good.id },
+                data: {
+                    name,
+                    unit,
+                    baseProductionCost,
+                    listPrice,
+                    isListedForSale: isListedForSale ?? good.isListedForSale
+                }
+            });
+        } else {
+            good = await prisma.good.create({
+                data: {
+                    name,
+                    unit,
+                    producerId: assetId,
+                    baseProductionCost,
+                    listPrice,
+                    isListedForSale: isListedForSale ?? false,
+                }
+            });
+        }
 
         return NextResponse.json(good);
-    } catch (e) {
+    } catch (e: any) {
         return NextResponse.json({ error: e.message }, { status: 500 });
     }
 }

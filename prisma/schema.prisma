@@ -8,62 +8,70 @@ datasource db {
 }
 
 model User {
-  id               String        @id @default(cuid())
-  username         String?       @unique
-  password         String        @default("password")
-  role             String        @default("STUDENT")
-  frozen           Boolean       @default(false)
-  playerRole       String        @default("UNSET")   // UNSET, CEO, HEDGE_FUND, RETAIL
-  onboarded        Boolean       @default(false)
-  managedAssetId   String?                            // CEO only: which company they manage
-  hedgeFundBalance Float         @default(0.0)        // HFM only: fund capital (starts 10M)
-  deltaBalance     Float         @default(100000.0)
-  marginLimit      Float         @default(0.0)
-  marginLoan       Float         @default(0.0)
-  lendingLimit     Float         @default(0.0)
-  lendingRate      Float         @default(0.0)
-  portfolios         Portfolio[]
-  transactions       Transaction[]
-  userGoals          UserGoal[]
-  bids               GoalAuction[]
-  loansGiven         Loan[]            @relation("Lender")
-  loansTaken         Loan[]            @relation("Borrower")
-  limitOrders        LimitOrder[]
-  ceoScenarios       CeoScenario[]
-  consumerPurchases  ConsumerPurchase[]
-  // Role-specific relations
-  mayorOf            Municipality?             @relation("MayorOf")
-  facilityOwned      ProductionFacility?       @relation("FacilityOwner")
-  unionLeaderOf      WorkforcePool?            @relation("UnionLeaderOf")
-  proposedPolicies   PolicyProposal[]          @relation("ProposedPolicies")
-  policyVotes        PolicyVote[]
-  donationsGiven     CampaignDonation[]        @relation("DonationsGiven")
-  donationsReceived  CampaignDonation[]        @relation("DonationsReceived")
-  municipalBids      MunicipalContractBid[]
+  id                String                 @id @default(cuid())
+  username          String?                @unique
+  password          String                 @default("password")
+  role              String                 @default("STUDENT")
+  frozen            Boolean                @default(false)
+  playerRole        String                 @default("UNSET")
+  onboarded         Boolean                @default(false)
+  managedAssetId    String?
+  hedgeFundBalance  Float                  @default(0.0)
+  deltaBalance      Float                  @default(100000.0)
+  marginLimit       Float                  @default(0.0)
+  marginLoan        Float                  @default(0.0)
+  lendingLimit      Float                  @default(0.0)
+  lendingRate       Float                  @default(0.0)
+  backstory         String?
+  municipalityId    String?
+  politicalRank     Int                    @default(0) // 0=Candidate, 1=Council, 2=Rep, 3=Senator, 4=President
+  isNPC             Boolean                @default(false)
+  traits            String?                // AI-generated personality traits
+  philosophy        String?                // AI-driven political philosophy
+  ballotVotes       BallotVote[]
+  donationsReceived CampaignDonation[]     @relation("DonationsReceived")
+  donationsGiven    CampaignDonation[]     @relation("DonationsGiven")
+  candidacies       Candidate[]
+  ceoScenarios      CeoScenario[]
+  consumerPurchases ConsumerPurchase[]
+  bids              GoalAuction[]
+  limitOrders       LimitOrder[]
+  loansTaken        Loan[]                 @relation("Borrower")
+  loansGiven        Loan[]                 @relation("Lender")
+  municipalBids     MunicipalContractBid[]
+  mayorOf           Municipality?          @relation("MayorOf")
+  proposedPolicies  PolicyProposal[]       @relation("ProposedPolicies")
+  policyVotes       PolicyVote[]
+  portfolios        Portfolio[]
+  facilityOwned     ProductionFacility?    @relation("FacilityOwner")
+  transactions      Transaction[]
+  municipality      Municipality?          @relation("Residents", fields: [municipalityId], references: [id])
+  userGoals         UserGoal[]
+  unionLeaderOf     WorkforcePool?         @relation("UnionLeaderOf")
 }
 
 model Asset {
-  id           String         @id @default(cuid())
-  symbol       String         @unique
-  name         String
-  type         String
-  sector       String
-  niche        String
-  description  String
-  supplyPool   Float
-  demandPool   Float
-  basePrice    Float
-  portfolios         Portfolio[]
-  transactions       Transaction[]
-  priceHistory       PriceHistory[]
-  limitOrders        LimitOrder[]
+  id                 String              @id @default(cuid())
+  symbol             String              @unique
+  name               String
+  type               String
+  sector             String
+  niche              String
+  description        String
+  supplyPool         Float
+  demandPool         Float
+  basePrice          Float
   ceoScenarios       CeoScenario[]
-  producedGoods      Good[]             @relation("ProducedGoods")
-  inputRequirements  InputRequirement[] @relation("InputRequirements")
-  buyerContracts     SupplyContract[]   @relation("BuyerContracts")
-  sellerContracts    SupplyContract[]   @relation("SellerContracts")
+  producedGoods      Good[]              @relation("ProducedGoods")
   goodInventories    GoodInventory[]
+  inputRequirements  InputRequirement[]  @relation("InputRequirements")
+  limitOrders        LimitOrder[]
+  portfolios         Portfolio[]
+  priceHistory       PriceHistory[]
   productionFacility ProductionFacility?
+  sellerContracts    SupplyContract[]    @relation("SellerContracts")
+  buyerContracts     SupplyContract[]    @relation("BuyerContracts")
+  transactions       Transaction[]
 }
 
 model CeoScenario {
@@ -74,12 +82,12 @@ model CeoScenario {
   choiceA       String
   choiceB       String
   choiceC       String
-  chosenOption  String?                          // null = unanswered, "A"/"B"/"C"
+  chosenOption  String?
   answeredAt    DateTime?
   newsPublished Boolean   @default(false)
   createdAt     DateTime  @default(now())
-  user          User      @relation(fields: [userId], references: [id])
   asset         Asset     @relation(fields: [assetId], references: [id])
+  user          User      @relation(fields: [userId], references: [id])
 }
 
 model Portfolio {
@@ -89,31 +97,31 @@ model Portfolio {
   quantity          Float
   averageEntryPrice Float
   isShortPosition   Boolean @default(false)
-  takeProfitPrice   Float? // Optional auto-closure target
-  stopLossPrice     Float? // Optional auto-closure defense
-  user              User    @relation(fields: [userId], references: [id])
+  stopLossPrice     Float?
+  takeProfitPrice   Float?
   asset             Asset   @relation(fields: [assetId], references: [id])
+  user              User    @relation(fields: [userId], references: [id])
 
   @@unique([userId, assetId, isShortPosition])
 }
 
 model Transaction {
-  id        String   @id @default(cuid())
-  userId    String
-  assetId   String
-  type      String
-  amount    Float // Quantity traded
-  price     Float // Execution price per unit
-  fee       Float // 0.5% fee
-  timestamp DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
-  asset     Asset    @relation(fields: [assetId], references: [id])
+  id          String   @id @default(cuid())
+  userId      String
+  assetId     String?
+  type        String
+  amount      Float
+  price       Float
+  fee         Float
+  ticker      String?
+  description String?
+  timestamp   DateTime @default(now())
+  asset       Asset?   @relation(fields: [assetId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
 }
 
-// Enums removed for SQLite compatibility
-
 model NewsStory {
-  id                  String   @id @default(cuid())
+  id                  String    @id @default(cuid())
   headline            String
   context             String
   targetSector        String
@@ -122,7 +130,7 @@ model NewsStory {
   direction           String
   intensityWeight     Int
   competitorInversion Boolean
-  publishedAt         DateTime @default(now())
+  publishedAt         DateTime? @default(now())
 }
 
 model PriceHistory {
@@ -142,8 +150,8 @@ model GoalCard {
   id             String        @id @default(cuid())
   title          String
   description    String
-  criteriaType   String        // e.g. "HOLD_ASSET_QUANTITY", "TOTAL_EQUITY"
-  criteriaTarget String        // e.g. assetId or "ANY"
+  criteriaType   String
+  criteriaTarget String
   criteriaAmount Float
   victoryPoints  Int
   auctions       GoalAuction[]
@@ -159,8 +167,8 @@ model GoalAuction {
   highestBid      Float    @default(0.0)
   highestBidderId String?
   isActive        Boolean  @default(true)
-  goalCard        GoalCard @relation(fields: [goalCardId], references: [id])
   highestBidder   User?    @relation(fields: [highestBidderId], references: [id])
+  goalCard        GoalCard @relation(fields: [goalCardId], references: [id])
 }
 
 model UserGoal {
@@ -169,8 +177,8 @@ model UserGoal {
   goalCardId String
   acquiredAt DateTime @default(now())
   costPaid   Float
-  user       User     @relation(fields: [userId], references: [id])
   goalCard   GoalCard @relation(fields: [goalCardId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
 }
 
 model Loan {
@@ -180,49 +188,45 @@ model Loan {
   principal    Float
   interestRate Float
   amountOwed   Float
-  status       String   @default("ACTIVE") // "ACTIVE" or "REPAID"
+  status       String   @default("ACTIVE")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-
-  lender       User     @relation("Lender", fields: [lenderId], references: [id])
   borrower     User     @relation("Borrower", fields: [borrowerId], references: [id])
+  lender       User     @relation("Lender", fields: [lenderId], references: [id])
 }
 
 model LimitOrder {
   id        String   @id @default(cuid())
   userId    String
   assetId   String
-  type      String   // "BUY" or "SELL" or "SHORT" or "COVER"
+  type      String
   quantity  Float
-  price     Float    // The target execution price
+  price     Float
   leverage  Float    @default(1.0)
-  status    String   @default("PENDING") // PENDING, EXECUTED, CANCELLED
+  status    String   @default("PENDING")
   createdAt DateTime @default(now())
-
-  user      User     @relation(fields: [userId], references: [id])
   asset     Asset    @relation(fields: [assetId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 model InviteCode {
-  code         String   @id           // 8-digit alphanumeric code
-  used         Boolean  @default(false)
-  usedById     String?                // userId who redeemed it
-  createdAt    DateTime @default(now())
+  code         String    @id
+  used         Boolean   @default(false)
+  usedById     String?
+  createdAt    DateTime  @default(now())
   usedAt       DateTime?
-  label        String?                // Admin-facing label, e.g. "Oxford 2026 - CEO slot"
-  allowedRoles String   @default("CEO,TRADER,HFM")  // Comma-separated list of roles user can pick from
+  label        String?
+  allowedRoles String    @default("CEO,TRADER,HFM")
 }
 
 model SectorIndex {
-  id        String   @id @default(cuid())
-  sector    String
-  indexPrice Float                   // Average basePrice of all assets in this sector
+  id         String   @id @default(cuid())
+  sector     String
+  indexPrice Float
   timestamp  DateTime @default(now())
 
   @@index([sector, timestamp])
 }
-
-
 
 model GlobalSetting {
   id    String @id @default(cuid())
@@ -230,71 +234,60 @@ model GlobalSetting {
   value String
 }
 
-// ===== PHASE 1: PRODUCTION ECONOMY =====
-
-// A physical or digital good that a company produces and sells
 model Good {
-  id                  String              @id @default(cuid())
-  name                String
-  unit                String              // e.g. "barrel", "chip", "kWh", "tonne"
-  producerId          String              // The Asset (company) that produces this good
-  currentStockLevel   Float               @default(0.0)
-  baseProductionCost  Float               // Delta cost to produce one unit
-  listPrice           Float               // Price at which the producer sells it
-  isListedForSale     Boolean             @default(false)
-  createdAt           DateTime            @default(now())
-
-  producer            Asset               @relation("ProducedGoods", fields: [producerId], references: [id])
-  inputRequirements   InputRequirement[]  @relation("InputGood")
-  inventories         GoodInventory[]
-  contracts           SupplyContract[]
-  consumerPurchases   ConsumerPurchase[]
-  municipalContracts  MunicipalContract[]
+  id                 String              @id @default(cuid())
+  name               String
+  unit               String
+  producerId         String
+  currentStockLevel  Float               @default(0.0)
+  baseProductionCost Float
+  listPrice          Float
+  isListedForSale    Boolean             @default(false)
+  createdAt          DateTime            @default(now())
+  consumerPurchases  ConsumerPurchase[]
+  producer           Asset               @relation("ProducedGoods", fields: [producerId], references: [id])
+  inventories        GoodInventory[]
+  inputRequirements  InputRequirement[]  @relation("InputGood")
+  municipalContracts MunicipalContract[]
+  contracts          SupplyContract[]
 }
 
-// Declares that a company needs certain goods as inputs to run a production cycle
 model InputRequirement {
-  id                    String   @id @default(cuid())
-  consumerId            String   // The Asset (company) that needs this input
-  inputGoodId           String   // The Good they need
-  unitsPerCycle         Float    // How many units needed per production cycle
-
-  consumer              Asset    @relation("InputRequirements", fields: [consumerId], references: [id])
-  inputGood             Good     @relation("InputGood", fields: [inputGoodId], references: [id])
+  id            String @id @default(cuid())
+  consumerId    String
+  inputGoodId   String
+  unitsPerCycle Float
+  inputGood     Good   @relation("InputGood", fields: [inputGoodId], references: [id])
+  consumer      Asset  @relation("InputRequirements", fields: [consumerId], references: [id])
 }
 
-// A bilateral, recurring supply agreement between two companies
 model SupplyContract {
   id            String   @id @default(cuid())
-  buyerId       String   // The company purchasing the good
-  sellerId      String   // The company selling the good
-  goodId        String   
+  buyerId       String
+  sellerId      String
+  goodId        String
   pricePerUnit  Float
   unitsPerCycle Float
-  status        String   @default("ACTIVE")   // ACTIVE, BROKEN, PENDING, EXPIRED
+  status        String   @default("ACTIVE")
   autoRenew     Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-
-  buyer         Asset    @relation("BuyerContracts", fields: [buyerId], references: [id])
-  seller        Asset    @relation("SellerContracts", fields: [sellerId], references: [id])
   good          Good     @relation(fields: [goodId], references: [id])
+  seller        Asset    @relation("SellerContracts", fields: [sellerId], references: [id])
+  buyer         Asset    @relation("BuyerContracts", fields: [buyerId], references: [id])
 }
 
-// Tracks how much of any good a company currently has in stock
 model GoodInventory {
-  id        String   @id @default(cuid())
-  assetId   String   // The company holding this inventory
-  goodId    String   
-  quantity  Float    @default(0.0)
-
-  asset     Asset    @relation(fields: [assetId], references: [id])
-  good      Good     @relation(fields: [goodId], references: [id])
+  id       String @id @default(cuid())
+  assetId  String
+  goodId   String
+  quantity Float  @default(0.0)
+  good     Good   @relation(fields: [goodId], references: [id])
+  asset    Asset  @relation(fields: [assetId], references: [id])
 
   @@unique([assetId, goodId])
 }
 
-// A retail user purchasing a physical good from a company's marketplace listing
 model ConsumerPurchase {
   id          String   @id @default(cuid())
   userId      String
@@ -302,90 +295,80 @@ model ConsumerPurchase {
   quantity    Float
   pricePaid   Float
   purchasedAt DateTime @default(now())
-
-  user        User     @relation(fields: [userId], references: [id])
   good        Good     @relation(fields: [goodId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
 }
 
-// ===== EXPANDED ROLE SYSTEM =====
-
-// City Mayor governs a Municipality
 model Municipality {
-  id            String              @id @default(cuid())
-  name          String              @unique   // e.g. "New Oxford"
-  mayorId       String?             @unique   // The User who is Mayor
-  goodsTaxRate  Float               @default(0.02)  // e.g. 0.02 = 2% on goods sold in this city
-  deltaReserve  Float               @default(0.0)   // Tax revenue accumulated
-  createdAt     DateTime            @default(now())
-
-  mayor         User?               @relation("MayorOf", fields: [mayorId], references: [id])
-  contracts     MunicipalContract[]
+  id           String              @id @default(cuid())
+  name         String              @unique
+  mayorId      String?             @unique
+  goodsTaxRate Float               @default(0.02)
+  deltaReserve Float               @default(0.0)
+  createdAt    DateTime            @default(now())
+  description  String?
+  elections    Election[]
+  contracts    MunicipalContract[]
+  events       MunicipalEvent[]
+  mayor        User?               @relation("MayorOf", fields: [mayorId], references: [id])
+  residents    User[]              @relation("Residents")
 }
 
-// A government procurement contract issued by the Mayor
 model MunicipalContract {
   id               String                 @id @default(cuid())
   municipalityId   String
   goodId           String
   quantityRequired Float
-  budgetDelta      Float                  // Max the mayor will pay
+  budgetDelta      Float
   deadline         DateTime
-  status           String                 @default("OPEN")  // OPEN, AWARDED, FULFILLED, EXPIRED
+  status           String                 @default("OPEN")
   awardedBidId     String?                @unique
   createdAt        DateTime               @default(now())
-
-  municipality     Municipality           @relation(fields: [municipalityId], references: [id])
-  good             Good                   @relation(fields: [goodId], references: [id])
-  bids             MunicipalContractBid[]
   awardedBid       MunicipalContractBid?  @relation("AwardedBid", fields: [awardedBidId], references: [id])
+  good             Good                   @relation(fields: [goodId], references: [id])
+  municipality     Municipality           @relation(fields: [municipalityId], references: [id])
+  bids             MunicipalContractBid[]
 }
 
-// A Small Business Owner (or any user) bidding on a municipal contract
 model MunicipalContractBid {
-  id                  String             @id @default(cuid())
-  contractId          String
-  bidderId            String
-  pricePerUnit        Float
-  submittedAt         DateTime           @default(now())
-
-  contract            MunicipalContract  @relation(fields: [contractId], references: [id])
-  bidder              User               @relation(fields: [bidderId], references: [id])
-  awardedContract     MunicipalContract? @relation("AwardedBid")
+  id              String             @id @default(cuid())
+  contractId      String
+  bidderId        String
+  pricePerUnit    Float
+  submittedAt     DateTime           @default(now())
+  awardedContract MunicipalContract? @relation("AwardedBid")
+  bidder          User               @relation(fields: [bidderId], references: [id])
+  contract        MunicipalContract  @relation(fields: [contractId], references: [id])
 }
 
-// A Factory Owner's production facility (extends Asset with workforce/capacity)
 model ProductionFacility {
-  id              String   @id @default(cuid())
-  assetId         String   @unique    // The Asset this facility belongs to
-  ownerId         String   @unique    // The Factory Owner user
-  maxCapacity     Int      @default(100)   // Units producible per cycle at full workforce
-  currentCapacity Int      @default(100)   // Reduced by strikes, low wages, etc.
-  wages           Float    @default(50.0)  // Delta per worker per cycle
-  headcount       Int      @default(10)
-  onStrike        Boolean  @default(false)
-  createdAt       DateTime @default(now())
-
-  asset           Asset    @relation(fields: [assetId], references: [id])
-  owner           User     @relation("FacilityOwner", fields: [ownerId], references: [id])
+  id              String         @id @default(cuid())
+  assetId         String         @unique
+  ownerId         String         @unique
+  maxCapacity     Int            @default(100)
+  currentCapacity Int            @default(100)
+  wages           Float          @default(50.0)
+  headcount       Int            @default(10)
+  onStrike        Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  owner           User           @relation("FacilityOwner", fields: [ownerId], references: [id])
+  asset           Asset          @relation(fields: [assetId], references: [id])
   workforcePool   WorkforcePool?
 }
 
-// A Union Leader's workforce pool (represents workers at one or more facilities)
 model WorkforcePool {
-  id              String             @id @default(cuid())
-  unionLeaderId   String             @unique
-  facilityId      String             @unique
-  memberCount     Int                @default(0)
-  wagesDemand     Float              @default(50.0)   // What the union wants per worker/cycle
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-
-  unionLeader     User               @relation("UnionLeaderOf", fields: [unionLeaderId], references: [id])
-  facility        ProductionFacility @relation(fields: [facilityId], references: [id])
-  strikes         StrikeAction[]
+  id            String             @id @default(cuid())
+  unionLeaderId String             @unique
+  facilityId    String             @unique
+  memberCount   Int                @default(0)
+  wagesDemand   Float              @default(50.0)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  strikes       StrikeAction[]
+  facility      ProductionFacility @relation(fields: [facilityId], references: [id])
+  unionLeader   User               @relation("UnionLeaderOf", fields: [unionLeaderId], references: [id])
 }
 
-// A strike called by the Union Leader against a facility
 model StrikeAction {
   id              String        @id @default(cuid())
   workforcePoolId String
@@ -393,53 +376,94 @@ model StrikeAction {
   startedAt       DateTime      @default(now())
   endedAt         DateTime?
   isActive        Boolean       @default(true)
-
   workforcePool   WorkforcePool @relation(fields: [workforcePoolId], references: [id])
 }
 
-// A Politician's economy-wide policy proposal
 model PolicyProposal {
-  id            String        @id @default(cuid())
-  proposerId    String
-  title         String
-  description   String
-  policyType    String        // TARIFF, SUBSIDY, TAX_HOLIDAY, SECTOR_BAN
-  targetSector  String?       // Which sector is affected (null = economy-wide)
-  targetRole    String?       // Which player role is affected
-  effectValue   Float         // e.g. 0.05 = 5% tariff
-  status        String        @default("VOTING")  // VOTING, PASSED, REJECTED, ENACTED
-  votesFor      Int           @default(0)
-  votesAgainst  Int           @default(0)
-  endsAt        DateTime      // Voting deadline
-  createdAt     DateTime      @default(now())
-
-  proposer      User          @relation("ProposedPolicies", fields: [proposerId], references: [id])
-  votes         PolicyVote[]
+  id           String       @id @default(cuid())
+  proposerId   String
+  title        String
+  description  String
+  policyType   String
+  targetSector String?
+  targetRole   String?
+  effectValue  Float
+  status       String       @default("VOTING")
+  votesFor     Int          @default(0)
+  votesAgainst Int          @default(0)
+  endsAt       DateTime
+  createdAt    DateTime     @default(now())
+  proposer     User         @relation("ProposedPolicies", fields: [proposerId], references: [id])
+  votes        PolicyVote[]
 }
 
-// A user's vote on a policy proposal
 model PolicyVote {
-  id            String         @id @default(cuid())
-  proposalId    String
-  voterId       String
-  inFavor       Boolean
-  votedAt       DateTime       @default(now())
-
-  proposal      PolicyProposal @relation(fields: [proposalId], references: [id])
-  voter         User           @relation(fields: [voterId], references: [id])
+  id         String         @id @default(cuid())
+  proposalId String
+  voterId    String
+  inFavor    Boolean
+  votedAt    DateTime       @default(now())
+  voter      User           @relation(fields: [voterId], references: [id])
+  proposal   PolicyProposal @relation(fields: [proposalId], references: [id])
 
   @@unique([proposalId, voterId])
 }
 
-// A campaign donation from any user to a Politician
 model CampaignDonation {
-  id            String   @id @default(cuid())
-  donorId       String
-  recipientId   String   // The Politician's userId
-  amount        Float
-  message       String?
-  donatedAt     DateTime @default(now())
+  id          String   @id @default(cuid())
+  donorId     String
+  recipientId String
+  amount      Float
+  message     String?
+  donatedAt   DateTime @default(now())
+  recipient   User     @relation("DonationsReceived", fields: [recipientId], references: [id])
+  donor       User     @relation("DonationsGiven", fields: [donorId], references: [id])
+}
 
-  donor         User     @relation("DonationsGiven", fields: [donorId], references: [id])
-  recipient     User     @relation("DonationsReceived", fields: [recipientId], references: [id])
+model Election {
+  id             String       @id @default(cuid())
+  municipalityId String
+  electionType   String
+  status         String       @default("CAMPAIGNING")
+  campaignStart  DateTime     @default(now())
+  votingStart    DateTime
+  votingEnd      DateTime
+  winnerId       String?
+  ballotVotes    BallotVote[]
+  candidates     Candidate[]
+  municipality   Municipality @relation(fields: [municipalityId], references: [id])
+}
+
+model Candidate {
+  id         String   @id @default(cuid())
+  electionId String
+  userId     String?
+  npcName    String?
+  npcBio     String?
+  isNpc      Boolean  @default(false)
+  voteCount  Int      @default(0)
+  user       User?    @relation(fields: [userId], references: [id])
+  election   Election @relation(fields: [electionId], references: [id])
+}
+
+model BallotVote {
+  id          String   @id @default(cuid())
+  electionId  String
+  voterId     String
+  candidateId String
+  votedAt     DateTime @default(now())
+  voter       User     @relation(fields: [voterId], references: [id])
+  election    Election @relation(fields: [electionId], references: [id])
+
+  @@unique([electionId, voterId])
+}
+
+model MunicipalEvent {
+  id             String       @id @default(cuid())
+  municipalityId String
+  eventType      String
+  title          String
+  content        String
+  publishedAt    DateTime     @default(now())
+  municipality   Municipality @relation(fields: [municipalityId], references: [id])
 }

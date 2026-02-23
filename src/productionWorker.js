@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { getActivePolicyModifiers } from './lib/policyEngine.js';
 
 const prisma = new PrismaClient();
 
@@ -25,11 +26,15 @@ async function runProductionCycle() {
             where: { producedGoods: { some: {} } },
             include: {
                 producedGoods: true,
+
                 inputRequirements: {
                     include: { inputGood: true }
                 },
                 goodInventories: {
                     include: { good: true }
+                },
+                productionFacility: {
+                    include: { owner: true }
                 }
             }
         });
@@ -52,7 +57,32 @@ async function runProductionCycle() {
                 }
             }
 
+            const facility = company.productionFacility;
+            const onStrike = facility?.onStrike ?? false;
+            const headcount = facility?.headcount ?? 0;
+            const maxCap = facility?.maxCapacity ?? 100;
+
+            if (onStrike) {
+                console.log(`[Production] 🛑 ${company.symbol} production HALTED: Workforce on strike.`);
+                // Apply a small negative price shock for strike disruption
+                const penalty = 0.995;
+                const newPrice = company.basePrice * penalty;
+                const newDemand = newPrice * company.supplyPool;
+                await prisma.asset.update({
+                    where: { id: company.id },
+                    data: { basePrice: newPrice, demandPool: newDemand }
+                });
+                continue;
+            }
+
+            if (headcount === 0) {
+                console.log(`[Production] ⚠️ ${company.symbol} production HALTED: Zero headcount.`);
+                continue;
+            }
+
             if (canProduce) {
+                const { productionMult, costMult } = await getActivePolicyModifiers(company.sector, company.productionFacility?.owner?.playerRole || 'CEO');
+
                 // Deduct inputs
                 for (const req of inputs) {
                     const inv = company.goodInventories.find(i => i.goodId === req.inputGoodId);
@@ -64,30 +94,40 @@ async function runProductionCycle() {
                     }
                 }
 
-                // Add output units
-                const unitsProduced = outputGood.currentStockLevel <= 1000 ? 100 : 50; // Slow down if overstocked
-                await prisma.good.update({
-                    where: { id: outputGood.id },
-                    data: { currentStockLevel: { increment: unitsProduced } }
-                });
+                // Add output units - SCALED BY HEADCOUNT AND POLICY
+                const baseUnits = outputGood.currentStockLevel <= 1000 ? 100 : 50;
+                const efficiency = headcount / maxCap;
+                const unitsProduced = Math.floor(baseUnits * efficiency * productionMult);
 
-                // Update the company's own inventory entry
-                await prisma.goodInventory.upsert({
-                    where: { assetId_goodId: { assetId: company.id, goodId: outputGood.id } },
-                    update: { quantity: { increment: unitsProduced } },
-                    create: { assetId: company.id, goodId: outputGood.id, quantity: unitsProduced }
-                });
+                if (unitsProduced > 0) {
+                    // Update the company's own inventory entry
+                    await prisma.goodInventory.upsert({
+                        where: { assetId_goodId: { assetId: company.id, goodId: outputGood.id } },
+                        update: { quantity: { increment: unitsProduced } },
+                        create: { assetId: company.id, goodId: outputGood.id, quantity: unitsProduced }
+                    });
 
-                // Apply a small positive price boost (0.2% to 0.5%)
-                const boost = 1 + (Math.random() * 0.003 + 0.002);
-                const newPrice = company.basePrice * boost;
-                const newDemand = newPrice * company.supplyPool;
-                await prisma.asset.update({
-                    where: { id: company.id },
-                    data: { basePrice: newPrice, demandPool: newDemand }
-                });
+                    // Update good total stock
+                    await prisma.good.update({
+                        where: { id: outputGood.id },
+                        data: { currentStockLevel: { increment: unitsProduced } }
+                    });
 
-                console.log(`[Production] ✅ ${company.symbol} produced ${unitsProduced} units of ${outputGood.name}.`);
+                    // Price discovering logic: Success boosts stock price
+                    // Production costs are also affected by policy
+                    const productionCost = (outputGood.baseProductionCost || 10) * costMult;
+                    const priceAdjustment = 1.002 * (1 / (1 + (outputGood.currentStockLevel / 5000)));
+                    const newPrice = company.basePrice * priceAdjustment;
+                    const newDemand = newPrice * company.supplyPool;
+                    await prisma.asset.update({
+                        where: { id: company.id },
+                        data: { basePrice: newPrice, demandPool: newDemand }
+                    });
+
+                    console.log(`[Production] ✅ ${company.symbol} produced ${unitsProduced} units (Efficiency: ${(efficiency * 100).toFixed(0)}%).`);
+                } else {
+                    console.log(`[Production] 📉 ${company.symbol} produced 0 units: Insufficient workforce efficiency.`);
+                }
             } else {
                 // Apply a negative price shock (0.5% to 1.2%)
                 const penalty = 1 - (Math.random() * 0.007 + 0.005);

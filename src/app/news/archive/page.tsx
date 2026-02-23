@@ -41,7 +41,7 @@ export default async function ArchivePage() {
                         {archivedStories.map((story) => (
                             <div key={story.id} className="border-b border-gray-300 pb-6 flex flex-col md:flex-row gap-6">
                                 <div className="md:w-1/4 shrink-0 text-sm font-sans font-bold uppercase text-gray-500 mt-1">
-                                    <div>{new Date(story.publishedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                                    <div>{story.publishedAt ? new Date(story.publishedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Date Unknown'}</div>
                                     <div className="text-xs text-gray-400 mt-1">Sector: {story.targetSector}</div>
                                 </div>
                                 <div>

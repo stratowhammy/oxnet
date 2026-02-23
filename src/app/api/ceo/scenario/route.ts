@@ -75,7 +75,7 @@ Output ONLY valid JSON in this exact format:
                     aiData = JSON.parse(cleaned);
                 }
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error('CEO scenario AI generation failed:', e);
         }
 

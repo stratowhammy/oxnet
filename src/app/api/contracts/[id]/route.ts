@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/db';
 
 // PATCH /api/contracts/[id] — accept (PENDING→ACTIVE) or break (ACTIVE→BROKEN) a contract
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
     try {
+        const params = await props.params;
         const { userId, action } = await req.json(); // action: "ACCEPT" | "BREAK"
         const contractId = params.id;
 

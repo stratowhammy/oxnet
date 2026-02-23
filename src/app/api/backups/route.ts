@@ -26,7 +26,7 @@ export async function GET() {
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
         return NextResponse.json({ backups: files });
-    } catch (e) {
+    } catch (e: any) {
         console.error('Failed to list backups:', e);
         return NextResponse.json({ error: 'Failed to list backups' }, { status: 500 });
     }
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
         console.log(`[RESTORE SUCCESS]: System rolled back to ${filename}`);
 
         return NextResponse.json({ message: 'Database successfully restored. Restarting Prisma connection is highly recommended.' });
-    } catch (e) {
+    } catch (e: any) {
         console.error('Failed to restore database:', e);
         return NextResponse.json({ error: 'Failed to execute restoration protocol.' }, { status: 500 });
     }

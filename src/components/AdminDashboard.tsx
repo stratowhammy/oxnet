@@ -64,10 +64,16 @@ export default function AdminDashboard() {
     const [newInviteLabel, setNewInviteLabel] = useState('');
     const [inviteAllowedRoles, setInviteAllowedRoles] = useState<string[]>(['CEO', 'TRADER', 'HFM']);
     const [generatingCodes, setGeneratingCodes] = useState(false);
-    const [inviteCodes, setInviteCodes] = useState<{ code: string; used: boolean; usedById?: string | null; createdAt: string; label?: string | null; allowedRoles: string }[]>([]);
+    const [inviteCodes, setInviteCodes] = useState<{ code: string; used: boolean; usedById?: string | null; usedAt?: string | null; createdAt: string; label?: string | null; allowedRoles: string; usedBy?: { username: string; playerRole: string } | null }[]>([]);
     const [showInvitePanel, setShowInvitePanel] = useState(false);
     const [editingCode, setEditingCode] = useState<string | null>(null);
     const [editRoles, setEditRoles] = useState<string[]>([]);
+
+    // News Engine settings
+    const [showNewsPanel, setShowNewsPanel] = useState(false);
+    const [newsMode, setNewsMode] = useState<string>('TRADING_HOURS');
+    const [ceoImmediate, setCeoImmediate] = useState(false);
+    const [queuedCount, setQueuedCount] = useState(0);
 
     const ALL_PLAYER_ROLES = ['CEO', 'FACTORY_OWNER', 'SMALL_BUSINESS', 'UNION_LEADER', 'MAYOR', 'POLITICIAN', 'TRADER', 'HFM'];
     const ROLE_LABELS: Record<string, string> = { CEO: '🏢 CEO', FACTORY_OWNER: '🏭 Factory', SMALL_BUSINESS: '🏪 SBO', UNION_LEADER: '🔩 Union', MAYOR: '🏛️ Mayor', POLITICIAN: '🗳️ Politician', TRADER: '📈 Trader', HFM: '💰 HFM' };
@@ -264,6 +270,42 @@ export default function AdminDashboard() {
         }
     }
 
+    // ----- News Engine Settings -----
+    async function fetchNewsSettings() {
+        try {
+            const res = await fetch('/api/admin/settings');
+            if (res.ok) {
+                const data = await res.json();
+                setNewsMode(data['NEWS_MODE'] || 'TRADING_HOURS');
+                setCeoImmediate(data['CEO_NEWS_IMMEDIATE'] === 'true');
+            }
+            // Fetch queued count
+            const newsRes = await fetch('/api/news');
+            if (newsRes.ok) {
+                const stories = await newsRes.json();
+                if (Array.isArray(stories)) {
+                    setQueuedCount(stories.filter((s: any) => !s.publishedAt).length);
+                }
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    async function updateNewsSetting(key: string, value: string) {
+        try {
+            const res = await fetch('/api/admin/settings', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key, value })
+            });
+            if (res.ok) {
+                showFeedback('success', `Setting ${key} updated`);
+                fetchNewsSettings();
+            } else {
+                showFeedback('error', 'Failed to update setting');
+            }
+        } catch { showFeedback('error', 'Network error'); }
+    }
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-gray-950">
@@ -327,6 +369,9 @@ export default function AdminDashboard() {
                 <button onClick={() => { setShowInvitePanel(!showInvitePanel); if (!showInvitePanel) fetchInviteCodes(); }} className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs uppercase tracking-widest px-4 py-2.5 rounded transition-colors">
                     🔑 Invite Codes
                 </button>
+                <button onClick={() => { setShowNewsPanel(!showNewsPanel); if (!showNewsPanel) fetchNewsSettings(); }} className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs uppercase tracking-widest px-4 py-2.5 rounded transition-colors">
+                    ⚙️ News Engine
+                </button>
                 <button onClick={fetchUsers} className="bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold text-xs uppercase tracking-widest px-4 py-2.5 rounded border border-gray-700 transition-colors ml-auto">
                     ↻ Refresh
                 </button>
@@ -362,8 +407,8 @@ export default function AdminDashboard() {
                                         <button key={r} type="button"
                                             onClick={() => setInviteAllowedRoles(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r])}
                                             className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${inviteAllowedRoles.includes(r)
-                                                    ? 'bg-amber-500/20 border-amber-500 text-amber-300'
-                                                    : 'bg-gray-800 border-gray-600 text-gray-500 hover:border-gray-400'
+                                                ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                                                : 'bg-gray-800 border-gray-600 text-gray-500 hover:border-gray-400'
                                                 }`}>
                                             {ROLE_LABELS[r] ?? r}
                                         </button>
@@ -387,61 +432,178 @@ export default function AdminDashboard() {
                             </div>
                         </div>
 
-                        {/* Existing codes list */}
-                        <div className="max-h-80 overflow-y-auto space-y-2">
-                            {inviteCodes.length === 0 ? (
-                                <p className="text-gray-500 text-sm">No invite codes yet.</p>
-                            ) : inviteCodes.map(c => (
-                                <div key={c.code} className={`rounded-lg border px-4 py-3 text-sm ${c.used ? 'border-gray-700 bg-gray-800/20 opacity-60' : 'border-amber-800/40 bg-gray-800/50'}`}>
-                                    <div className="flex items-center justify-between mb-1">
-                                        <div className="flex items-center gap-3">
-                                            <span className="font-mono tracking-[0.25em] text-white font-bold">{c.code}</span>
-                                            {c.label && <span className="text-xs text-gray-400 italic">{c.label}</span>}
+                        {/* Available Codes */}
+                        <div className="mb-6">
+                            <div className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-3 flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                Available Codes ({inviteCodes.filter(c => !c.used).length})
+                            </div>
+                            <div className="max-h-60 overflow-y-auto space-y-2">
+                                {inviteCodes.filter(c => !c.used).length === 0 ? (
+                                    <p className="text-gray-500 text-sm py-2">No unused codes. Generate some above.</p>
+                                ) : inviteCodes.filter(c => !c.used).map(c => (
+                                    <div key={c.code} className="rounded-lg border border-amber-800/40 bg-gray-800/50 px-4 py-3 text-sm">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <div className="flex items-center gap-3">
+                                                <span className="font-mono tracking-[0.25em] text-white font-bold">{c.code}</span>
+                                                {c.label && <span className="text-xs text-gray-400 italic">{c.label}</span>}
+                                                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-500/20 text-green-400">OPEN</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <button onClick={() => { setEditingCode(c.code); setEditRoles(c.allowedRoles.split(',').map(r => r.trim())); }}
+                                                    className="text-xs text-amber-400 hover:text-amber-300 font-bold">Edit Roles</button>
+                                                <button onClick={() => handleDeleteCode(c.code)}
+                                                    className="text-xs text-red-500 hover:text-red-300 font-bold">Delete</button>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${c.used ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
-                                                {c.used ? 'USED' : 'OPEN'}
-                                            </span>
-                                            {!c.used && (
-                                                <>
-                                                    <button onClick={() => { setEditingCode(c.code); setEditRoles(c.allowedRoles.split(',').map(r => r.trim())); }}
-                                                        className="text-xs text-amber-400 hover:text-amber-300 font-bold">Edit Roles</button>
-                                                    <button onClick={() => handleDeleteCode(c.code)}
-                                                        className="text-xs text-red-500 hover:text-red-300 font-bold">Delete</button>
-                                                </>
-                                            )}
+                                        <div className="flex flex-wrap gap-1">
+                                            {c.allowedRoles.split(',').map(r => r.trim()).filter(Boolean).map(r => (
+                                                <span key={r} className="text-xs bg-gray-700/50 text-gray-300 px-2 py-0.5 rounded-full">{ROLE_LABELS[r] ?? r}</span>
+                                            ))}
                                         </div>
-                                    </div>
-                                    <div className="flex flex-wrap gap-1">
-                                        {c.allowedRoles.split(',').map(r => r.trim()).filter(Boolean).map(r => (
-                                            <span key={r} className="text-xs bg-gray-700/50 text-gray-300 px-2 py-0.5 rounded-full">{ROLE_LABELS[r] ?? r}</span>
-                                        ))}
-                                    </div>
-                                    {editingCode === c.code && (
-                                        <div className="mt-3 pt-3 border-t border-gray-700">
-                                            <div className="text-xs text-gray-400 mb-2">Toggle allowed roles:</div>
-                                            <div className="flex flex-wrap gap-2 mb-3">
-                                                {ALL_PLAYER_ROLES.map(r => (
-                                                    <button key={r} type="button"
-                                                        onClick={() => setEditRoles(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r])}
-                                                        className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${editRoles.includes(r)
+                                        {editingCode === c.code && (
+                                            <div className="mt-3 pt-3 border-t border-gray-700">
+                                                <div className="text-xs text-gray-400 mb-2">Toggle allowed roles:</div>
+                                                <div className="flex flex-wrap gap-2 mb-3">
+                                                    {ALL_PLAYER_ROLES.map(r => (
+                                                        <button key={r} type="button"
+                                                            onClick={() => setEditRoles(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r])}
+                                                            className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${editRoles.includes(r)
                                                                 ? 'bg-amber-500/20 border-amber-500 text-amber-300'
                                                                 : 'bg-gray-800 border-gray-600 text-gray-500 hover:border-gray-400'
-                                                            }`}>
-                                                        {ROLE_LABELS[r] ?? r}
-                                                    </button>
-                                                ))}
+                                                                }`}>
+                                                            {ROLE_LABELS[r] ?? r}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => handleSaveInviteRoles(c.code)}
+                                                        className="px-4 py-1.5 rounded bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold">Save</button>
+                                                    <button onClick={() => setEditingCode(null)}
+                                                        className="px-4 py-1.5 rounded bg-gray-700 text-gray-400 hover:text-white text-xs font-bold">Cancel</button>
+                                                </div>
                                             </div>
-                                            <div className="flex gap-2">
-                                                <button onClick={() => handleSaveInviteRoles(c.code)}
-                                                    className="px-4 py-1.5 rounded bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold">Save</button>
-                                                <button onClick={() => setEditingCode(null)}
-                                                    className="px-4 py-1.5 rounded bg-gray-700 text-gray-400 hover:text-white text-xs font-bold">Cancel</button>
-                                            </div>
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Redemption Ledger */}
+                        {inviteCodes.filter(c => c.used).length > 0 && (
+                            <div>
+                                <div className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-3 flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                                    Redemption Ledger ({inviteCodes.filter(c => c.used).length})
                                 </div>
-                            ))}
+                                <div className="bg-black/30 rounded-lg border border-gray-800 overflow-hidden">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="text-[10px] text-gray-500 uppercase tracking-widest bg-gray-800/50">
+                                                <th className="px-4 py-2.5 text-left">Code</th>
+                                                <th className="px-4 py-2.5 text-left">Callsign</th>
+                                                <th className="px-4 py-2.5 text-left">Role</th>
+                                                <th className="px-4 py-2.5 text-left">Label</th>
+                                                <th className="px-4 py-2.5 text-right">Redeemed</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {inviteCodes.filter(c => c.used).map(c => (
+                                                <tr key={c.code} className="border-t border-gray-800/50 hover:bg-gray-800/20 transition-colors">
+                                                    <td className="px-4 py-2.5 font-mono tracking-widest text-gray-400 font-bold">{c.code}</td>
+                                                    <td className="px-4 py-2.5">
+                                                        <span className="text-white font-bold">{c.usedBy?.username || '—'}</span>
+                                                    </td>
+                                                    <td className="px-4 py-2.5">
+                                                        {c.usedBy?.playerRole ? (
+                                                            <span className="text-xs bg-gray-700/50 text-gray-300 px-2 py-0.5 rounded-full font-bold">
+                                                                {ROLE_LABELS[c.usedBy.playerRole] ?? c.usedBy.playerRole}
+                                                            </span>
+                                                        ) : <span className="text-gray-600">—</span>}
+                                                    </td>
+                                                    <td className="px-4 py-2.5 text-gray-500 text-xs italic">{c.label || '—'}</td>
+                                                    <td className="px-4 py-2.5 text-right text-xs text-gray-500 font-mono">
+                                                        {c.usedAt ? new Date(c.usedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* News Engine Panel */}
+            {showNewsPanel && (
+                <div className="px-6 pb-4">
+                    <div className="bg-gray-900 border border-cyan-800/50 rounded-xl p-6">
+                        <h3 className="text-lg font-bold text-cyan-400 mb-4 uppercase tracking-widest">⚙️ News Engine Configuration</h3>
+
+                        {/* Mode Switch */}
+                        <div className="mb-5">
+                            <div className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-3">News Schedule Mode</div>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => updateNewsSetting('NEWS_MODE', '24_7')}
+                                    className={`flex-1 px-4 py-3 rounded-lg border-2 transition-all text-left ${newsMode === '24_7'
+                                        ? 'border-cyan-500 bg-cyan-500/10 text-white'
+                                        : 'border-gray-700 bg-gray-800/50 text-gray-400 hover:border-gray-500'
+                                        }`}>
+                                    <div className="font-bold text-sm mb-1">🌐 24/7 News</div>
+                                    <div className="text-xs opacity-70">Stories every 30 min, all day, every day</div>
+                                </button>
+                                <button
+                                    onClick={() => updateNewsSetting('NEWS_MODE', 'TRADING_HOURS')}
+                                    className={`flex-1 px-4 py-3 rounded-lg border-2 transition-all text-left ${newsMode === 'TRADING_HOURS'
+                                        ? 'border-cyan-500 bg-cyan-500/10 text-white'
+                                        : 'border-gray-700 bg-gray-800/50 text-gray-400 hover:border-gray-500'
+                                        }`}>
+                                    <div className="font-bold text-sm mb-1">📅 Trading Hours</div>
+                                    <div className="text-xs opacity-70">Stories every 15 min, 8AM–4PM EST Mon–Fri</div>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* CEO Decision Sub-toggle (only in Trading Hours mode) */}
+                        {newsMode === 'TRADING_HOURS' && (
+                            <div className="mb-5 bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <div className="text-sm font-bold text-white mb-1">CEO Decision Reporting</div>
+                                        <div className="text-xs text-gray-400">
+                                            {ceoImmediate
+                                                ? 'Stories publish immediately after CEO decisions, even outside market hours'
+                                                : 'Stories are queued and released all at once Monday 8 AM EST'}
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => updateNewsSetting('CEO_NEWS_IMMEDIATE', ceoImmediate ? 'false' : 'true')}
+                                        className={`relative w-14 h-7 rounded-full transition-colors duration-200 ${ceoImmediate ? 'bg-cyan-500' : 'bg-gray-600'
+                                            }`}>
+                                        <span className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform duration-200 ${ceoImmediate ? 'translate-x-7' : 'translate-x-0.5'
+                                            }`} />
+                                    </button>
+                                </div>
+                                {!ceoImmediate && queuedCount > 0 && (
+                                    <div className="mt-3 pt-3 border-t border-gray-700 flex items-center gap-2">
+                                        <span className="inline-flex items-center gap-1.5 bg-amber-500/20 text-amber-300 text-xs font-bold px-3 py-1 rounded-full">
+                                            📰 {queuedCount} {queuedCount === 1 ? 'story' : 'stories'} queued
+                                        </span>
+                                        <span className="text-xs text-gray-500">Will release Monday 8 AM EST</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Current Status */}
+                        <div className="text-xs text-gray-500 mt-2">
+                            Active mode: <span className="text-cyan-400 font-bold">{newsMode === '24_7' ? '24/7 (30 min)' : 'Trading Hours (15 min)'}</span>
+                            {newsMode === 'TRADING_HOURS' && (
+                                <> · CEO immediate: <span className={`font-bold ${ceoImmediate ? 'text-green-400' : 'text-amber-400'}`}>{ceoImmediate ? 'ON' : 'OFF (queuing)'}</span></>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -466,7 +628,7 @@ export default function AdminDashboard() {
                                 <React.Fragment key={user.id}>
                                     <tr className={`border-t border-gray-800 hover:bg-gray-800/30 transition-colors ${user.frozen ? 'opacity-60' : ''}`}>
                                         <td className="px-4 py-3 font-mono font-bold text-white">
-                                            {user.username || <span className="text-gray-600 italic">no callsign</span>}
+                                            {user.username || <span className="text-gray-600 italic">no identity</span>}
                                         </td>
                                         <td className="px-4 py-3 text-gray-400">{user.role}</td>
                                         <td className="px-4 py-3 text-right">

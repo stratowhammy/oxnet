@@ -107,7 +107,7 @@ export default function Banking({ user, allUsers }: { user: any, allUsers: any[]
 
                     <form onSubmit={handleTransfer} className="space-y-4">
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Recipient Callsign</label>
+                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Recipient Identity</label>
                             <input
                                 type="text"
                                 value={recipient}
@@ -203,7 +203,7 @@ export default function Banking({ user, allUsers }: { user: any, allUsers: any[]
                     <table className="w-full text-left">
                         <thead>
                             <tr className="border-b border-gray-800 text-gray-500 text-xs uppercase tracking-wider">
-                                <th className="py-3 px-4">Lender Callsign</th>
+                                <th className="py-3 px-4">Lender Identity</th>
                                 <th className="py-3 px-4">Available To Borrow</th>
                                 <th className="py-3 px-4">Interest Rate</th>
                                 <th className="py-3 px-4">Action</th>

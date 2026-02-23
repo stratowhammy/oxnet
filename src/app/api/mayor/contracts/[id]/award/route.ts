@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/db';
 
 // POST /api/mayor/contracts/[id]/award — Mayor awards a specific bid
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
     try {
+        const params = await props.params;
         const { userId, bidId } = await req.json();
         const contractId = params.id;
 

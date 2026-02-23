@@ -1,13 +1,30 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 
-// GET /api/admin/invites — list all invite codes with their role config
+// GET /api/admin/invites — list all invite codes with their role config and usage info
 export async function GET(req: Request) {
     try {
         const invites = await prisma.inviteCode.findMany({
             orderBy: { createdAt: 'desc' }
         });
-        return NextResponse.json(invites);
+
+        // For used codes, fetch the user who redeemed them
+        const usedIds = invites.filter(i => i.used && i.usedById).map(i => i.usedById as string);
+        const users = usedIds.length > 0
+            ? await prisma.user.findMany({
+                where: { id: { in: usedIds } },
+                select: { id: true, username: true, playerRole: true }
+            })
+            : [];
+
+        const userMap = new Map(users.map(u => [u.id, u]));
+
+        const enriched = invites.map(invite => ({
+            ...invite,
+            usedBy: (invite.usedById && userMap.get(invite.usedById)) || null,
+        }));
+
+        return NextResponse.json(enriched);
     } catch (e: any) {
         return NextResponse.json({ error: e.message }, { status: 500 });
     }
