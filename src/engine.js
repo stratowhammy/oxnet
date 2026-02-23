@@ -578,6 +578,139 @@ async function executeLimitOrders() {
 }
 
 
+// ----- Market Maker Engine -----
+const MARKET_MAKER_ID = '10101010';
+const TARGET_MM_ORDERS = 15;
+
+async function maintainMarketMakerOrders(assetId) {
+    try {
+        const asset = await prisma.asset.findUnique({ where: { id: assetId } });
+        if (!asset) return;
+
+        const basePrice = asset.basePrice;
+
+        const currentOrders = await prisma.limitOrder.findMany({
+            where: {
+                userId: MARKET_MAKER_ID,
+                assetId: asset.id,
+                status: 'PENDING'
+            }
+        });
+
+        let buyOrdersCount = currentOrders.filter(o => o.type === 'BUY').length;
+        let sellOrdersCount = currentOrders.filter(o => o.type === 'SELL').length;
+
+        const ops = [];
+
+        let currentBuyPrice = basePrice * 0.999;
+        for (let i = buyOrdersCount; i < TARGET_MM_ORDERS; i++) {
+            ops.push(prisma.limitOrder.create({
+                data: {
+                    userId: MARKET_MAKER_ID,
+                    assetId: asset.id,
+                    type: 'BUY',
+                    quantity: Math.floor(Math.random() * 500) + 10,
+                    price: currentBuyPrice,
+                    leverage: 1.0,
+                    status: 'PENDING'
+                }
+            }));
+            currentBuyPrice *= 0.995;
+        }
+
+        let currentSellPrice = basePrice * 1.001;
+        for (let i = sellOrdersCount; i < TARGET_MM_ORDERS; i++) {
+            ops.push(prisma.limitOrder.create({
+                data: {
+                    userId: MARKET_MAKER_ID,
+                    assetId: asset.id,
+                    type: 'SELL',
+                    quantity: Math.floor(Math.random() * 500) + 10,
+                    price: currentSellPrice,
+                    leverage: 1.0,
+                    status: 'PENDING'
+                }
+            }));
+            currentSellPrice *= 1.005;
+        }
+
+        if (ops.length > 0) {
+            await prisma.$transaction(ops);
+        }
+    } catch (e) {
+        console.error("Error maintaining MM orders:", e);
+    }
+}
+
+async function initAllMarketMakerOrders() {
+    try {
+        const assets = await prisma.asset.findMany();
+        for (const asset of assets) {
+            await maintainMarketMakerOrders(asset.id);
+        }
+        console.log("Market Maker orders initialized.");
+    } catch (e) {
+        console.error("Failed to init MM orders:", e);
+    }
+}
+
+async function executeMarketMakerTick() {
+    try {
+        const assets = await prisma.asset.findMany();
+        for (const asset of assets) {
+            const basePrice = asset.basePrice;
+
+            const highestBuy = await prisma.limitOrder.findFirst({
+                where: { assetId: asset.id, type: { in: ['BUY', 'COVER'] }, status: 'PENDING', price: { gte: basePrice } },
+                orderBy: { price: 'desc' }
+            });
+
+            const lowestSell = await prisma.limitOrder.findFirst({
+                where: { assetId: asset.id, type: { in: ['SELL', 'SHORT'] }, status: 'PENDING', price: { lte: basePrice } },
+                orderBy: { price: 'asc' }
+            });
+
+            if (highestBuy) {
+                console.log(`[MM Execute] Executing BUY for ${asset.symbol}: Order ${highestBuy.id} at ${highestBuy.price} (Market: ${basePrice})`);
+                const res = await fetch(`http://127.0.0.1:${process.env.PORT || 3000}/api/trade`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: highestBuy.userId, assetId: highestBuy.assetId, type: highestBuy.type, quantity: highestBuy.quantity, leverage: highestBuy.leverage })
+                });
+                if (res.ok) {
+                    await prisma.limitOrder.update({ where: { id: highestBuy.id }, data: { status: 'EXECUTED' } });
+                } else {
+                    const err = await res.json();
+                    if (err.error && err.error.toLowerCase().includes('insufficient')) {
+                        await prisma.limitOrder.update({ where: { id: highestBuy.id }, data: { status: 'CANCELLED' } });
+                    }
+                }
+            }
+
+            if (lowestSell) {
+                console.log(`[MM Execute] Executing SELL for ${asset.symbol}: Order ${lowestSell.id} at ${lowestSell.price} (Market: ${basePrice})`);
+                const res = await fetch(`http://127.0.0.1:${process.env.PORT || 3000}/api/trade`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: lowestSell.userId, assetId: lowestSell.assetId, type: lowestSell.type, quantity: lowestSell.quantity, leverage: lowestSell.leverage })
+                });
+                if (res.ok) {
+                    await prisma.limitOrder.update({ where: { id: lowestSell.id }, data: { status: 'EXECUTED' } });
+                } else {
+                    const err = await res.json();
+                    if (err.error && err.error.toLowerCase().includes('insufficient')) {
+                        await prisma.limitOrder.update({ where: { id: lowestSell.id }, data: { status: 'CANCELLED' } });
+                    }
+                }
+            }
+
+            await maintainMarketMakerOrders(asset.id);
+        }
+    } catch (e) {
+        console.error("Error executing MM tick:", e);
+    }
+}
+
 // ----- CEO Decision-Driven News -----
 
 async function processCeoDecisions() {
@@ -868,6 +1001,7 @@ recordSectorIndices();
 scheduledPublishNewsStory();
 simulateTradeImpacts();
 applySinusoidalMovements();
+initAllMarketMakerOrders();
 
 // Kick off daily midnight backup cron
 initBackupWorker();
@@ -883,6 +1017,7 @@ setInterval(applySinusoidalMovements, ONE_MIN); // Force push underlying market 
 setInterval(checkMarginCalls, THIRTY_SECONDS); // Run liquidations aggressively
 setInterval(checkConditionalOrders, ONE_MIN); // Check TP/SL every 1 minute
 setInterval(executeLimitOrders, THIRTY_SECONDS); // Check limit orders frequently
+setInterval(executeMarketMakerTick, TWO_MINS); // MM spread execution every 2 mins
 setInterval(processCeoDecisions, TWO_MINS); // Check for CEO decisions to turn into news
 setInterval(checkHedgeFundPerformance, FIVE_MINS); // Check HFM fund performance
 setInterval(refreshAIContext, THIRTY_MINS); // Refresh AI context file every 30 minutes

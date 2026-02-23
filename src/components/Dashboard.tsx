@@ -602,40 +602,29 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
         }
     };
 
-    // --- Mock Order Book ---
-    const orderBook = useMemo(() => {
-        if (!selectedAsset) return { asks: [], bids: [] };
-        const asks = [];
-        const bids = [];
-        const base = selectedAsset.basePrice;
+    // --- Real Order Book Fetch ---
+    const [orderBook, setOrderBook] = useState<{ bids: { price: number; size: number; total: number }[]; asks: { price: number; size: number; total: number }[] }>({ bids: [], asks: [] });
 
-        // Pseudo-random generator based on asset id to keep it stable-ish
-        const seed = parseInt(selectedAsset.id.substring(0, 8), 16) || 1234;
-        let runningSeed = seed;
-        const random = () => {
-            const x = Math.sin(runningSeed++) * 10000;
-            return x - Math.floor(x);
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        const fetchOrderBook = async () => {
+            if (!selectedAssetId) return;
+            try {
+                const res = await fetch(`/api/assets/${selectedAssetId}/orderbook`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setOrderBook(data);
+                }
+            } catch (e) {
+                console.error('Failed to fetch order book', e);
+            }
         };
 
-        let currentAskPrice = base;
-        let currentBidPrice = base;
+        fetchOrderBook();
+        interval = setInterval(fetchOrderBook, 2000); // Poll every 2 seconds
 
-        for (let i = 0; i < 25; i++) {
-            // Asks go up
-            const askSpread = (random() * 0.005 * base) + 0.01;
-            currentAskPrice += askSpread;
-            const askSize = Math.floor(random() * 500) + 10;
-            asks.unshift({ price: currentAskPrice, size: askSize, total: currentAskPrice * askSize });
-
-            // Bids go down
-            const bidSpread = (random() * 0.005 * base) + 0.01;
-            currentBidPrice -= bidSpread;
-            const bidSize = Math.floor(random() * 500) + 10;
-            bids.push({ price: currentBidPrice, size: bidSize, total: currentBidPrice * bidSize });
-        }
-
-        return { asks, bids };
-    }, [selectedAsset]);
+        return () => clearInterval(interval);
+    }, [selectedAssetId]);
 
     return (
         <div className="flex flex-col lg:flex-row h-screen bg-gray-950 text-gray-100 font-sans overflow-y-auto lg:overflow-hidden">
