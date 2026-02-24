@@ -140,120 +140,124 @@ export default function Banking({ user, allUsers }: { user: any, allUsers: any[]
                     </form>
                 </div>
 
-                {/* Micro-Lending Configuration */}
+                {/* Micro-Lending Configuration - DISABLED per user request */}
+                {false && (
+                    <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-xl">
+                        <h2 className="text-xl font-bold text-purple-400 mb-2 flex items-center gap-2">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            Operator Microlending
+                        </h2>
+                        <p className="text-sm text-gray-400 mb-6">Set your parameters to lend your available liquidity to others.</p>
+
+                        <div className="space-y-6">
+                            <div>
+                                <div className="flex justify-between items-center mb-1 text-xs font-bold text-gray-500 uppercase tracking-widest">
+                                    <span>Total Lending Limit</span>
+                                    <span className="font-mono text-blue-300">Δ {lendingLimit.toFixed(2)}</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0" max={availableDelta} step="100"
+                                    value={lendingLimit}
+                                    onChange={e => setLendingLimit(parseFloat(e.target.value))}
+                                    className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                                />
+                                <div className="flex justify-between text-[10px] text-gray-600 font-mono mt-1">
+                                    <span>0</span>
+                                    <span>{availableDelta.toFixed(0)}</span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div className="flex justify-between items-center mb-1 text-xs font-bold text-gray-500 uppercase tracking-widest">
+                                    <span>Fixed Interest Rate</span>
+                                    <span className="font-mono text-purple-300">{(lendingRate * 100).toFixed(1)}%</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0" max="0.5" step="0.01"
+                                    value={lendingRate}
+                                    onChange={e => setLendingRate(parseFloat(e.target.value))}
+                                    className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                                />
+                                <div className="flex justify-between text-[10px] text-gray-600 font-mono mt-1">
+                                    <span>0%</span>
+                                    <span>50%</span>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={handleUpdateLending}
+                                disabled={configLoading}
+                                className={`w-full py-3 rounded font-bold uppercase tracking-widest transition-colors ${configLoading ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-purple-700 hover:bg-purple-600 text-white border border-purple-500'}`}
+                            >
+                                {configLoading ? 'Committing...' : 'Commit Settings to Oracle'}
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Active Lending Directory - DISABLED per user request */}
+            {false && (
                 <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-xl">
-                    <h2 className="text-xl font-bold text-purple-400 mb-2 flex items-center gap-2">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        Operator Microlending
-                    </h2>
-                    <p className="text-sm text-gray-400 mb-6">Set your parameters to lend your available liquidity to others.</p>
+                    <h3 className="text-lg font-bold text-white mb-4 uppercase tracking-widest border-b border-gray-800 pb-2">Global Liquidity Directory</h3>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="border-b border-gray-800 text-gray-500 text-xs uppercase tracking-wider">
+                                    <th className="py-3 px-4">Lender Callsign</th>
+                                    <th className="py-3 px-4">Available To Borrow</th>
+                                    <th className="py-3 px-4">Interest Rate</th>
+                                    <th className="py-3 px-4">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {allUsers.filter((u: any) => u.lendingLimit > 0 && u.id !== user.id).length === 0 ? (
+                                    <tr>
+                                        <td colSpan={4} className="py-8 text-center text-gray-500 font-serif italic border-b border-gray-800/50">
+                                            No Operators are currently offering liquidity.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    allUsers.filter((u: any) => u.lendingLimit > 0 && u.id !== user.id).map((lender: any) => {
+                                        // Calculate actual available (Limit - Currently Lent)
+                                        const activeLoansLent: number = lender.loansGiven?.reduce((acc: number, loan: any) => acc + loan.principal, 0) || 0;
+                                        const available = Math.max(0, lender.lendingLimit - activeLoansLent);
+                                        if (available <= 0) return null;
 
-                    <div className="space-y-6">
-                        <div>
-                            <div className="flex justify-between items-center mb-1 text-xs font-bold text-gray-500 uppercase tracking-widest">
-                                <span>Total Lending Limit</span>
-                                <span className="font-mono text-blue-300">Δ {lendingLimit.toFixed(2)}</span>
-                            </div>
-                            <input
-                                type="range"
-                                min="0" max={availableDelta} step="100"
-                                value={lendingLimit}
-                                onChange={e => setLendingLimit(parseFloat(e.target.value))}
-                                className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
-                            />
-                            <div className="flex justify-between text-[10px] text-gray-600 font-mono mt-1">
-                                <span>0</span>
-                                <span>{availableDelta.toFixed(0)}</span>
-                            </div>
-                        </div>
+                                        const rate = (lender.lendingRate * 100).toFixed(1);
 
-                        <div>
-                            <div className="flex justify-between items-center mb-1 text-xs font-bold text-gray-500 uppercase tracking-widest">
-                                <span>Fixed Interest Rate</span>
-                                <span className="font-mono text-purple-300">{(lendingRate * 100).toFixed(1)}%</span>
-                            </div>
-                            <input
-                                type="range"
-                                min="0" max="0.5" step="0.01"
-                                value={lendingRate}
-                                onChange={e => setLendingRate(parseFloat(e.target.value))}
-                                className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
-                            />
-                            <div className="flex justify-between text-[10px] text-gray-600 font-mono mt-1">
-                                <span>0%</span>
-                                <span>50%</span>
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={handleUpdateLending}
-                            disabled={configLoading}
-                            className={`w-full py-3 rounded font-bold uppercase tracking-widest transition-colors ${configLoading ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-purple-700 hover:bg-purple-600 text-white border border-purple-500'}`}
-                        >
-                            {configLoading ? 'Committing...' : 'Commit Settings to Oracle'}
-                        </button>
+                                        return (
+                                            <tr key={lender.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
+                                                <td className="py-3 px-4 font-mono text-white flex items-center gap-2">
+                                                    <div className="w-6 h-6 rounded-full bg-purple-900 flex items-center justify-center text-[10px] font-bold">
+                                                        {lender.username?.substring(0, 2).toUpperCase() || lender.id.substring(0, 2)}
+                                                    </div>
+                                                    {lender.username || lender.id}
+                                                </td>
+                                                <td className="py-3 px-4 font-mono text-green-400">Δ {available.toFixed(2)}</td>
+                                                <td className="py-3 px-4 font-mono text-purple-400">{rate}%</td>
+                                                <td className="py-3 px-4">
+                                                    <button
+                                                        onClick={() => {
+                                                            const amount = prompt(`How much would you like to borrow from ${lender.username}? (Max: ${available})`);
+                                                            if (amount) handleBorrow(lender.id, parseFloat(amount));
+                                                        }}
+                                                        className="bg-gray-800 hover:bg-white hover:text-black border border-gray-600 text-white px-3 py-1 rounded text-xs font-bold transition-colors uppercase"
+                                                    >
+                                                        Tap Liquidity
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-            </div>
-
-            {/* Active Lending Directory */}
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-xl">
-                <h3 className="text-lg font-bold text-white mb-4 uppercase tracking-widest border-b border-gray-800 pb-2">Global Liquidity Directory</h3>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="border-b border-gray-800 text-gray-500 text-xs uppercase tracking-wider">
-                                <th className="py-3 px-4">Lender Callsign</th>
-                                <th className="py-3 px-4">Available To Borrow</th>
-                                <th className="py-3 px-4">Interest Rate</th>
-                                <th className="py-3 px-4">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {allUsers.filter(u => u.lendingLimit > 0 && u.id !== user.id).length === 0 ? (
-                                <tr>
-                                    <td colSpan={4} className="py-8 text-center text-gray-500 font-serif italic border-b border-gray-800/50">
-                                        No Operators are currently offering liquidity.
-                                    </td>
-                                </tr>
-                            ) : (
-                                allUsers.filter(u => u.lendingLimit > 0 && u.id !== user.id).map(lender => {
-                                    // Calculate actual available (Limit - Currently Lent)
-                                    const activeLoansLent: number = lender.loansGiven?.reduce((acc: number, loan: any) => acc + loan.principal, 0) || 0;
-                                    const available = Math.max(0, lender.lendingLimit - activeLoansLent);
-                                    if (available <= 0) return null;
-
-                                    const rate = (lender.lendingRate * 100).toFixed(1);
-
-                                    return (
-                                        <tr key={lender.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
-                                            <td className="py-3 px-4 font-mono text-white flex items-center gap-2">
-                                                <div className="w-6 h-6 rounded-full bg-purple-900 flex items-center justify-center text-[10px] font-bold">
-                                                    {lender.username?.substring(0, 2).toUpperCase() || lender.id.substring(0, 2)}
-                                                </div>
-                                                {lender.username || lender.id}
-                                            </td>
-                                            <td className="py-3 px-4 font-mono text-green-400">Δ {available.toFixed(2)}</td>
-                                            <td className="py-3 px-4 font-mono text-purple-400">{rate}%</td>
-                                            <td className="py-3 px-4">
-                                                <button
-                                                    onClick={() => {
-                                                        const amount = prompt(`How much would you like to borrow from ${lender.username}? (Max: ${available})`);
-                                                        if (amount) handleBorrow(lender.id, parseFloat(amount));
-                                                    }}
-                                                    className="bg-gray-800 hover:bg-white hover:text-black border border-gray-600 text-white px-3 py-1 rounded text-xs font-bold transition-colors uppercase"
-                                                >
-                                                    Tap Liquidity
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            )}
 
         </div>
     );

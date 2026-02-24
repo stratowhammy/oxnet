@@ -95,14 +95,9 @@ export class AutomatedMarketMaker {
                 return { success: false, message: `Insufficient margin. Max PP: ${maxPurchasingPower.toFixed(2)}, Req: ${cost.toFixed(2)}` };
             }
 
-            let deltaToDeduct = cost;
-            let loanToAdd = 0;
-            if (user.deltaBalance >= cost) {
-                deltaToDeduct = cost;
-            } else {
-                deltaToDeduct = Math.max(0, user.deltaBalance);
-                loanToAdd = cost - deltaToDeduct;
-            }
+            const marginRequired = cost / leverage;
+            const deltaToDeduct = Math.min(user.deltaBalance, marginRequired);
+            const loanToAdd = cost - deltaToDeduct;
 
             const txOps = [
                 prisma.user.update({
@@ -138,8 +133,18 @@ export class AutomatedMarketMaker {
                     newAvgEntry = (existingLong.quantity * existingLong.averageEntryPrice + qtyToLong * executionPrice) / (existingLong.quantity + qtyToLong);
                 }
 
-                const updateData = { quantity: { increment: qtyToLong }, averageEntryPrice: newAvgEntry };
-                const createData = { userId, assetId, quantity: qtyToLong, averageEntryPrice: executionPrice, isShortPosition: false };
+                const newLiqPrice = newAvgEntry - (newAvgEntry / leverage);
+                const updateData = {
+                    quantity: { increment: qtyToLong },
+                    averageEntryPrice: newAvgEntry,
+                    leverage: leverage,
+                    liquidationPrice: newLiqPrice
+                };
+                const createData = {
+                    userId, assetId, quantity: qtyToLong, averageEntryPrice: executionPrice, isShortPosition: false,
+                    leverage: leverage,
+                    liquidationPrice: executionPrice - (executionPrice / leverage)
+                };
 
                 if (order.takeProfitPrice !== undefined) { updateData.takeProfitPrice = order.takeProfitPrice; createData.takeProfitPrice = order.takeProfitPrice; }
                 if (order.stopLossPrice !== undefined) { updateData.stopLossPrice = order.stopLossPrice; createData.stopLossPrice = order.stopLossPrice; }
@@ -155,6 +160,7 @@ export class AutomatedMarketMaker {
 
             if (!order.isInternal) {
                 await AutomatedMarketMaker.resolveCrossedLimitOrders(assetId, executionPrice);
+                await AutomatedMarketMaker.checkLiquidations(assetId);
                 await maintainMarketMakerOrders(assetId);
             }
 
@@ -227,6 +233,8 @@ export class AutomatedMarketMaker {
                     newAvgEntry = (existingShort.quantity * existingShort.averageEntryPrice + quantity * executionPrice) / (existingShort.quantity + quantity);
                 }
 
+                const newLiqPrice = newAvgEntry + (newAvgEntry / leverage);
+
                 const txOps = [
                     prisma.user.update({
                         where: { id: userId },
@@ -242,7 +250,9 @@ export class AutomatedMarketMaker {
                             quantity: { increment: quantity },
                             averageEntryPrice: newAvgEntry,
                             takeProfitPrice: order.takeProfitPrice,
-                            stopLossPrice: order.stopLossPrice
+                            stopLossPrice: order.stopLossPrice,
+                            leverage: leverage,
+                            liquidationPrice: newLiqPrice
                         },
                         create: {
                             userId,
@@ -251,7 +261,9 @@ export class AutomatedMarketMaker {
                             averageEntryPrice: executionPrice,
                             isShortPosition: true,
                             takeProfitPrice: order.takeProfitPrice,
-                            stopLossPrice: order.stopLossPrice
+                            stopLossPrice: order.stopLossPrice,
+                            leverage: leverage,
+                            liquidationPrice: executionPrice + (executionPrice / leverage)
                         }
                     }),
                     prisma.transaction.create({
@@ -263,6 +275,7 @@ export class AutomatedMarketMaker {
 
                 if (!order.isInternal) {
                     await AutomatedMarketMaker.resolveCrossedLimitOrders(assetId, executionPrice);
+                    await AutomatedMarketMaker.checkLiquidations(assetId);
                     await maintainMarketMakerOrders(assetId);
                 }
 
@@ -349,6 +362,38 @@ export class AutomatedMarketMaker {
 
         if (iterations >= MAX_ITERATIONS) {
             console.warn(`[AMM] Cascade reached MAX_ITERATIONS for asset ${assetId}. Potential infinite loop or massive volume.`);
+        }
+    }
+
+    static async checkLiquidations(assetId) {
+        const asset = await prisma.asset.findUnique({ where: { id: assetId } });
+        if (!asset) return;
+        const currentPrice = asset.basePrice;
+
+        const portfolios = await prisma.portfolio.findMany({
+            where: { assetId }
+        });
+
+        for (const p of portfolios) {
+            if (!p.liquidationPrice) continue;
+            let shouldLiquidate = false;
+
+            if (p.isShortPosition && currentPrice >= (p.liquidationPrice - 0.001)) {
+                shouldLiquidate = true;
+            } else if (!p.isShortPosition && currentPrice <= (p.liquidationPrice + 0.001)) {
+                shouldLiquidate = true;
+            }
+
+            if (shouldLiquidate) {
+                console.log(`[LIQUIDATION] Portfolio ${p.id} (Short: ${p.isShortPosition}) for User ${p.userId} at price ${currentPrice.toFixed(4)} (Liq: ${p.liquidationPrice.toFixed(4)})`);
+                await this.executeTrade({
+                    userId: p.userId,
+                    assetId: p.assetId,
+                    type: p.isShortPosition ? 'BUY' : 'SELL', // Buying covers a short, Selling closes a long
+                    quantity: p.quantity,
+                    isInternal: true
+                });
+            }
         }
     }
 }

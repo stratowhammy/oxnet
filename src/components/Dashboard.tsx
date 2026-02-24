@@ -854,24 +854,7 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                                 {/* Asset Header & Chart (Col 8) */}
                                 <div className="col-span-12 lg:col-span-8 flex flex-col gap-6">
 
-                                    {/* Active Positions Widget (Horizontal Strip) */}
-                                    {user.portfolios.length > 0 && (
-                                        <div className="bg-gray-900 rounded-xl p-4 shadow-sm border border-gray-800 flex gap-4 overflow-x-auto hide-scrollbar">
-                                            {user.portfolios.map((p, index) => {
-                                                const currentVal = p.quantity * p.asset.basePrice;
-                                                const isProfitable = currentVal >= (p.quantity * p.averageEntryPrice);
-                                                return (
-                                                    <div key={`${p.assetId}-${index}`} className="min-w-[150px] flex-shrink-0 border-r border-gray-800 pr-4 last:border-0 cursor-pointer hover:bg-gray-800 p-2 rounded transition-colors" onClick={() => setSelectedAssetId(p.assetId)}>
-                                                        <div className="text-white font-bold text-sm">{p.asset.symbol}</div>
-                                                        <div className="text-xs text-gray-400 mb-1">{p.quantity} shares</div>
-                                                        <div className={`font-mono flex justify-between text-sm ${isProfitable ? 'text-green-400' : 'text-red-400'}`}>
-                                                            Δ {currentVal.toFixed(2)}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
+                                    {/* Active Positions Widget removed per user request */}
 
                                     {/* Main Chart Header */}
                                     <div
@@ -1076,32 +1059,37 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                                             </div>
                                             {leverage > 1 && quantity > 0 && (
                                                 (() => {
-                                                    const portfolioEquity = user.portfolios.reduce((acc, p) => {
-                                                        const val = p.quantity * p.asset.basePrice;
-                                                        return p.isShortPosition ? acc - val : acc + val;
-                                                    }, 0);
-                                                    const totalEquity = user.deltaBalance - (user.marginLoan || 0) + portfolioEquity;
-
                                                     let entryPrice = selectedAsset.basePrice;
-                                                    // Ideally use impact estimated price, but basePrice is okay for approx
                                                     if (impact && impact.estimatedTotal) {
                                                         entryPrice = (impact.estimatedTotal + impact.fee) / quantity;
                                                     }
 
                                                     let liqPrice = 0;
                                                     if (orderType === 'BUY') {
-                                                        liqPrice = entryPrice - (totalEquity / quantity);
+                                                        liqPrice = entryPrice - (entryPrice / leverage);
                                                     } else if (orderType === 'SHORT') {
-                                                        liqPrice = entryPrice + (totalEquity / quantity);
+                                                        liqPrice = entryPrice + (entryPrice / leverage);
                                                     }
 
+                                                    const marginRequired = (entryPrice * quantity) / leverage;
+
                                                     return (
-                                                        <div className="flex justify-between text-sm mb-2">
-                                                            <span className="text-orange-500 font-bold uppercase text-xs tracking-wider flex items-center">Est. Liquidation</span>
-                                                            <span className="font-mono text-orange-400 font-bold">
-                                                                Δ {Math.max(0, liqPrice).toFixed(2)}
-                                                            </span>
-                                                        </div>
+                                                        <>
+                                                            {orderType !== 'SELL' && (
+                                                                <div className="flex justify-between text-sm mb-2">
+                                                                    <span className="text-blue-500 font-bold uppercase text-xs tracking-wider flex items-center">Margin Required</span>
+                                                                    <span className="font-mono text-blue-400 font-bold">
+                                                                        Δ {marginRequired.toFixed(2)}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                            <div className="flex justify-between text-sm mb-2">
+                                                                <span className="text-orange-500 font-bold uppercase text-xs tracking-wider flex items-center">Est. Liquidation</span>
+                                                                <span className="font-mono text-orange-400 font-bold">
+                                                                    Δ {Math.max(0, liqPrice).toFixed(2)}
+                                                                </span>
+                                                            </div>
+                                                        </>
                                                     )
                                                 })()
                                             )}
@@ -1150,13 +1138,21 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                                                                     <span className={`text-xs font-bold px-2 py-1 rounded ${position.isShortPosition ? 'bg-purple-900/50 text-purple-300' : 'bg-green-900/50 text-green-300'}`}>
                                                                         {position.isShortPosition ? 'SHORT' : 'LONG'}
                                                                     </span>
-                                                                    <span className="text-gray-400 text-sm">{position.quantity} shares</span>
+                                                                    <span className="text-gray-400 text-sm">
+                                                                        {position.quantity} sh <span className="ml-2 px-1 py-0.5 bg-gray-700/50 rounded text-xs">{(position as any).leverage || 1}x</span>
+                                                                    </span>
                                                                 </div>
                                                                 <div className="space-y-2">
                                                                     <div className="flex justify-between">
                                                                         <span className="text-gray-400 text-sm">Avg Entry</span>
                                                                         <span className="text-white font-mono">Δ {position.averageEntryPrice.toFixed(2)}</span>
                                                                     </div>
+                                                                    {(position as any).liquidationPrice && (
+                                                                        <div className="flex justify-between">
+                                                                            <span className="text-orange-500/80 text-sm">Liquidation</span>
+                                                                            <span className="text-orange-400 font-mono">Δ {(position as any).liquidationPrice.toFixed(2)}</span>
+                                                                        </div>
+                                                                    )}
                                                                     <div className="flex justify-between border-t border-gray-700/50 pt-2">
                                                                         <span className="text-gray-400 text-sm">Notional Value</span>
                                                                         <span className="text-white font-mono">Δ {marketValue.toFixed(2)}</span>

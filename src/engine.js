@@ -389,65 +389,7 @@ async function applySinusoidalMovements() {
         data: { basePrice: 1.00 }
     });
 }
-// 4. Margin Call Engine
-async function checkMarginCalls() {
-    console.log(`[${new Date().toISOString()}] Checking Margin Accounts...`);
-    const allUsers = await prisma.user.findMany({
-        where: {
-            OR: [
-                { marginLoan: { gt: 0 } },
-                { portfolios: { some: { isShortPosition: true } } }
-            ]
-        },
-        include: { portfolios: { include: { asset: true } } }
-    });
-
-    for (const user of allUsers) {
-        let portfolioEquity = 0;
-        for (const p of user.portfolios) {
-            const val = p.quantity * p.asset.basePrice;
-            if (p.isShortPosition) {
-                portfolioEquity -= val;
-            } else {
-                portfolioEquity += val;
-            }
-        }
-
-        const totalEquity = user.deltaBalance - user.marginLoan + portfolioEquity;
-
-        // Auto-liquidate if equity falls below 0
-        if (totalEquity <= 0 && user.portfolios.length > 0) {
-            console.log(`[MARGIN CALL] Liquidating User ${user.id} | Equity: ${totalEquity.toFixed(2)}`);
-
-            for (const p of user.portfolios) {
-                // Return assets to pool or take from pool
-                const k = p.asset.supplyPool * p.asset.demandPool;
-                let newSupply, newDemand;
-                if (p.isShortPosition) {
-                    // Short cover = Buy. Removes supply.
-                    newSupply = Math.max(0.001, p.asset.supplyPool - p.quantity);
-                    newDemand = k / newSupply;
-                } else {
-                    // Sell = Adds supply.
-                    newSupply = p.asset.supplyPool + p.quantity;
-                    newDemand = k / newSupply;
-                }
-                await prisma.asset.update({
-                    where: { id: p.asset.id },
-                    data: { supplyPool: newSupply, demandPool: newDemand }
-                });
-            }
-
-            // Wipe user portfolio and reset balance to harsh 0 mapping
-            await prisma.portfolio.deleteMany({ where: { userId: user.id } });
-            await prisma.user.update({
-                where: { id: user.id },
-                data: { deltaBalance: 0, marginLoan: 0 }
-            });
-        }
-    }
-}
-
+// 4. Margin Call Engine removed: now handled per-position in AutomatedMarketMaker
 // 5. Conditional Order Engine (TP / SL)
 async function checkConditionalOrders() {
     // console.log(`[${new Date().toISOString()}] Checking Conditional Orders...`);
@@ -922,7 +864,7 @@ setInterval(recordSectorIndices, FIFTEEN_MINS); // Record sector indices every 1
 setInterval(scheduledPublishNewsStory, ONE_MIN); // Checks schedule every 1 minute
 setInterval(simulateTradeImpacts, THIRTY_SECONDS); // Run fake trades frequently
 setInterval(applySinusoidalMovements, ONE_MIN); // Force push underlying market graph every 1 minute
-setInterval(checkMarginCalls, THIRTY_SECONDS); // Run liquidations aggressively
+// Liquidations check removed from interval, running per-trade now
 setInterval(checkConditionalOrders, ONE_MIN); // Check TP/SL every 1 minute
 // Limit order resolution and MM ticks are now handled automatically by AutomatedMarketMaker.executeTrade
 setInterval(processCeoDecisions, TWO_MINS); // Check for CEO decisions to turn into news

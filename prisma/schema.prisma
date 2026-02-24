@@ -75,6 +75,8 @@ model Portfolio {
   isShortPosition   Boolean @default(false)
   takeProfitPrice   Float? // Optional auto-closure target
   stopLossPrice     Float? // Optional auto-closure defense
+  leverage          Float   @default(1.0)
+  liquidationPrice  Float?
   user              User    @relation(fields: [userId], references: [id])
   asset             Asset   @relation(fields: [assetId], references: [id])
 
