@@ -27,7 +27,9 @@ async function publishNews() {
                 impactScope: story.Impact_Scope,
                 direction: story.Direction,
                 intensityWeight: story.Intensity_Weight,
-                competitorInversion: story.Competitor_Inversion
+                competitorInversion: story.Competitor_Inversion,
+                summary: story.Summary || null,
+                npcInvolved: story.Key_NPC_Involved || null
             }
         });
         console.log(`Published: ${story.Headline}`);

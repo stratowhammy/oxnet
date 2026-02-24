@@ -11,25 +11,14 @@ export default function NewspaperLayout({ leadStory, otherStories }: { leadStory
     const renderModal = () => {
         if (!selectedNews) return null;
 
-        // Extract scenario and impact if needed
+        // Extract scenario
         let scenario = selectedNews.context;
-        let impact = "";
-        const separator = "\n\n**Expected Economic Outcome**\n\n";
-
-        if (selectedNews.context.includes(separator)) {
-            const parts = selectedNews.context.split(separator);
-            scenario = parts[0];
-            impact = parts[1];
-        }
 
         return (
             <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 font-sans text-white text-left" onClick={closeModal}>
                 <div className="bg-gray-900 border-2 border-gray-700 p-6 max-w-2xl w-full rounded-lg shadow-2xl" onClick={e => e.stopPropagation()}>
                     <div className="flex justify-between items-start mb-4 border-b border-gray-800 pb-4">
                         <div>
-                            <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded ${selectedNews.direction === 'UP' ? 'bg-green-600/20 text-green-400' : 'bg-red-600/20 text-red-400'}`}>
-                                {selectedNews.direction} OUTLOOK
-                            </span>
                             <h2 className="text-2xl font-bold text-white mt-1">{selectedNews.headline}</h2>
                         </div>
                         <button onClick={closeModal} className="text-gray-500 hover:text-white transition-colors">
@@ -47,13 +36,6 @@ export default function NewspaperLayout({ leadStory, otherStories }: { leadStory
                         <div className="bg-gray-800/50 p-4 rounded-xl text-[15px] leading-relaxed relative">
                             {scenario}
                         </div>
-
-                        {impact && (
-                            <div className="bg-blue-900/20 border border-blue-800/50 p-4 rounded-xl">
-                                <h3 className="text-xs font-bold text-blue-400 uppercase mb-2">Expected Economic Impact</h3>
-                                <p className="text-sm italic">{impact}</p>
-                            </div>
-                        )}
 
                         {selectedNews.competitorInversion && (
                             <div className="mt-4 bg-yellow-900/20 border border-yellow-700/50 p-3 rounded text-sm text-yellow-500 flex items-center gap-2">
@@ -117,10 +99,6 @@ export default function NewspaperLayout({ leadStory, otherStories }: { leadStory
                                 <span>Sector: {leadStory.targetSector}</span>
                                 <span>•</span>
                                 <span>Impact: {leadStory.impactScope}</span>
-                                <span>•</span>
-                                <span className={leadStory.direction === 'UP' ? 'text-green-800' : 'text-red-800'}>
-                                    Outlook: {leadStory.direction}
-                                </span>
                             </div>
 
                             <div className="font-serif text-lg leading-relaxed columns-1 md:columns-2 gap-8 text-justify">
@@ -147,7 +125,7 @@ export default function NewspaperLayout({ leadStory, otherStories }: { leadStory
                                         {story.headline}
                                     </h3>
                                     <div className="text-xs font-sans font-bold uppercase mb-3 text-gray-600">
-                                        {story.targetSpecialty} — {story.direction}
+                                        {story.targetSpecialty}
                                     </div>
                                     <p className="font-serif text-sm leading-relaxed text-justify line-clamp-6">
                                         {story.context.replace(/\*\*/g, '')}

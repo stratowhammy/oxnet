@@ -53,7 +53,7 @@ type NewsStory = {
     impactScope: string;
     direction: string;
     intensityWeight: number;
-    publishedAt: Date;
+    publishedAt: Date | null;
 };
 
 // --- Mock Data Generator (moved from TradingInterface) ---
@@ -404,6 +404,18 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                     close: ph.close
                 };
             });
+
+            // Adjust the very last candle to match the current live basePrice
+            if (data.length > 0) {
+                const lastCandle = data[data.length - 1];
+                lastCandle.close = selectedAsset.basePrice;
+                if (selectedAsset.basePrice > lastCandle.high) {
+                    lastCandle.high = selectedAsset.basePrice;
+                }
+                if (selectedAsset.basePrice < lastCandle.low) {
+                    lastCandle.low = selectedAsset.basePrice;
+                }
+            }
         } else {
             data = generateData(200, selectedAsset.basePrice);
         }

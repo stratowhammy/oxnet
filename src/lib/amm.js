@@ -1,41 +1,20 @@
-import prisma from './db';
-import { maintainMarketMakerOrders } from './marketMaker';
+import prisma from './db.js';
+import { maintainMarketMakerOrders } from './marketMaker.js';
 
 // Constants
 const FEE_PERCENTAGE = 0.005; // 0.5%
 const MIN_POOL_LIQUIDITY = 1.0; // Prevent divide by zero
 
-// Types
-export interface TradeOrder {
-    userId: string;
-    assetId: string;
-    type: 'BUY' | 'SELL' | 'SHORT';
-    quantity: number;
-    leverage?: number;
-    takeProfitPrice?: number;
-    stopLossPrice?: number;
-    isInternal?: boolean;
-}
-
-export interface TradeResult {
-    success: boolean;
-    message: string;
-    executionPrice?: number;
-    totalCost?: number;
-    fee?: number;
-    priceImpact?: number;
-}
-
 export class AutomatedMarketMaker {
 
-    static calculatePriceImpact(supplyPool: number, demandPool: number, orderSize: number, isBuy: boolean): number {
+    static calculatePriceImpact(supplyPool, demandPool, orderSize, isBuy) {
         if (supplyPool <= MIN_POOL_LIQUIDITY || demandPool <= MIN_POOL_LIQUIDITY) {
             return 0;
         }
 
         const k = supplyPool * demandPool;
-        let newSupply: number;
-        let newDemand: number;
+        let newSupply;
+        let newDemand;
 
         if (isBuy) {
             if (orderSize >= supplyPool) return 100;
@@ -53,7 +32,7 @@ export class AutomatedMarketMaker {
         return ((newPrice - currentPrice) / currentPrice) * 100;
     }
 
-    static async executeTrade(order: TradeOrder): Promise<TradeResult> {
+    static async executeTrade(order) {
         const { userId, assetId, type, quantity } = order;
         const leverage = order.leverage || 1;
 
@@ -125,7 +104,7 @@ export class AutomatedMarketMaker {
                 loanToAdd = cost - deltaToDeduct;
             }
 
-            const txOps: any[] = [
+            const txOps = [
                 prisma.user.update({
                     where: { id: userId },
                     data: {
@@ -143,11 +122,11 @@ export class AutomatedMarketMaker {
             ];
 
             if (qtyToCover > 0) {
-                if (qtyToCover === existingShort!.quantity) {
-                    txOps.push(prisma.portfolio.delete({ where: { id: existingShort!.id } }));
+                if (qtyToCover === existingShort.quantity) {
+                    txOps.push(prisma.portfolio.delete({ where: { id: existingShort.id } }));
                 } else {
                     txOps.push(prisma.portfolio.update({
-                        where: { id: existingShort!.id },
+                        where: { id: existingShort.id },
                         data: { quantity: { decrement: qtyToCover } }
                     }));
                 }
@@ -159,8 +138,8 @@ export class AutomatedMarketMaker {
                     newAvgEntry = (existingLong.quantity * existingLong.averageEntryPrice + qtyToLong * executionPrice) / (existingLong.quantity + qtyToLong);
                 }
 
-                const updateData: any = { quantity: { increment: qtyToLong }, averageEntryPrice: newAvgEntry };
-                const createData: any = { userId, assetId, quantity: qtyToLong, averageEntryPrice: executionPrice, isShortPosition: false };
+                const updateData = { quantity: { increment: qtyToLong }, averageEntryPrice: newAvgEntry };
+                const createData = { userId, assetId, quantity: qtyToLong, averageEntryPrice: executionPrice, isShortPosition: false };
 
                 if (order.takeProfitPrice !== undefined) { updateData.takeProfitPrice = order.takeProfitPrice; createData.takeProfitPrice = order.takeProfitPrice; }
                 if (order.stopLossPrice !== undefined) { updateData.stopLossPrice = order.stopLossPrice; createData.stopLossPrice = order.stopLossPrice; }
@@ -201,7 +180,7 @@ export class AutomatedMarketMaker {
                     deltaToAdd = proceeds - loanToPay;
                 }
 
-                const txOps: any[] = [
+                const txOps = [
                     prisma.user.update({
                         where: { id: userId },
                         data: {
@@ -248,7 +227,7 @@ export class AutomatedMarketMaker {
                     newAvgEntry = (existingShort.quantity * existingShort.averageEntryPrice + quantity * executionPrice) / (existingShort.quantity + quantity);
                 }
 
-                const txOps: any[] = [
+                const txOps = [
                     prisma.user.update({
                         where: { id: userId },
                         data: { deltaBalance: { increment: proceeds } }
@@ -293,16 +272,14 @@ export class AutomatedMarketMaker {
         return { success: false, message: "Invalid trade type" };
     }
 
-    static async resolveCrossedLimitOrders(assetId: string, startPrice: number) {
+    static async resolveCrossedLimitOrders(assetId, startPrice) {
         let currentPrice = startPrice;
         let iterations = 0;
-        const MAX_ITERATIONS = 50; // Safety limit to prevent infinite loops
+        const MAX_ITERATIONS = 50;
 
         console.log(`[AMM] Starting order resolution for asset ${assetId} at price ${startPrice.toFixed(4)}`);
 
         while (iterations < MAX_ITERATIONS) {
-            // Find the best order that is crossed by the current price
-            // Best = Highest BUY above price or Lowest SELL below price
             const bestBuy = await prisma.limitOrder.findFirst({
                 where: { assetId, status: 'PENDING', type: { in: ['BUY', 'COVER'] }, price: { gte: currentPrice } },
                 orderBy: { price: 'desc' }
@@ -313,13 +290,8 @@ export class AutomatedMarketMaker {
                 orderBy: { price: 'asc' }
             });
 
-            // If we have both, execute the one that is "closer" or just pick one (BUY first for stability?)
-            // Actually, we should probably pick the one that is MOST crossed? 
-            // Or just execute both sequentially in this iteration.
-
             let executedAny = false;
 
-            // Handle BUYs
             if (bestBuy) {
                 console.log(`[AMM] Cascade iteration ${iterations}: Found BUY order ${bestBuy.id} at ${bestBuy.price}`);
                 const res = await AutomatedMarketMaker.executeTrade({
@@ -337,12 +309,10 @@ export class AutomatedMarketMaker {
                     executedAny = true;
                 } else if (res.message && res.message.toLowerCase().includes('insufficient')) {
                     await prisma.limitOrder.update({ where: { id: bestBuy.id }, data: { status: 'CANCELLED' } });
-                    executedAny = true; // Still marked as "changed" to re-check others
+                    executedAny = true;
                 }
             }
 
-            // Handle SELLs (if no buy was executed or if we want to do both)
-            // Re-check price if buy executed
             const bestSellRefresh = await prisma.limitOrder.findFirst({
                 where: { assetId, status: 'PENDING', type: { in: ['SELL', 'SHORT'] }, price: { lte: currentPrice } },
                 orderBy: { price: 'asc' }

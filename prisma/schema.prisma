@@ -106,7 +106,17 @@ model NewsStory {
   direction           String
   intensityWeight     Int
   competitorInversion Boolean
+  summary             String?
+  npcInvolved         String?
   publishedAt         DateTime @default(now())
+}
+
+model NPC {
+  id          String @id @default(cuid())
+  name        String @unique
+  title       String
+  institution String
+  category    String // Government, Finance, Science, Media
 }
 
 model PriceHistory {

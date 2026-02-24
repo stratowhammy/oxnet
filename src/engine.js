@@ -1,18 +1,18 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from './lib/db.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { initBackupWorker } from './backupWorker.js';
 import { initGoalWorker } from './goalWorker.js';
 import { calculatePriceShift } from './lib/marketMath.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const prisma = new PrismaClient();
+import { maintainMarketMakerOrders } from './lib/marketMaker.js';
+import { AutomatedMarketMaker } from './lib/amm.js';
 
 const LLM_URL = process.env.LLM_URL || 'http://127.0.0.1:1234/v1/chat/completions';
 const LLM_MODEL = process.env.LLM_MODEL || 'qwen/qwen3-vl-4b';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 let aiContextText = '';
 const contextPath = path.join(__dirname, '../ai_news_context.md');
@@ -81,50 +81,96 @@ export async function publishNewsStory() {
 
     console.log(`Generating AI news story for ${companyName} (${sector} - ${niche})...`);
 
-    // Fetch historical context
-    // Reduced from 10 to 3 to prevent "Context size has been exceeded" errors with small local models
-    const dbHistory = await prisma.newsStory.findMany({
-        orderBy: { publishedAt: 'desc' },
-        take: 3
-    });
-    let historyLines = "No recent events recorded in history yet.";
-    if (dbHistory.length > 0) {
-        historyLines = dbHistory.map(item => `[${item.targetSector} - ${new Date(item.publishedAt).toLocaleDateString()}] ${item.headline}\nContent: ${item.context}`).join('\n\n');
-    }
+    // Fetch a random NPC from the database
+    const allNpcs = await prisma.nPC.findMany();
+    const npcRecord = allNpcs.length > 0 ? allNpcs[Math.floor(Math.random() * allNpcs.length)] : { name: "Dr. Harrison Wells", title: "Chief Futurist", institution: "Institute for Advanced Studies" };
+    const selectedNpc = npcRecord.name;
+    const npcIdentifier = `${npcRecord.name}, ${npcRecord.title} at ${npcRecord.institution}`;
 
-    // Fetch details for the target asset and its sector colleagues to create a focused, "thin" context
+    const programmaticDirection = Math.random() > 0.5 ? "UP" : "DOWN";
+    const programmaticIntensity = Math.floor(Math.random() * 5) + 1;
+
+    // Fetch Reporter's Brain Context
+    const targetAssetHistory = await prisma.newsStory.findMany({
+        where: { targetSpecialty: niche },
+        orderBy: { publishedAt: 'desc' },
+        take: 10
+    });
+
+    const sectorHistory = await prisma.newsStory.findMany({
+        where: { targetSector: sector },
+        orderBy: { publishedAt: 'desc' },
+        take: 5
+    });
+
+    const npcHistory = await prisma.newsStory.findMany({
+        where: { npcInvolved: selectedNpc },
+        orderBy: { publishedAt: 'desc' },
+        take: 5
+    });
+
+    const formatHistory = (hist) => hist.length > 0 ? hist.map(item => `[${item.publishedAt.toISOString().split('T')[0]}] ${item.headline} (${item.direction} ${item.intensityWeight}/5) - ${item.summary || item.context.substring(0, 100)}`).join('\n') : "No relevant history.";
+
+    const targetAssetLines = formatHistory(targetAssetHistory);
+    const sectorHistoryLines = formatHistory(sectorHistory);
+    const npcHistoryLines = formatHistory(npcHistory);
+
+    // Fetch details for the target asset and its sector colleagues
     const sectorColleagues = await prisma.asset.findMany({
         where: { sector: sector, symbol: { not: 'DELTA' } },
         select: { name: true, symbol: true, niche: true, description: true, basePrice: true, supplyPool: true, demandPool: true }
     });
+
+    // Provide a lightweight list of ALL companies on the exchange to prevent hallucinations
+    const allSymbols = allAssets.filter(a => a.symbol !== 'DELTA').map(a => `${a.name} (${a.symbol})`);
 
     const assetDetailsLines = sectorColleagues.map(a =>
         `- **${a.name}** (${a.symbol})\n  Niche: ${a.niche}\n  Price: Δ${a.basePrice.toFixed(2)} | Supply: ${a.supplyPool.toFixed(0)} | Demand: ${a.demandPool.toFixed(0)}\n  Description: ${a.description}`
     ).join('\n\n');
 
     const rulesAndIdentity = `
-# OxNet News Engine Rules
+# OxNet News Engine Rules (CRITICAL)
 You are the central intelligence behind the OxNet global economic simulation. Output purely functional JSON to manipulate the fictional economy.
-- No real-world companies exist.
-- Tone: Professional, objective, 8th-grade reading level.
-- Format: Strictly JSON { Headline, Story (5 lines), Expected_Economic_Outcome (2 lines), Direction, Intensity_Weight, Competitor_Inversion }.
+1. NEVER reference real-world companies, individuals, or places (e.g., Apple, Elon Musk, Jerome Powell, USA).
+2. ONLY reference companies from the provided "Valid Companies" list.
+3. Use the provided "NPC Cast" for ANY human quotes or actions. DO NOT invent human names. Choose an appropriate NPC for the story topic.
+4. Maintain a consistent fictional reality. Build on the provided global macroeconomic history.
+5. Tone: Professional, objective financial journalism. Use non-definite words like "should", "could", "predicts", or "may" when discussing future economic outcomes.
+6. Format: STRICTLY JSON conforming to the requested schema. No markdown wrapping.
 `;
 
     const prompt = `
 ${rulesAndIdentity}
 
-## Contextual Details for ${sector} Sector
+## Valid Companies on Exchange
+${allSymbols.join(', ')}
+
+## Reporter's Brain (Context for Narrative Coherence)
+**Recent history for Asset's Niche:**
+${targetAssetLines}
+
+**Recent history for Sector:**
+${sectorHistoryLines}
+
+**Recent history involving NPC ${selectedNpc}:**
+${npcHistoryLines}
+
+## Target Company Context
 ${assetDetailsLines}
 
 **NEW STORY REQUEST**
-Target: "${companyName}" (${targetAsset.symbol})
+Generate a new breaking news story based on these specific parameters:
+Target Company: "${companyName}" (${targetAsset.symbol})
 Sector: "${sector}"
 Niche: "${niche}"
+Direction: ${programmaticDirection}
+Intensity Weight: ${programmaticIntensity} (1-5)
+NPC to Quote/Cite: ${npcIdentifier} (Wait! You MUST use their full title and institution on first mention.)
 
-Recent Historical News Events:
-${historyLines}
+CRITICAL: The subject must be "${companyName}". The impact must be logical based on their niche and the recent history. You MUST incorporate the NPC ${npcIdentifier} naturally. Use non-definite language (should/could/may) for economic outcomes. The tone MUST be Bloomberg/Yahoo Finance style and match the Direction and Intensity.
 
-CRITICAL: Subject must be '${companyName}'. Impact must be logical based on niche. No unlisted companies.
+You MUST respond ONLY with a raw JSON object matching exactly the required schema. Ensure you include the 'Summary' and 'Expected_Economic_Outcome' fields.
+In the 'Story' field, specifically refer to the NPC as "${npcIdentifier}" on first mention.
 `;
 
     let aiData;
@@ -160,33 +206,35 @@ CRITICAL: Subject must be '${companyName}'. Impact must be logical based on nich
 
     if (!aiData) {
         // Fallback
-        const isUp = Math.random() > 0.5;
         aiData = {
             Headline: `Breakthrough in ${niche}`,
-            Story: `Advances in ${niche} hold promise for the future. The companies involved are poised to take advantage of these new developments, leading to a new era of growth.`,
-            Expected_Economic_Outcome: `This should establish a stable outlook for the sector.`,
-            Direction: isUp ? "UP" : "DOWN",
-            Intensity_Weight: Math.floor(Math.random() * 5) + 1,
+            Story: `Advances in ${niche} hold promise for the future. The companies involved are poised to take advantage of these new developments. According to ${npcIdentifier}, this could lead to a new era of growth with rising demand for this stock and the sector as a whole.`,
+            Summary: `Advances in ${niche} are expected to reshape the sector according to ${npcIdentifier}.`,
+            Expected_Economic_Outcome: `This development could strengthen the market position of ${companyName}. Sector wide reverberations should be anticipated.`,
+            Direction: programmaticDirection,
+            Intensity_Weight: programmaticIntensity,
             Competitor_Inversion: Math.random() > 0.7
         };
     }
 
     // Harden AI outputs: Ensure correct types for Prisma
-    const direction = (String(aiData.Direction || 'UP').toUpperCase() === 'DOWN') ? 'DOWN' : 'UP';
-    const intensity = Number(aiData.Intensity_Weight) || 3;
+    const direction = (String(aiData.Direction || programmaticDirection).toUpperCase() === 'DOWN') ? 'DOWN' : 'UP';
+    const intensity = Number(aiData.Intensity_Weight) || programmaticIntensity;
     const inversion = (aiData.Competitor_Inversion === true || String(aiData.Competitor_Inversion).toLowerCase() === 'true');
 
     try {
         const newStory = await prisma.newsStory.create({
             data: {
                 headline: aiData.Headline || "Market Update",
-                context: `${aiData.Story}\n\n**Expected Economic Outcome**\n\n${aiData.Expected_Economic_Outcome}`,
+                context: aiData.Story,
                 targetSector: sector,
                 targetSpecialty: niche,
                 impactScope: Math.random() > 0.5 ? "SECTOR" : "SPECIALTY",
                 direction: direction,
                 intensityWeight: intensity,
-                competitorInversion: inversion
+                competitorInversion: inversion,
+                summary: aiData.Summary || null,
+                npcInvolved: selectedNpc
             }
         });
 
@@ -264,59 +312,37 @@ async function simulateTradeImpacts() {
             await executeSyntheticTrade(asset, centralBank.id, inverseAction, baseQuantity * 0.5); // 50% impact for inversion
         }
     }
+
+    // After all synthetic trades, trigger order resolution to handle any price crosses
 }
 
 async function executeSyntheticTrade(asset, userId, action, quantity) {
-    // DELTA is the fiat currency — never allow its price to change
     if (asset.symbol === 'DELTA') return;
 
-    // Basic price impact math (slippage logic)
-    const liquidityRatio = asset.supplyPool > 0 ? quantity / asset.supplyPool : 0.001;
-    let priceImpactPercent = Math.min(liquidityRatio * 0.5, 0.05); // cap physical slide to 5% per minute
+    const res = await AutomatedMarketMaker.executeTrade({
+        userId,
+        assetId: asset.id,
+        type: action,
+        quantity,
+        isInternal: false // Allow cascades to trigger
+    });
 
-    // Jitter the price slice to create authentic candle wicks and bodies
-    priceImpactPercent *= (0.6 + Math.random() * 0.8);
-
-    if (action === 'SELL') {
-        priceImpactPercent *= -1; // price drops
-    }
-
-    const newPrice = asset.basePrice * (1 + priceImpactPercent);
-
-    // Sync demandPool to maintain the price ratio (P = D/S)
-    const newDemand = newPrice * asset.supplyPool;
-
-    // Write transaction record
-    await prisma.transaction.create({
-        data: {
-            userId: userId,
-            assetId: asset.id,
-            type: action,
-            amount: quantity,
-            price: newPrice,
-            fee: 0 // Synthetic trades incur no fees
+    if (res.success && res.executionPrice) {
+        // Update local candle cache for this impact too
+        const newPrice = res.executionPrice;
+        if (!currentCandles[asset.id]) {
+            currentCandles[asset.id] = {
+                open: asset.basePrice,
+                high: Math.max(asset.basePrice, newPrice),
+                low: Math.min(asset.basePrice, newPrice),
+                close: newPrice
+            };
+        } else {
+            const c = currentCandles[asset.id];
+            c.high = Math.max(c.high, newPrice);
+            c.low = Math.min(c.low, newPrice);
+            c.close = newPrice;
         }
-    });
-
-    // Update Asset price and pools natively
-    await prisma.asset.update({
-        where: { id: asset.id },
-        data: { basePrice: newPrice, demandPool: newDemand }
-    });
-
-    // Update local candle cache for this impact too
-    if (!currentCandles[asset.id]) {
-        currentCandles[asset.id] = {
-            open: asset.basePrice,
-            high: Math.max(asset.basePrice, newPrice),
-            low: Math.min(asset.basePrice, newPrice),
-            close: newPrice
-        };
-    } else {
-        const c = currentCandles[asset.id];
-        c.high = Math.max(c.high, newPrice);
-        c.low = Math.min(c.low, newPrice);
-        c.close = newPrice;
     }
 }
 
@@ -519,128 +545,7 @@ async function checkConditionalOrders() {
     }
 }
 
-async function executeLimitOrders() {
-    try {
-        const pendingOrders = await prisma.limitOrder.findMany({
-            where: { status: 'PENDING' },
-            include: { asset: true }
-        });
-
-        for (const order of pendingOrders) {
-            const currentPrice = order.asset.basePrice;
-            let triggered = false;
-
-            if (order.type === 'BUY' || order.type === 'COVER') {
-                if (currentPrice <= order.price) triggered = true;
-            } else if (order.type === 'SELL' || order.type === 'SHORT') {
-                if (currentPrice >= order.price) triggered = true;
-            }
-
-            if (triggered) {
-                console.log(`[Limit] Order ${order.id} triggered: ${order.type} ${order.quantity} of ${order.asset.symbol} at ${currentPrice}`);
-
-                // Call the existing trade API to process it fully via AMM
-                const res = await fetch(`http://127.0.0.1:${process.env.PORT || 3000}/api/trade`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        userId: order.userId,
-                        assetId: order.assetId,
-                        type: order.type,
-                        quantity: order.quantity,
-                        leverage: order.leverage
-                    })
-                });
-
-                if (res.ok) {
-                    await prisma.limitOrder.update({
-                        where: { id: order.id },
-                        data: { status: 'EXECUTED' }
-                    });
-                    console.log(`[Limit] Order ${order.id} EXECUTED.`);
-                } else {
-                    const err = await res.json();
-                    console.error(`[Limit] Failed to execute order ${order.id}:`, err);
-                    // If it failed because of insufficient funds, we might cancel it:
-                    if (err.error && err.error.toLowerCase().includes('insufficient')) {
-                        await prisma.limitOrder.update({
-                            where: { id: order.id },
-                            data: { status: 'CANCELLED' }
-                        });
-                        console.log(`[Limit] Order ${order.id} CANCELLED due to insufficient funds.`);
-                    }
-                }
-            }
-        }
-    } catch (e) {
-        console.error("Error evaluating limit orders:", e);
-    }
-}
-
-
-// ----- Market Maker Engine -----
-const MARKET_MAKER_ID = '10101010';
-const TARGET_MM_ORDERS = 15;
-
-async function maintainMarketMakerOrders(assetId) {
-    try {
-        const asset = await prisma.asset.findUnique({ where: { id: assetId } });
-        if (!asset) return;
-
-        const basePrice = asset.basePrice;
-
-        const currentOrders = await prisma.limitOrder.findMany({
-            where: {
-                userId: MARKET_MAKER_ID,
-                assetId: asset.id,
-                status: 'PENDING'
-            }
-        });
-
-        let buyOrdersCount = currentOrders.filter(o => o.type === 'BUY').length;
-        let sellOrdersCount = currentOrders.filter(o => o.type === 'SELL').length;
-
-        const ops = [];
-
-        let currentBuyPrice = basePrice * 0.999;
-        for (let i = buyOrdersCount; i < TARGET_MM_ORDERS; i++) {
-            ops.push(prisma.limitOrder.create({
-                data: {
-                    userId: MARKET_MAKER_ID,
-                    assetId: asset.id,
-                    type: 'BUY',
-                    quantity: Math.floor(Math.random() * 500) + 10,
-                    price: currentBuyPrice,
-                    leverage: 1.0,
-                    status: 'PENDING'
-                }
-            }));
-            currentBuyPrice *= 0.995;
-        }
-
-        let currentSellPrice = basePrice * 1.001;
-        for (let i = sellOrdersCount; i < TARGET_MM_ORDERS; i++) {
-            ops.push(prisma.limitOrder.create({
-                data: {
-                    userId: MARKET_MAKER_ID,
-                    assetId: asset.id,
-                    type: 'SELL',
-                    quantity: Math.floor(Math.random() * 500) + 10,
-                    price: currentSellPrice,
-                    leverage: 1.0,
-                    status: 'PENDING'
-                }
-            }));
-            currentSellPrice *= 1.005;
-        }
-
-        if (ops.length > 0) {
-            await prisma.$transaction(ops);
-        }
-    } catch (e) {
-        console.error("Error maintaining MM orders:", e);
-    }
-}
+// (Redundant limit order execution and MM ticks removed. Handled by AutomatedMarketMaker core.)
 
 async function initAllMarketMakerOrders() {
     try {
@@ -651,63 +556,6 @@ async function initAllMarketMakerOrders() {
         console.log("Market Maker orders initialized.");
     } catch (e) {
         console.error("Failed to init MM orders:", e);
-    }
-}
-
-async function executeMarketMakerTick() {
-    try {
-        const assets = await prisma.asset.findMany();
-        for (const asset of assets) {
-            const basePrice = asset.basePrice;
-
-            const highestBuy = await prisma.limitOrder.findFirst({
-                where: { assetId: asset.id, type: { in: ['BUY', 'COVER'] }, status: 'PENDING', price: { gte: basePrice } },
-                orderBy: { price: 'desc' }
-            });
-
-            const lowestSell = await prisma.limitOrder.findFirst({
-                where: { assetId: asset.id, type: { in: ['SELL', 'SHORT'] }, status: 'PENDING', price: { lte: basePrice } },
-                orderBy: { price: 'asc' }
-            });
-
-            if (highestBuy) {
-                console.log(`[MM Execute] Executing BUY for ${asset.symbol}: Order ${highestBuy.id} at ${highestBuy.price} (Market: ${basePrice})`);
-                const res = await fetch(`http://127.0.0.1:${process.env.PORT || 3000}/api/trade`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: highestBuy.userId, assetId: highestBuy.assetId, type: highestBuy.type, quantity: highestBuy.quantity, leverage: highestBuy.leverage })
-                });
-                if (res.ok) {
-                    await prisma.limitOrder.update({ where: { id: highestBuy.id }, data: { status: 'EXECUTED' } });
-                } else {
-                    const err = await res.json();
-                    if (err.error && err.error.toLowerCase().includes('insufficient')) {
-                        await prisma.limitOrder.update({ where: { id: highestBuy.id }, data: { status: 'CANCELLED' } });
-                    }
-                }
-            }
-
-            if (lowestSell) {
-                console.log(`[MM Execute] Executing SELL for ${asset.symbol}: Order ${lowestSell.id} at ${lowestSell.price} (Market: ${basePrice})`);
-                const res = await fetch(`http://127.0.0.1:${process.env.PORT || 3000}/api/trade`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: lowestSell.userId, assetId: lowestSell.assetId, type: lowestSell.type, quantity: lowestSell.quantity, leverage: lowestSell.leverage })
-                });
-                if (res.ok) {
-                    await prisma.limitOrder.update({ where: { id: lowestSell.id }, data: { status: 'EXECUTED' } });
-                } else {
-                    const err = await res.json();
-                    if (err.error && err.error.toLowerCase().includes('insufficient')) {
-                        await prisma.limitOrder.update({ where: { id: lowestSell.id }, data: { status: 'CANCELLED' } });
-                    }
-                }
-            }
-
-            await maintainMarketMakerOrders(asset.id);
-        }
-    } catch (e) {
-        console.error("Error executing MM tick:", e);
     }
 }
 
@@ -737,6 +585,40 @@ async function processCeoDecisions() {
 
             console.log(`[CEO News] Processing decision from ${decision.user.username} for ${decision.asset.symbol}...`);
 
+            // Fetch a random NPC from the database
+            const allNpcs = await prisma.nPC.findMany();
+            const npcRecord = allNpcs.length > 0 ? allNpcs[Math.floor(Math.random() * allNpcs.length)] : { name: "Dr. Harrison Wells", title: "Chief Futurist", institution: "Institute for Advanced Studies" };
+            const selectedNpc = npcRecord.name;
+            const npcIdentifier = `${npcRecord.name}, ${npcRecord.title} at ${npcRecord.institution}`;
+
+            const programmaticDirection = Math.random() > 0.5 ? "UP" : "DOWN";
+            const programmaticIntensity = Math.floor(Math.random() * 5) + 1;
+
+            // Fetch Reporter's Brain Context
+            const targetAssetHistory = await prisma.newsStory.findMany({
+                where: { targetSpecialty: decision.asset.niche },
+                orderBy: { publishedAt: 'desc' },
+                take: 10
+            });
+
+            const sectorHistory = await prisma.newsStory.findMany({
+                where: { targetSector: decision.asset.sector },
+                orderBy: { publishedAt: 'desc' },
+                take: 5
+            });
+
+            const npcHistory = await prisma.newsStory.findMany({
+                where: { npcInvolved: selectedNpc },
+                orderBy: { publishedAt: 'desc' },
+                take: 5
+            });
+
+            const formatHistory = (hist) => hist.length > 0 ? hist.map(item => `[${item.publishedAt.toISOString().split('T')[0]}] ${item.headline} (${item.direction} ${item.intensityWeight}/5) - ${item.summary || item.context.substring(0, 100)}`).join('\n') : "No relevant history.";
+
+            const targetAssetLines = formatHistory(targetAssetHistory);
+            const sectorHistoryLines = formatHistory(sectorHistory);
+            const npcHistoryLines = formatHistory(npcHistory);
+
             const colleagueInfo = await prisma.asset.findMany({
                 where: { sector: decision.asset.sector, symbol: { not: 'DELTA' } },
                 select: { name: true, symbol: true, niche: true, description: true }
@@ -748,8 +630,8 @@ async function processCeoDecisions() {
 # OxNet News Engine Rules
 You are the central intelligence behind the OxNet global economic simulation. Output purely functional JSON to manipulate the fictional economy.
 - No real-world companies exist.
-- Tone: Professional, objective, 8th-grade reading level.
-- Format: Strictly JSON { Headline, Story (5 lines), Expected_Economic_Outcome (2 lines), Direction, Intensity_Weight, Competitor_Inversion }.
+- Tone: Objective, urgent, data-centric Bloomberg/Yahoo Finance journalism. Use non-definite words like "should", "could", "predicts", or "may" when discussing economic outcomes.
+- Format: Strictly JSON.
 `;
 
             const prompt = `
@@ -758,6 +640,16 @@ ${rulesAndIdentity}
 ## Sector Context: ${decision.asset.sector}
 ${sectorContext}
 
+## Reporter's Brain (Context for Narrative Coherence)
+**Recent history for Asset's Niche:**
+${targetAssetLines}
+
+**Recent history for Sector:**
+${sectorHistoryLines}
+
+**Recent history involving NPC ${selectedNpc}:**
+${npcHistoryLines}
+
 **CEO DECISION NEWS STORY**
 The CEO of "${decision.asset.name}" (${decision.asset.symbol}) in the ${decision.asset.sector} sector (${decision.asset.niche}) was faced with this situation:
 
@@ -765,7 +657,21 @@ The CEO of "${decision.asset.name}" (${decision.asset.symbol}) in the ${decision
 
 They chose: "${choiceText}"
 
-Write a news story about this CEO decision and its market impact. The story should feel like a real financial news article. Output standard JSON.
+Write a breaking news story about this CEO decision and its market impact. 
+Use 'Breaking,' 'Analysis,' or 'Alert' prefixes. Always cite specific fictional ticker symbols. Focus on 'the why'. Incorporate the NPC ${npcIdentifier} naturally with quotes.
+Use non-definite language (could/should/predicts) for any talk of future economic outcomes.
+
+You MUST respond ONLY with a raw JSON object matching exactly this schema:
+{
+  "Headline": "String (Short, punchy financial headline)",
+  "Story": "String (5-10 sentences. MUST QUOTE or reference at least one person from the NPC Cast naturally. MUST end with a natural economic outlook sentence.)",
+  "Summary": "String (Exactly 1 short sentence summarizing the article, asset, and NPC involved for the reporter's brain database.)",
+  "Expected_Economic_Outcome": "String (Exactly 2 lines explaining the predicted economic outcome. Use could/should language.)",
+  "Direction": "UP" or "DOWN",
+  "Intensity_Weight": Number (1 to 5, 5 being market-shattering),
+  "Competitor_Inversion": Boolean (true if competitors go down when this company goes up)
+}
+In the 'Story' field, refer to the NPC as "${npcIdentifier}" on first mention.
 `;
 
             let aiData;
@@ -796,33 +702,35 @@ Write a news story about this CEO decision and its market impact. The story shou
             }
 
             if (!aiData) {
-                const isUp = Math.random() > 0.5;
                 aiData = {
                     Headline: `${decision.asset.name} CEO Makes Bold Strategic Move`,
-                    Story: `The leadership at ${decision.asset.name} has made a significant strategic decision that analysts believe could reshape the company's position in the ${decision.asset.niche} market. The CEO's choice to ${choiceText.toLowerCase()} has drawn attention from institutional investors and competitors alike.`,
+                    Story: `The leadership at ${decision.asset.name} has made a significant strategic decision that analysts believe could reshape the company's position in the ${decision.asset.niche} market. The CEO's choice to ${choiceText.toLowerCase()} has drawn attention from institutional investors and competitors alike. ${npcIdentifier} noted that this could yield massive returns.`,
+                    Summary: `The CEO of ${decision.asset.name} decided to ${choiceText.toLowerCase()}, according to ${npcIdentifier}.`,
                     Expected_Economic_Outcome: `Market observers anticipate this could have meaningful implications for the broader ${decision.asset.sector} sector in the coming sessions.`,
-                    Direction: isUp ? 'UP' : 'DOWN',
-                    Intensity_Weight: Math.floor(Math.random() * 5) + 3,
+                    Direction: programmaticDirection,
+                    Intensity_Weight: programmaticIntensity,
                     Competitor_Inversion: Math.random() > 0.6
                 };
             }
 
             // Harden AI outputs: Ensure correct types for Prisma
-            const direction = (String(aiData.Direction || 'UP').toUpperCase() === 'DOWN') ? 'DOWN' : 'UP';
-            const intensity = Number(aiData.Intensity_Weight) || 3;
+            const direction = (String(aiData.Direction || programmaticDirection).toUpperCase() === 'DOWN') ? 'DOWN' : 'UP';
+            const intensity = Number(aiData.Intensity_Weight) || programmaticIntensity;
             const inversion = (aiData.Competitor_Inversion === true || String(aiData.Competitor_Inversion).toLowerCase() === 'true');
 
             try {
                 await prisma.newsStory.create({
                     data: {
                         headline: aiData.Headline || `${decision.asset.name}: CEO Decision Shakes Market`,
-                        context: `${aiData.Story}\n\n**Expected Economic Outcome**\n\n${aiData.Expected_Economic_Outcome}`,
+                        context: aiData.Story,
                         targetSector: decision.asset.sector,
                         targetSpecialty: decision.asset.niche,
                         impactScope: 'SPECIALTY',
                         direction: direction,
                         intensityWeight: intensity,
                         competitorInversion: inversion,
+                        summary: aiData.Summary || null,
+                        npcInvolved: selectedNpc
                     }
                 });
 
@@ -1016,8 +924,7 @@ setInterval(simulateTradeImpacts, THIRTY_SECONDS); // Run fake trades frequently
 setInterval(applySinusoidalMovements, ONE_MIN); // Force push underlying market graph every 1 minute
 setInterval(checkMarginCalls, THIRTY_SECONDS); // Run liquidations aggressively
 setInterval(checkConditionalOrders, ONE_MIN); // Check TP/SL every 1 minute
-setInterval(executeLimitOrders, THIRTY_SECONDS); // Check limit orders frequently
-setInterval(executeMarketMakerTick, TWO_MINS); // MM spread execution every 2 mins
+// Limit order resolution and MM ticks are now handled automatically by AutomatedMarketMaker.executeTrade
 setInterval(processCeoDecisions, TWO_MINS); // Check for CEO decisions to turn into news
 setInterval(checkHedgeFundPerformance, FIVE_MINS); // Check HFM fund performance
 setInterval(refreshAIContext, THIRTY_MINS); // Refresh AI context file every 30 minutes
