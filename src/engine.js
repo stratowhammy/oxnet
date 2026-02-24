@@ -67,7 +67,7 @@ async function recordPriceHistories() {
         const cutoff = await prisma.priceHistory.findFirst({
             where: { assetId: a.id },
             orderBy: { timestamp: 'desc' },
-            skip: 500, // Target 500 bars for maximum efficiency
+            skip: 300, // Target 300 bars for maximum efficiency
             select: { id: true, timestamp: true }
         });
 
