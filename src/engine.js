@@ -62,10 +62,29 @@ async function recordPriceHistories() {
         data: historyCreates
     });
 
-    // Reset memory tracker for the next 5-minute window
+    // Prune old price history: Keep only the most recent 500 bars per asset
+    for (const a of assets) {
+        const cutoff = await prisma.priceHistory.findFirst({
+            where: { assetId: a.id },
+            orderBy: { timestamp: 'desc' },
+            skip: 500, // Target 500 bars for maximum efficiency
+            select: { id: true, timestamp: true }
+        });
+
+        if (cutoff) {
+            await prisma.priceHistory.deleteMany({
+                where: {
+                    assetId: a.id,
+                    timestamp: { lte: cutoff.timestamp }
+                }
+            });
+        }
+    }
+
+    // Reset memory tracker for the next 15-minute window
     currentCandles = {};
 
-    console.log(`Recorded snapshot for ${assets.length} assets.`);
+    console.log(`Recorded snapshot for ${assets.length} assets. Pruning complete.`);
 }
 
 // 2. Publish a News Story every 30 minutes
