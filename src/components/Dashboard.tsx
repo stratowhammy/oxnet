@@ -27,6 +27,8 @@ type PortfolioItem = {
     quantity: number;
     averageEntryPrice: number;
     isShortPosition: boolean;
+    leverage: number;
+    liquidationPrice: number | null;
     asset: Asset;
 };
 
@@ -486,7 +488,11 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
         }
 
         if (visibleRangeRef.current) {
-            chart.timeScale().setVisibleLogicalRange(visibleRangeRef.current);
+            try {
+                chart.timeScale().setVisibleLogicalRange(visibleRangeRef.current);
+            } catch (e) {
+                console.warn("Failed to restore chart range", e);
+            }
         } else if (chartData.length > 0) {
             // Default view: Last 100 candles
             const lastIndex = chartData.length - 1;
@@ -501,15 +507,72 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                 chart.applyOptions({ width: chartContainerRef.current.clientWidth });
             }
         };
+
+        // Listen for user zoom/scroll and update the ref immediately
+        chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+            if (range) visibleRangeRef.current = range;
+        });
+
         window.addEventListener('resize', handleResize);
 
         return () => {
-            const timeScale = chart.timeScale();
-            visibleRangeRef.current = timeScale.getVisibleLogicalRange();
             window.removeEventListener('resize', handleResize);
             chart.remove();
         };
     }, [chartData, showSMA10, showSMA20, showSMA50, showSMA100, showSMA200, sma10, sma20, sma50, sma100, sma200, showBB, bollingerData, bbStdDev]);
+
+    // --- Content Parser: News Interactivity ---
+    const renderClickableContent = (content: string) => {
+        if (!content) return null;
+
+        // Pattern for $SYMBOL (e.g., $P-NEX) or common company name patterns
+        // We iterate through all assets to find matches for symbols or names
+        const parts: (string | React.ReactNode)[] = [content];
+
+        assets.forEach(asset => {
+            const symbolPattern = new RegExp(`\\$${asset.symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g');
+            const namePattern = new RegExp(`\\b${asset.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g');
+
+            for (let i = 0; i < parts.length; i++) {
+                if (typeof parts[i] !== 'string') continue;
+                const text = parts[i] as string;
+
+                const symbolMatch = text.match(symbolPattern);
+                const nameMatch = text.match(namePattern);
+
+                if (symbolMatch || nameMatch) {
+                    const pattern = symbolMatch ? symbolPattern : namePattern;
+                    const subParts = text.split(pattern);
+                    const newParts: (string | React.ReactNode)[] = [];
+
+                    subParts.forEach((part, index) => {
+                        newParts.push(part);
+                        if (index < subParts.length - 1) {
+                            newParts.push(
+                                <button
+                                    key={`${asset.id}-${i}-${index}`}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedAssetId(asset.id);
+                                        setActiveTab('TRADE');
+                                        setSelectedNews(null);
+                                    }}
+                                    className="text-blue-400 hover:text-blue-300 font-bold underline decoration-blue-400/30 hover:decoration-blue-300 transition-all px-1 rounded hover:bg-blue-400/10"
+                                >
+                                    {symbolMatch ? `$${asset.symbol}` : asset.name}
+                                </button>
+                            );
+                        }
+                    });
+
+                    parts.splice(i, 1, ...newParts);
+                    i += newParts.length - 1;
+                }
+            }
+        });
+
+        return parts;
+    };
 
     // --- Effects: Price Impact ---
     useEffect(() => {
@@ -1204,7 +1267,7 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                             </button>
                         </div>
                         <div className="text-gray-300 text-lg leading-relaxed mb-8">
-                            {selectedNews.context}
+                            {renderClickableContent(selectedNews.context)}
                         </div>
                         <div className="grid grid-cols-2 gap-4 border-t border-gray-800 pt-6">
                             <div>
@@ -1310,6 +1373,8 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                                             <th className="pb-3 font-semibold text-right">Quantity</th>
                                             <th className="pb-3 font-semibold text-right">Avg Entry</th>
                                             <th className="pb-3 font-semibold text-right">Current Price</th>
+                                            <th className="pb-3 font-semibold text-right">Margin/Lev</th>
+                                            <th className="pb-3 font-semibold text-right">Liq Price</th>
                                             <th className="pb-3 font-semibold text-right">Notional</th>
                                             <th className="pb-3 font-semibold text-right">Unrealized PnL</th>
                                             <th className="pb-3 font-semibold text-right">Action</th>
@@ -1338,6 +1403,16 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                                                     <td className="py-4 text-right font-mono">{p.quantity}</td>
                                                     <td className="py-4 text-right font-mono text-gray-400">Δ {p.averageEntryPrice.toFixed(2)}</td>
                                                     <td className="py-4 text-right font-mono">Δ {asset.basePrice.toFixed(2)}</td>
+                                                    <td className="py-4 text-right">
+                                                        <div className={`text-xs font-mono font-bold ${p.leverage > 1 ? 'text-orange-400' : 'text-gray-500'}`}>
+                                                            {p.leverage.toFixed(2)}x
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-4 text-right font-mono">
+                                                        <div className={`text-xs ${p.liquidationPrice ? 'text-red-400' : 'text-gray-500'}`}>
+                                                            {p.liquidationPrice ? `Δ ${p.liquidationPrice.toFixed(2)}` : 'N/A'}
+                                                        </div>
+                                                    </td>
                                                     <td className="py-4 text-right font-mono text-white">Δ {notional.toFixed(2)}</td>
                                                     <td className={`py-4 text-right font-mono font-bold ${isProfitable ? 'text-green-500' : 'text-red-500'}`}>
                                                         {isProfitable ? '+' : ''}{pnl.toFixed(2)}
