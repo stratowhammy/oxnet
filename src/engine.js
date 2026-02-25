@@ -154,7 +154,7 @@ You are the central intelligence behind the OxNet global economic simulation. Ou
 2. ONLY reference companies from the provided "Valid Companies" list.
 3. Use the provided "NPC Cast" for ANY human quotes or actions. DO NOT invent human names. Choose an appropriate NPC for the story topic.
 4. Maintain a consistent fictional reality. Build on the provided global macroeconomic history.
-5. Tone: Professional, objective financial journalism. Use non-definite words like "should", "could", "predicts", or "may" when discussing future economic outcomes.
+5. Tone: Professional, objective financial journalism. Keep your tone strictly analytical and NEVER explicitly state the direction the market will move (e.g., do not say "prices will plummet"). Describe the systemic events and let the market organically react.
 6. Format: STRICTLY JSON conforming to the requested schema. No markdown wrapping.
 `;
 
@@ -187,8 +187,20 @@ Intensity Weight: ${programmaticIntensity} (1-5)
 NPC to Quote/Cite: ${npcIdentifier} (Wait! You MUST use their full title and institution on first mention.)
 
 CRITICAL: The subject must be "${companyName}". The impact must be logical based on their niche and the recent history. You MUST incorporate the NPC ${npcIdentifier} naturally. Use non-definite language (should/could/may) for economic outcomes. The tone MUST be Bloomberg/Yahoo Finance style and match the Direction and Intensity.
+CRITICAL: You MUST include exactly one Markdown link naturally inside the Story referencing either the company or the sector (e.g., \`[${companyName}](/?search=${targetAsset.symbol})\` or \`[${sector}](/?search=${sector})\`). Every story must link somewhere on the exchange!
 
 You MUST respond ONLY with a raw JSON object matching exactly the required schema. Ensure you include the 'Summary' and 'Expected_Economic_Outcome' fields.
+Schema:
+{
+  "Headline": "...",
+  "Story": "... MUST include exactly one Markdown link...",
+  "Summary": "...",
+  "Expected_Economic_Outcome": "...",
+  "Direction": "${programmaticDirection}",
+  "Intensity_Weight": ${programmaticIntensity},
+  "Competitor_Inversion": true/false,
+  "Tags": ["Array", "Of", "String", "Tags"]
+}
 In the 'Story' field, specifically refer to the NPC as "${npcIdentifier}" on first mention.
 `;
 
@@ -212,7 +224,12 @@ In the 'Story' field, specifically refer to the NPC as "${npcIdentifier}" on fir
             if (data.choices && data.choices.length > 0) {
                 const content = data.choices[0].message.content.trim();
                 const cleaned = content.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
-                aiData = JSON.parse(cleaned);
+                try {
+                    aiData = JSON.parse(cleaned);
+                } catch (parseError) {
+                    console.error("/// JSON Parse Error ///");
+                    console.error("Raw Output:", cleaned);
+                }
             }
         } else {
             console.error(`LLM Generation responded with HTTP ${response.status}`);
@@ -253,7 +270,8 @@ In the 'Story' field, specifically refer to the NPC as "${npcIdentifier}" on fir
                 intensityWeight: intensity,
                 competitorInversion: inversion,
                 summary: aiData.Summary || null,
-                npcInvolved: selectedNpc
+                npcInvolved: selectedNpc,
+                tags: JSON.stringify(aiData.Tags || [sector, targetAsset.symbol, npcRecord.name])
             }
         });
 
@@ -305,14 +323,15 @@ async function simulateTradeImpacts() {
         // Calculate age of story in minutes to model natural market digestion
         const ageInMinutes = (Date.now() - new Date(story.publishedAt).getTime()) / (1000 * 60);
 
-        // Exponential decay: volume spikes immediately upon release, then rapidly normalizes (half-life of 15m)
-        const decayFactor = Math.exp(-ageInMinutes / 15);
+        // Linear decay: price action spreads evenly but tapers off strictly over a 2-hour (120 min) window
+        const decayFactor = Math.max(0, 1 - (ageInMinutes / 120));
 
         // Inject volume noise (between 0.3x and 1.7x) so volume bars are staggered organically
         const volumeNoise = 0.3 + (Math.random() * 1.4);
 
         // Determine synthetic trade magnitude based on Intensity (1-5) and scale by decay/noise
-        const baseQuantity = 50 * story.intensityWeight * decayFactor * volumeNoise;
+        // Base volume is significantly smaller per tick since the area under the curve is much wider now.
+        const baseQuantity = 10 * story.intensityWeight * decayFactor * volumeNoise;
 
         // Skip negligible phantom trades once the news has fully faded
         if (baseQuantity < 1) continue;
@@ -591,7 +610,7 @@ async function processCeoDecisions() {
 # OxNet News Engine Rules
 You are the central intelligence behind the OxNet global economic simulation. Output purely functional JSON to manipulate the fictional economy.
 - No real-world companies exist.
-- Tone: Objective, urgent, data-centric Bloomberg/Yahoo Finance journalism. Use non-definite words like "should", "could", "predicts", or "may" when discussing economic outcomes.
+- Tone: Objective, urgent, data-centric Bloomberg/Yahoo Finance journalism. Keep your tone strictly analytical and NEVER explicitly state the direction the market will move (e.g., do not say "shares are poised to fall"). Describe the events and let the market decide the outcome.
 - Format: Strictly JSON.
 `;
 
@@ -620,17 +639,18 @@ They chose: "${choiceText}"
 
 Write a breaking news story about this CEO decision and its market impact. 
 Use 'Breaking,' 'Analysis,' or 'Alert' prefixes. Always cite specific fictional ticker symbols. Focus on 'the why'. Incorporate the NPC ${npcIdentifier} naturally with quotes.
-Use non-definite language (could/should/predicts) for any talk of future economic outcomes.
+CRITICAL: You MUST include exactly one Markdown link naturally inside the Story referencing either the company or the sector (e.g., \`[${decision.asset.name}](/?search=${decision.asset.symbol})\` or \`[${decision.asset.sector}](/?search=${decision.asset.sector})\`). Every story must link somewhere on the exchange!
 
 You MUST respond ONLY with a raw JSON object matching exactly this schema:
 {
   "Headline": "String (Short, punchy financial headline)",
-  "Story": "String (5-10 sentences. MUST QUOTE or reference at least one person from the NPC Cast naturally. MUST end with a natural economic outlook sentence.)",
+  "Story": "String (5-10 sentences. MUST QUOTE or reference at least one person from the NPC Cast naturally. MUST end with a natural economic outlook sentence. MUST incude exactly one Markdown link.)",
   "Summary": "String (Exactly 1 short sentence summarizing the article, asset, and NPC involved for the reporter's brain database.)",
   "Expected_Economic_Outcome": "String (Exactly 2 lines explaining the predicted economic outcome. Use could/should language.)",
   "Direction": "UP" or "DOWN",
   "Intensity_Weight": Number (1 to 5, 5 being market-shattering),
-  "Competitor_Inversion": Boolean (true if competitors go down when this company goes up)
+  "Competitor_Inversion": Boolean (true if competitors go down when this company goes up),
+  "Tags": ["Array", "Of", "String", "Tags"] (Generate 3-5 tags like the sector, the ticker, and the NPC invoked)
 }
 In the 'Story' field, refer to the NPC as "${npcIdentifier}" on first mention.
 `;
@@ -691,7 +711,8 @@ In the 'Story' field, refer to the NPC as "${npcIdentifier}" on first mention.
                         intensityWeight: intensity,
                         competitorInversion: inversion,
                         summary: aiData.Summary || null,
-                        npcInvolved: selectedNpc
+                        npcInvolved: selectedNpc,
+                        tags: JSON.stringify(aiData.Tags || [decision.asset.sector, decision.asset.symbol, npcRecord.name])
                     }
                 });
 
@@ -812,6 +833,10 @@ const ONE_MIN = 60 * 1000;
 const TWO_MINS = 2 * 60 * 1000;
 // 30 Seconds for simulation loop to feel "live"
 const THIRTY_SECONDS = 30 * 1000;
+// Margin interest constants
+const MARGIN_INTEREST_DAILY_RATE = 0.01; // 1%
+const MARGIN_INTEREST_HOURLY_RATE = Math.pow(1 + MARGIN_INTEREST_DAILY_RATE, 1 / 24) - 1;
+
 
 // Helper: check if current time is within trading hours (8 AM - 4 PM EST, Mon-Fri)
 function isWithinTradingHours() {
@@ -862,6 +887,48 @@ async function scheduledPublishNewsStory() {
     }
 }
 
+// 6. Accrue Margin Interest
+async function accrueMarginInterest() {
+    console.log(`[${new Date().toISOString()}] Checking margin interest accrual...`);
+    try {
+        const portfolios = await prisma.portfolio.findMany({
+            where: {
+                OR: [
+                    { loanAmount: { gt: 0 } },
+                    { accruedInterest: { gt: 0 } }
+                ]
+            }
+        });
+
+        if (portfolios.length === 0) return;
+
+        for (const p of portfolios) {
+            const now = new Date();
+            const lastAccrual = new Date(p.interestLastAccruedAt || p.loanOriginatedAt);
+            const hoursPassed = (now - lastAccrual) / (1000 * 60 * 60);
+
+            if (hoursPassed >= 1) {
+                // Compound interest for the passed hours
+                const totalPrincipal = p.loanAmount + p.accruedInterest;
+                const newInterest = totalPrincipal * Math.pow(1 + MARGIN_INTEREST_HOURLY_RATE, hoursPassed) - totalPrincipal;
+
+                if (newInterest > 0.0001) {
+                    await prisma.portfolio.update({
+                        where: { id: p.id },
+                        data: {
+                            accruedInterest: { increment: newInterest },
+                            interestLastAccruedAt: now
+                        }
+                    });
+                    console.log(`[Margin] Accrued Δ${newInterest.toFixed(4)} interest for Portfolio ${p.id} (User: ${p.userId})`);
+                }
+            }
+        }
+    } catch (e) {
+        console.error("Error in accrueMarginInterest:", e);
+    }
+}
+
 console.log("Starting OxNet Background Engine...");
 
 // Initial kicks (news only if within trading hours)
@@ -871,6 +938,7 @@ scheduledPublishNewsStory();
 simulateTradeImpacts();
 applySinusoidalMovements();
 initAllMarketMakerOrders();
+accrueMarginInterest(); // Initial check on startup
 
 // Kick off daily midnight backup cron
 initBackupWorker();
@@ -889,4 +957,5 @@ setInterval(checkConditionalOrders, ONE_MIN); // Check TP/SL every 1 minute
 setInterval(processCeoDecisions, TWO_MINS); // Check for CEO decisions to turn into news
 setInterval(checkHedgeFundPerformance, FIVE_MINS); // Check HFM fund performance
 setInterval(refreshAIContext, THIRTY_MINS); // Refresh AI context file every 30 minutes
+setInterval(accrueMarginInterest, FIVE_MINS); // Check for interest accrual eligibility frequently (runs if >= 1hr passed)
 

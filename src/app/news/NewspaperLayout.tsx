@@ -2,44 +2,154 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function NewspaperLayout({ leadStory, otherStories }: { leadStory: any, otherStories: any[] }) {
     const [selectedNews, setSelectedNews] = useState<any | null>(null);
+    const router = useRouter();
 
     const closeModal = () => setSelectedNews(null);
+
+    // Render clickable content function similar to the Dashboard
+    const renderClickableContent = (content: string) => {
+        if (!content) return null;
+
+        // Pattern for markdown links: [Text](/?search=SOMETHING)
+        const linkPattern = /\[([^\]]+)\]\(\/\?search=([^)]+)\)/g;
+        const parts: (string | React.ReactNode)[] = [];
+        let lastIndex = 0;
+        let match;
+
+        while ((match = linkPattern.exec(content)) !== null) {
+            // Push text before the link
+            if (match.index > lastIndex) {
+                parts.push(content.substring(lastIndex, match.index));
+            }
+
+            const linkText = match[1];
+            const searchQuery = match[2];
+
+            parts.push(
+                <button
+                    key={`${match.index}-${searchQuery}`}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        // Close modal and navigate
+                        closeModal();
+                        router.push(`/?search=${encodeURIComponent(searchQuery)}`);
+                    }}
+                    className="text-blue-400 hover:text-blue-300 underline font-bold transition-colors mx-1"
+                >
+                    {linkText}
+                </button>
+            );
+
+            lastIndex = linkPattern.lastIndex;
+        }
+
+        // Push remaining text
+        if (lastIndex < content.length) {
+            parts.push(content.substring(lastIndex));
+        }
+
+        // If no matches, return original text
+        if (parts.length === 0) return content;
+
+        return <>{parts}</>;
+    };
+
+    const getRelatedStories = (currentStory: any, allStories: any[]) => {
+        if (!currentStory || !currentStory.tags) return [];
+        let tags: string[] = [];
+        try {
+            tags = typeof currentStory.tags === 'string' ? JSON.parse(currentStory.tags) : currentStory.tags;
+        } catch (e) {
+            return [];
+        }
+
+        if (!Array.isArray(tags) || tags.length === 0) return [];
+
+        // Score stories based on tag intersection
+        const scoredStories = allStories
+            .filter(s => s.id !== currentStory.id) // Exclude self
+            .map(s => {
+                let sTags: string[] = [];
+                try {
+                    sTags = typeof s.tags === 'string' ? JSON.parse(s.tags) : s.tags;
+                } catch (e) { }
+                const intersection = sTags.filter(t => tags.includes(t));
+                return { story: s, score: intersection.length, sharedTags: intersection };
+            })
+            .filter(s => s.score > 0)
+            .sort((a, b) => b.score - a.score || new Date(b.story.publishedAt).getTime() - new Date(a.story.publishedAt).getTime())
+            .slice(0, 5);
+
+        return scoredStories.map(s => s.story);
+    };
 
     const renderModal = () => {
         if (!selectedNews) return null;
 
-        // Extract scenario
-        let scenario = selectedNews.context;
+        const allStoriesArray = [leadStory, ...otherStories].filter(Boolean);
+        const related = getRelatedStories(selectedNews, allStoriesArray);
+
+        let parsedTags: string[] = [];
+        try { parsedTags = typeof selectedNews.tags === 'string' ? JSON.parse(selectedNews.tags) : selectedNews.tags; } catch (e) { }
 
         return (
-            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 font-sans text-white text-left" onClick={closeModal}>
-                <div className="bg-gray-900 border-2 border-gray-700 p-6 max-w-2xl w-full rounded-lg shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 font-sans text-left" onClick={closeModal}>
+                <div className="bg-gray-900 border border-gray-700 p-6 max-w-3xl w-full rounded-xl shadow-2xl overflow-y-auto max-h-[90vh]" onClick={e => e.stopPropagation()}>
                     <div className="flex justify-between items-start mb-4 border-b border-gray-800 pb-4">
                         <div>
-                            <h2 className="text-2xl font-bold text-white mt-1">{selectedNews.headline}</h2>
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className="bg-blue-900/40 text-blue-400 text-[10px] font-black tracking-wider uppercase px-2 py-0.5 rounded border border-blue-500/20">
+                                    {selectedNews.targetSector}
+                                </span>
+                                <span className="bg-purple-900/40 text-purple-400 text-[10px] font-black tracking-wider uppercase px-2 py-0.5 rounded border border-purple-500/20">
+                                    {selectedNews.targetSpecialty}
+                                </span>
+                            </div>
+                            <h2 className="text-2xl font-bold text-white leading-tight">{selectedNews.headline}</h2>
+                            <p className="text-gray-400 text-sm mt-2">{new Date(selectedNews.publishedAt).toLocaleString()}</p>
                         </div>
-                        <button onClick={closeModal} className="text-gray-500 hover:text-white transition-colors">
+                        <button onClick={closeModal} className="text-gray-500 hover:text-white transition-colors p-1">
                             ✕
                         </button>
                     </div>
 
-                    <div className="space-y-4 text-gray-300 relative text-sm">
-                        <div className="flex items-center gap-4 text-xs font-mono bg-black/50 p-2 rounded text-gray-400 mb-4">
-                            <div><span className="text-gray-500">SECTOR:</span> {selectedNews.targetSector}</div>
-                            <div><span className="text-gray-500">NICHE:</span> {selectedNews.targetSpecialty}</div>
-                            <div><span className="text-gray-500">SCOPE:</span> {selectedNews.impactScope}</div>
+                    <div className="space-y-6 text-gray-300 text-sm">
+                        <div className="bg-gray-950 p-5 rounded-xl text-[15px] leading-relaxed border border-gray-800">
+                            {renderClickableContent(selectedNews.context)}
                         </div>
 
-                        <div className="bg-gray-800/50 p-4 rounded-xl text-[15px] leading-relaxed relative">
-                            {scenario}
-                        </div>
+                        {Array.isArray(parsedTags) && parsedTags.length > 0 && (
+                            <div className="flex flex-wrap gap-2 pt-2">
+                                <span className="text-gray-500 text-xs py-1">TAGS:</span>
+                                {parsedTags.map(tag => (
+                                    <span key={tag} className="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded-full border border-gray-700">
+                                        #{tag}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
 
-                        {selectedNews.competitorInversion && (
-                            <div className="mt-4 bg-yellow-900/20 border border-yellow-700/50 p-3 rounded text-sm text-yellow-500 flex items-center gap-2">
-                                ⚠ Competitor Inversion Detected: Rival firms seeing opposite effect.
+                        {related.length > 0 && (
+                            <div className="mt-8 border-t border-gray-800 pt-6">
+                                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                                    <span className="text-gray-500">↳</span> Related Stories
+                                </h3>
+                                <div className="space-y-3">
+                                    {related.map(rel => (
+                                        <div
+                                            key={rel.id}
+                                            className="bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700/50 p-4 rounded-lg cursor-pointer transition-colors group"
+                                            onClick={() => setSelectedNews(rel)}
+                                        >
+                                            <h4 className="text-white font-semibold group-hover:text-blue-400 transition-colors">{rel.headline}</h4>
+                                            <p className="text-gray-400 text-xs mt-1 truncate">{rel.summary}</p>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -48,125 +158,70 @@ export default function NewspaperLayout({ leadStory, otherStories }: { leadStory
         );
     };
 
+    const allDisplayStories = [leadStory, ...otherStories].filter(Boolean);
+
     return (
-        <main className="min-h-screen bg-[#f4f1ea] text-[#1a1a1a] pb-20 relative">
+        <main className="min-h-screen bg-gray-950 text-gray-100 font-sans p-4 md:p-8">
             {renderModal()}
 
-            {/* Newspaper Header */}
-            <header className="border-b-8 border-double border-black max-w-6xl mx-auto px-4 pt-12 pb-6 select-none">
-
-                <div className="flex items-center justify-center gap-6 mb-4 max-w-4xl mx-auto">
-                    {/* Logo positioning */}
-                    <div className="w-16 h-16 md:w-24 md:h-24 lg:w-32 lg:h-32 shrink-0">
-                        <img src="/logo.png" alt="Market Master Logo" className="object-contain w-full h-full" />
-                    </div>
-
-                    <h1 className="text-2xl md:text-3xl lg:text-[2.6rem] font-black uppercase font-serif tracking-tighter leading-none text-left" style={{ fontFamily: "'Playfair Display', 'Merriweather', serif" }}>
-                        The Market Master<br />Journal
-                    </h1>
-                </div>
-
-                <div className="flex justify-between items-center border-t-2 border-b-2 border-black py-2 font-serif text-sm font-bold uppercase tracking-widest">
-                    <span>Vol. CXXIV ... No. 59,102</span>
-                    <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                    <span>Price: 1Δ</span>
-                </div>
-            </header>
-
-            <div className="max-w-6xl mx-auto px-4 py-8">
-
-                <div className="mb-4 flex justify-between gap-4">
-                    <Link href="/" className="inline-block text-blue-900 border border-blue-900 hover:bg-blue-900 hover:text-white px-4 py-1 text-xs font-sans uppercase tracking-widest font-bold transition-colors">
-                        ← Return to Exchange
-                    </Link>
-                    <Link href="/news/archive" className="inline-block text-gray-700 border border-gray-700 hover:bg-gray-700 hover:text-white px-4 py-1 text-xs font-sans uppercase tracking-widest font-bold transition-colors">
-                        View History Archive →
-                    </Link>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-
-                    {/* Lead Story Column (Spans 8 cols on desktop) */}
-                    <div className="md:col-span-8 border-r-0 md:border-r-2 border-black md:pr-8">
-                        <div
-                            className="mb-8 pb-8 border-b-4 border-black cursor-pointer group hover:bg-black/5 p-4 -m-4 rounded transition-colors"
-                            onClick={() => setSelectedNews(leadStory)}
-                        >
-                            <h2 className="text-2xl md:text-4xl font-black font-serif uppercase leading-none mb-6 text-center group-hover:underline decoration-4" style={{ fontFamily: "'Playfair Display', serif" }}>
-                                {leadStory.headline}
-                            </h2>
-                            <div className="flex justify-center gap-4 mb-6 font-sans text-xs uppercase tracking-widest font-bold border-y border-black py-2">
-                                <span>Sector: {leadStory.targetSector}</span>
-                                <span>•</span>
-                                <span>Impact: {leadStory.impactScope}</span>
+            <div className="max-w-5xl mx-auto">
+                {/* Header */}
+                <header className="mb-8 flex justify-between items-end border-b border-gray-800 pb-6">
+                    <div>
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="w-8 h-8 opacity-80 filter invert">
+                                <img src="/logo.png" alt="Logo" className="object-contain w-full h-full" />
                             </div>
-
-                            <div className="font-serif text-lg leading-relaxed columns-1 md:columns-2 gap-8 text-justify">
-                                <span className="float-left text-7xl leading-none font-black pr-2 pt-2 -ml-1 uppercase">
-                                    {leadStory.context.charAt(0)}
-                                </span>
-                                {leadStory.context.substring(1).split('\n\n').map((paragraph: string, idx: number) => (
-                                    <p key={idx} className="mb-4 break-inside-avoid">
-                                        {paragraph.replace(/\*\*/g, '')}
-                                    </p>
-                                ))}
-                            </div>
+                            <h1 className="text-2xl font-bold text-white">Market Intelligence</h1>
                         </div>
-
-                        {/* Secondary Stories / Bottom Half of Lead Column */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            {otherStories.slice(0, 4).map((story) => (
-                                <div
-                                    key={story.id}
-                                    className="border-t border-gray-400 pt-4 cursor-pointer group hover:bg-black/5 p-2 -m-2 rounded transition-colors"
-                                    onClick={() => setSelectedNews(story)}
-                                >
-                                    <h3 className="text-2xl font-black font-serif leading-tight mb-2 group-hover:underline">
-                                        {story.headline}
-                                    </h3>
-                                    <div className="text-xs font-sans font-bold uppercase mb-3 text-gray-600">
-                                        {story.targetSpecialty}
-                                    </div>
-                                    <p className="font-serif text-sm leading-relaxed text-justify line-clamp-6">
-                                        {story.context.replace(/\*\*/g, '')}
-                                    </p>
-                                </div>
-                            ))}
-                        </div>
+                        <p className="text-gray-400 text-sm">Global economic events, analysis, and breaking sector movements.</p>
                     </div>
+                    <div className="flex gap-4">
+                        <Link href="/" className="bg-gray-800 hover:bg-gray-700 text-white font-semibold flex items-center gap-2 py-2 px-4 rounded transition-colors text-sm border border-gray-700">
+                            <span>←</span> Exchange Dashboard
+                        </Link>
+                    </div>
+                </header>
 
-                    {/* Sidebar Stories (Spans 4 cols on desktop) */}
-                    <div className="md:col-span-4 flex flex-col gap-6">
-                        <div className="bg-gray-200 border-2 border-black p-4 mb-4 text-center">
-                            <h3 className="font-black font-serif uppercase tracking-widest text-xl mb-1 mt-1">Market Watch</h3>
-                            <p className="font-serif text-sm italic">Continuous undeniable coverage.</p>
-                        </div>
+                {/* News Feed List */}
+                <div className="space-y-4">
+                    {allDisplayStories.map((story) => {
+                        let parsedTags: string[] = [];
+                        try { parsedTags = typeof story.tags === 'string' ? JSON.parse(story.tags) : story.tags; } catch (e) { }
 
-                        {otherStories.slice(4).map((story, i) => (
+                        return (
                             <div
                                 key={story.id}
-                                className={`pb-6 cursor-pointer group hover:bg-black/5 p-2 -m-2 rounded transition-colors ${i !== otherStories.length - 5 ? 'border-b border-gray-400' : ''}`}
+                                className="bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl p-5 cursor-pointer transition-all group shadow-sm hover:shadow-md hover:shadow-blue-900/5"
                                 onClick={() => setSelectedNews(story)}
                             >
-                                <h4 className="text-xl font-black font-serif leading-tight mb-2 group-hover:underline">
-                                    {story.headline}
-                                </h4>
-                                <div className="text-[10px] font-sans font-bold uppercase tracking-wider mb-2 text-gray-500">
-                                    Sector: {story.targetSector}
+                                <div className="flex justify-between items-start mb-3">
+                                    <h3 className="text-xl font-bold text-gray-100 group-hover:text-blue-400 transition-colors pr-4">
+                                        {story.headline}
+                                    </h3>
+                                    <div className="text-xs text-gray-500 whitespace-nowrap mt-1">
+                                        {new Date(story.publishedAt).toLocaleDateString()}
+                                    </div>
                                 </div>
-                                <p className="font-serif text-sm leading-relaxed text-justify line-clamp-4">
-                                    {story.context.replace(/\*\*/g, '')}
-                                </p>
-                            </div>
-                        ))}
-                    </div>
 
+                                <p className="text-gray-400 text-sm mb-4 line-clamp-2">
+                                    {story.summary || story.context}
+                                </p>
+
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded border ${story.impactScope === 'SECTOR' ? 'bg-indigo-900/30 text-indigo-400 border-indigo-500/20' : 'bg-fuchsia-900/30 text-fuchsia-400 border-fuchsia-500/20'}`}>
+                                        {story.impactScope}
+                                    </span>
+
+                                    {Array.isArray(parsedTags) && parsedTags.map(tag => (
+                                        <span key={tag} className="text-xs text-gray-500">#{tag}</span>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
-
-            <footer className="max-w-6xl mx-auto px-4 mt-8 border-t-4 border-black pt-4 text-center font-serif text-sm italic">
-                Printed dynamically by the OxNet Arbitrage Engine. All events simulated.
-            </footer>
         </main>
     );
 }

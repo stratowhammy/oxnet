@@ -23,12 +23,15 @@ type Asset = {
 };
 
 type PortfolioItem = {
+    id: string;
     assetId: string;
     quantity: number;
     averageEntryPrice: number;
     isShortPosition: boolean;
     leverage: number;
     liquidationPrice: number | null;
+    loanAmount: number;
+    accruedInterest: number;
     asset: Asset;
 };
 
@@ -56,6 +59,8 @@ type NewsStory = {
     direction: string;
     intensityWeight: number;
     publishedAt: Date | null;
+    summary?: string | null;
+    tags?: string | null;
 };
 
 // --- Mock Data Generator (moved from TradingInterface) ---
@@ -285,6 +290,9 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
     const [selectedNews, setSelectedNews] = useState<NewsStory | null>(null);
     const [showGlobalPortfolio, setShowGlobalPortfolio] = useState(false);
     const [showAssetDetails, setShowAssetDetails] = useState(false);
+    const [showingPositionModalAssetId, setShowingPositionModalAssetId] = useState<string | null>(null);
+    const [assetNews, setAssetNews] = useState<NewsStory[]>([]);
+
     const [activeTab, setActiveTab] = useState<'TRADE' | 'BANKING' | 'SECTORS'>('TRADE');
     const [selectedSector, setSelectedSector] = useState<string | null>(null);
 
@@ -305,6 +313,18 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
     // Derived
     const selectedAsset = useMemo(() => assets.find(a => a.id === selectedAssetId), [assets, selectedAssetId]);
     const sectors = useMemo(() => ['All', ...Array.from(new Set(assets.map(a => a.sector))).sort()], [assets]);
+
+    useEffect(() => {
+        if (showAssetDetails && selectedAsset) {
+            setAssetNews([]);
+            fetch(`/api/news/${selectedAsset.symbol}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (Array.isArray(data)) setAssetNews(data);
+                })
+                .catch(console.error);
+        }
+    }, [showAssetDetails, selectedAsset]);
 
     // Filtered Assets
     const filteredAssets = useMemo(() => {
@@ -525,11 +545,57 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
     const renderClickableContent = (content: string) => {
         if (!content) return null;
 
-        // Pattern for $SYMBOL (e.g., $P-NEX) or common company name patterns
-        // We iterate through all assets to find matches for symbols or names
-        const parts: (string | React.ReactNode)[] = [content];
+        // Pattern for [Link Text](url)
+        const markdownLinkPattern = /\[([^\]]+)\]\(([^)]+)\)/g;
 
-        assets.forEach(asset => {
+        const parts: (string | React.ReactNode)[] = [];
+        let lastIndex = 0;
+        let match;
+
+        while ((match = markdownLinkPattern.exec(content)) !== null) {
+            // Push preceding text as a string
+            if (match.index > lastIndex) {
+                parts.push(content.substring(lastIndex, match.index));
+            }
+
+            const linkText = match[1];
+            const url = match[2];
+
+            // Handle sector searches from exactly how the prompt formats it: [Sector](/?search=Sector)
+            if (url.startsWith('/?search=')) {
+                const query = decodeURIComponent(url.split('=')[1]);
+                parts.push(
+                    <button
+                        key={`mdlink-${match.index}`}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            // If it matches a sector, they might want to filter, but Dashboard doesn't have a direct sector filter yet
+                            // Instead we'll set the search term to let the main logic filter it
+                            setSearchTerm(query);
+                            setShowAssetDetails(false);
+                            setSelectedNews(null);
+                        }}
+                        className="text-blue-400 hover:text-blue-300 font-bold underline decoration-blue-400/30 hover:decoration-blue-300 transition-all rounded hover:bg-blue-400/10 px-1"
+                    >
+                        {linkText}
+                    </button>
+                );
+            } else {
+                parts.push(
+                    <a key={`mdlink-${match.index}`} href={url} className="text-blue-400 hover:underline">{linkText}</a>
+                );
+            }
+            lastIndex = markdownLinkPattern.lastIndex;
+        }
+
+        if (lastIndex < content.length) {
+            parts.push(content.substring(lastIndex));
+        }
+
+        // Now process $SYMBOL and names on the resulting set of strings
+        // We iterate through all assets to find matches for symbols or names
+        for (let a = 0; a < assets.length; a++) {
+            const asset = assets[a];
             const symbolPattern = new RegExp(`\\$${asset.symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g');
             const namePattern = new RegExp(`\\b${asset.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g');
 
@@ -550,7 +616,7 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                         if (index < subParts.length - 1) {
                             newParts.push(
                                 <button
-                                    key={`${asset.id}-${i}-${index}`}
+                                    key={`asset-${asset.id}-${i}-${index}`}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setSelectedAssetId(asset.id);
@@ -569,7 +635,7 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                     i += newParts.length - 1;
                 }
             }
-        });
+        }
 
         return parts;
     };
@@ -1186,58 +1252,70 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                                             const positions = user.portfolios.filter(p => p.assetId === selectedAsset.id);
                                             if (positions.length === 0) return <div className="text-gray-500 text-sm text-center py-4">No open position</div>;
 
-                                            return (
-                                                <div className="space-y-6">
-                                                    {positions.map((position, i) => {
-                                                        const marketValue = position.quantity * selectedAsset.basePrice; // approx
-                                                        const pnl = position.isShortPosition
-                                                            ? (position.averageEntryPrice - selectedAsset.basePrice) * position.quantity
-                                                            : (selectedAsset.basePrice - position.averageEntryPrice) * position.quantity;
-                                                        const isProfitable = pnl >= 0;
+                                            const totalQty = positions.reduce((sum, p) => sum + p.quantity, 0);
+                                            const totalInterest = positions.reduce((sum, p) => sum + p.accruedInterest, 0);
+                                            const netPnl = positions.reduce((sum, p) => {
+                                                const pnl = p.isShortPosition
+                                                    ? (p.averageEntryPrice - selectedAsset.basePrice) * p.quantity
+                                                    : (selectedAsset.basePrice - p.averageEntryPrice) * p.quantity;
+                                                return sum + pnl;
+                                            }, 0);
+                                            const isProfitable = netPnl >= 0;
 
-                                                        return (
-                                                            <div key={i} className="bg-gray-800/50 p-4 rounded border border-gray-700">
-                                                                <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-700">
-                                                                    <span className={`text-xs font-bold px-2 py-1 rounded ${position.isShortPosition ? 'bg-purple-900/50 text-purple-300' : 'bg-green-900/50 text-green-300'}`}>
-                                                                        {position.isShortPosition ? 'SHORT' : 'LONG'}
+                                            return (
+                                                <div className="space-y-4">
+                                                    <div className="bg-gray-800/80 p-5 rounded-xl border border-gray-700 shadow-inner">
+                                                        <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-700/50">
+                                                            <div className="flex flex-col">
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${positions.every(p => p.isShortPosition) ? 'bg-purple-900/50 text-purple-400 border border-purple-500/30' : positions.every(p => !p.isShortPosition) ? 'bg-green-900/40 text-green-400 border border-green-500/20' : 'bg-gray-700 text-gray-400'}`}>
+                                                                        {positions.every(p => p.isShortPosition) ? 'SHORT' : positions.every(p => !p.isShortPosition) ? 'LONG' : 'MIXED'}
                                                                     </span>
-                                                                    <span className="text-gray-400 text-sm">
-                                                                        {position.quantity} sh <span className="ml-2 px-1 py-0.5 bg-gray-700/50 rounded text-xs">{(position as any).leverage || 1}x</span>
+                                                                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-gray-700/50 text-gray-400 border border-gray-600/30">
+                                                                        x{Math.max(...positions.map(p => p.leverage || 1))}
                                                                     </span>
                                                                 </div>
-                                                                <div className="space-y-2">
-                                                                    <div className="flex justify-between">
-                                                                        <span className="text-gray-400 text-sm">Avg Entry</span>
-                                                                        <span className="text-white font-mono">Δ {position.averageEntryPrice.toFixed(2)}</span>
-                                                                    </div>
-                                                                    {(position as any).liquidationPrice && (
-                                                                        <div className="flex justify-between">
-                                                                            <span className="text-orange-500/80 text-sm">Liquidation</span>
-                                                                            <span className="text-orange-400 font-mono">Δ {(position as any).liquidationPrice.toFixed(2)}</span>
-                                                                        </div>
-                                                                    )}
-                                                                    <div className="flex justify-between border-t border-gray-700/50 pt-2">
-                                                                        <span className="text-gray-400 text-sm">Notional Value</span>
-                                                                        <span className="text-white font-mono">Δ {marketValue.toFixed(2)}</span>
-                                                                    </div>
-                                                                    <div className="flex justify-between">
-                                                                        <span className="text-gray-400 text-sm">Unrealized PnL</span>
-                                                                        <span className={`font-mono ${isProfitable ? 'text-green-500' : 'text-red-500'}`}>
-                                                                            {isProfitable ? '+' : ''}{pnl.toFixed(2)}
-                                                                        </span>
-                                                                    </div>
-                                                                    <div className="pt-2">
-                                                                        <button
-                                                                            onClick={() => handleClosePosition(selectedAsset.id, position.quantity, position.isShortPosition)}
-                                                                            className="w-full text-xs font-bold py-1.5 rounded transition-colors bg-red-900/40 text-red-400 hover:bg-red-600 hover:text-white border border-red-800/50"
-                                                                        >
-                                                                            Close Position
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
+                                                                <span className="text-white font-black text-lg leading-tight">{totalQty.toFixed(2)} sh</span>
+                                                                <span className="text-[10px] text-gray-500 uppercase font-black tracking-widest">{positions.length} Positions</span>
                                                             </div>
-                                                        );
-                                                    })}
+                                                            <div className={`text-right ${isProfitable ? 'text-green-400' : 'text-red-400'}`}>
+                                                                <div className="text-lg font-black font-mono">{isProfitable ? '+' : ''}{netPnl.toFixed(2)}</div>
+                                                                <div className="text-[10px] uppercase font-bold opacity-70">Unrealized PnL</div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="space-y-2.5 mb-5">
+                                                            {totalInterest > 0 && (
+                                                                <div className="flex justify-between items-center bg-orange-900/20 px-3 py-1.5 rounded border border-orange-500/20">
+                                                                    <span className="text-orange-400 text-xs font-bold">Total Interest</span>
+                                                                    <span className="text-orange-300 font-mono text-xs font-bold">Δ {totalInterest.toFixed(4)}</span>
+                                                                </div>
+                                                            )}
+                                                            <div className="flex justify-between text-xs">
+                                                                <span className="text-gray-500 font-bold uppercase tracking-tight">Avg Entry</span>
+                                                                <span className="text-white font-mono">Δ {(positions.reduce((sum, p) => sum + p.averageEntryPrice * p.quantity, 0) / totalQty).toFixed(2)}</span>
+                                                            </div>
+                                                            <div className="flex justify-between text-xs">
+                                                                <span className="text-gray-500 font-bold uppercase tracking-tight">Market Value</span>
+                                                                <span className="text-white font-mono">Δ {(totalQty * selectedAsset.basePrice).toFixed(2)}</span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <button
+                                                                onClick={() => setShowingPositionModalAssetId(selectedAsset.id)}
+                                                                className="flex-1 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all bg-gray-700 text-gray-200 hover:bg-gray-600 border border-gray-600"
+                                                            >
+                                                                Details / Pay
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleClosePosition(selectedAsset.id, totalQty, positions[0].isShortPosition)}
+                                                                className="flex-1 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all bg-red-900/40 text-red-500 hover:bg-red-600 hover:text-white border border-red-800/50"
+                                                            >
+                                                                Close All
+                                                            </button>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             );
                                         })()}
@@ -1307,7 +1385,7 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
 
                         <div className="p-8">
                             <p className="text-gray-300 text-lg leading-relaxed mb-8 border-l-4 border-gray-700 pl-4">
-                                {selectedAsset.description}
+                                {renderClickableContent(selectedAsset.description)}
                             </p>
 
                             <h4 className="text-white font-bold uppercase tracking-widest text-sm mb-4 border-b border-gray-800 pb-2">Financial Overview</h4>
@@ -1340,10 +1418,159 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                                     </div>
                                 );
                             })()}
+
+                            {/* Related News Section */}
+                            {assetNews.length > 0 && (
+                                <div className="mt-8 border-t border-gray-800 pt-6">
+                                    <h4 className="text-white font-bold uppercase tracking-widest text-sm mb-4 border-b border-gray-800 pb-2">Related News</h4>
+                                    <div className="space-y-4">
+                                        {assetNews.map(story => (
+                                            <div
+                                                key={story.id}
+                                                className="bg-gray-950 p-4 rounded-lg border border-gray-800 cursor-pointer hover:border-gray-600 transition-colors"
+                                                onClick={() => {
+                                                    setSelectedNews(story);
+                                                }}
+                                            >
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <h5 className="text-white font-bold">{story.headline}</h5>
+                                                    <span className={`text-xs font-mono px-2 py-1 rounded ${story.direction === 'UP' ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'}`}>
+                                                        {story.direction}
+                                                    </span>
+                                                </div>
+                                                <p className="text-gray-400 text-sm line-clamp-2">{story.summary || story.context}</p>
+                                                <div className="text-xs text-gray-500 mt-3 font-mono">
+                                                    {story.publishedAt && new Date(story.publishedAt).toLocaleString()}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
             )}
+
+            {/* Position Details Modal */}
+            {showingPositionModalAssetId && (() => {
+                const assetId = showingPositionModalAssetId;
+                const posList = user.portfolios.filter(p => p.assetId === assetId);
+                const asset = assets.find(a => a.id === assetId);
+                if (!asset || posList.length === 0) return null;
+
+                const handlePayInterest = async (portfolioId?: string, payAll?: boolean) => {
+                    try {
+                        const res = await fetch('/api/margin/pay-interest', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ userId: user.id, portfolioId, payAll })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            router.refresh(); // Trigger server data refresh
+                        } else {
+                            alert(data.error || 'Failed to pay interest');
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        alert('Error paying interest');
+                    }
+                };
+
+                return (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-xl p-6" onClick={() => setShowingPositionModalAssetId(null)}>
+                        <div className="bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+                            <div className="p-8 border-b border-gray-800 bg-gradient-to-r from-gray-900 to-gray-800 flex justify-between items-center">
+                                <div>
+                                    <h2 className="text-3xl font-black text-white tracking-tighter">Positions: {asset.symbol}</h2>
+                                    <p className="text-gray-400 text-sm mt-1">{asset.name}</p>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <button
+                                        onClick={() => handlePayInterest(undefined, true)}
+                                        className="bg-orange-600/20 text-orange-400 border border-orange-500/30 px-4 py-2 rounded-lg text-sm font-bold hover:bg-orange-600 hover:text-white transition-all"
+                                    >
+                                        Pay All Interest
+                                    </button>
+                                    <button onClick={() => setShowingPositionModalAssetId(null)} className="text-gray-500 hover:text-white">
+                                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto p-8 bg-gray-950/50 space-y-4 custom-scrollbar">
+                                {posList.map((p, idx) => {
+                                    const pnl = p.isShortPosition
+                                        ? (p.averageEntryPrice - asset.basePrice) * p.quantity
+                                        : (asset.basePrice - p.averageEntryPrice) * p.quantity;
+
+                                    return (
+                                        <div key={p.id} className="bg-gray-900/80 border border-gray-800 rounded-xl p-6 hover:border-gray-600 transition-all group">
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div className="flex items-center gap-3">
+                                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded tracking-tighter ${p.isShortPosition ? 'bg-purple-900 text-purple-200' : 'bg-green-900 text-green-200'}`}>
+                                                        {p.isShortPosition ? 'SHORT' : 'LONG'} #{idx + 1}
+                                                    </span>
+                                                    <span className="text-gray-500 text-xs font-mono">{p.id.substring(0, 8)}</span>
+                                                </div>
+                                                <div className={`font-mono font-bold text-lg ${pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                                    {pnl >= 0 ? '+' : ''}{pnl.toFixed(2)}
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                                                <div>
+                                                    <p className="text-[10px] text-gray-500 uppercase font-black mb-1">Quantity</p>
+                                                    <p className="text-white font-mono">{p.quantity.toFixed(2)}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] text-gray-500 uppercase font-black mb-1">Entry Price</p>
+                                                    <p className="text-white font-mono">Δ {p.averageEntryPrice.toFixed(2)}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] text-gray-500 uppercase font-black mb-1">Loan Principal</p>
+                                                    <p className="text-white font-mono">Δ {p.loanAmount.toFixed(2)}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] text-orange-500/80 uppercase font-black mb-1">Accrued Interest</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="text-orange-400 font-mono">Δ {p.accruedInterest.toFixed(4)}</p>
+                                                        {p.accruedInterest > 0 && (
+                                                            <button
+                                                                onClick={() => handlePayInterest(p.id)}
+                                                                className="text-[10px] bg-orange-950 text-orange-400 border border-orange-800 px-1.5 py-0.5 rounded hover:bg-orange-600 hover:text-white"
+                                                            >
+                                                                Pay
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-4 flex justify-between items-center bg-gray-950/50 p-3 rounded-lg border border-gray-800/50">
+                                                <div className="text-xs">
+                                                    <span className="text-gray-500">Liquidation Price: </span>
+                                                    <span className="text-red-400 font-mono">Δ {p.liquidationPrice?.toFixed(2) || 'N/A'}</span>
+                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        handleClosePosition(asset.id, p.quantity, p.isShortPosition);
+                                                        setShowingPositionModalAssetId(null);
+                                                    }}
+                                                    className="bg-red-600/10 text-red-500 border border-red-500/20 px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-red-600 hover:text-white transition-all shadow-sm"
+                                                >
+                                                    Close Position
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {/* Global Portfolio Overlay */}
             {showGlobalPortfolio && (
@@ -1381,56 +1608,74 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-800/50">
-                                        {user.portfolios.map((p, i) => {
-                                            const asset = p.asset;
-                                            const notional = p.quantity * asset.basePrice;
-                                            const pnl = p.isShortPosition
-                                                ? (p.averageEntryPrice - asset.basePrice) * p.quantity
-                                                : (asset.basePrice - p.averageEntryPrice) * p.quantity;
-                                            const isProfitable = pnl >= 0;
+                                        {(() => {
+                                            const grouped = user.portfolios.reduce((acc, p) => {
+                                                if (!acc[p.assetId]) acc[p.assetId] = [];
+                                                acc[p.assetId].push(p);
+                                                return acc;
+                                            }, {} as Record<string, PortfolioItem[]>);
 
-                                            return (
-                                                <tr key={i} className="text-gray-300 hover:bg-gray-800/50 transition-colors">
-                                                    <td className="py-4">
-                                                        <div className="font-bold text-white">{asset.symbol}</div>
-                                                        <div className="text-xs text-gray-500 truncate w-32">{asset.name}</div>
-                                                    </td>
-                                                    <td className="py-4">
-                                                        <span className={`text-xs font-bold px-2 py-1 rounded ${p.isShortPosition ? 'bg-purple-900/50 text-purple-300' : 'bg-green-900/50 text-green-300'}`}>
-                                                            {p.isShortPosition ? 'SHORT' : 'LONG'}
-                                                        </span>
-                                                    </td>
-                                                    <td className="py-4 text-right font-mono">{p.quantity}</td>
-                                                    <td className="py-4 text-right font-mono text-gray-400">Δ {p.averageEntryPrice.toFixed(2)}</td>
-                                                    <td className="py-4 text-right font-mono">Δ {asset.basePrice.toFixed(2)}</td>
-                                                    <td className="py-4 text-right">
-                                                        <div className={`text-xs font-mono font-bold ${p.leverage > 1 ? 'text-orange-400' : 'text-gray-500'}`}>
-                                                            {p.leverage.toFixed(2)}x
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-4 text-right font-mono">
-                                                        <div className={`text-xs ${p.liquidationPrice ? 'text-red-400' : 'text-gray-500'}`}>
-                                                            {p.liquidationPrice ? `Δ ${p.liquidationPrice.toFixed(2)}` : 'N/A'}
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-4 text-right font-mono text-white">Δ {notional.toFixed(2)}</td>
-                                                    <td className={`py-4 text-right font-mono font-bold ${isProfitable ? 'text-green-500' : 'text-red-500'}`}>
-                                                        {isProfitable ? '+' : ''}{pnl.toFixed(2)}
-                                                    </td>
-                                                    <td className="py-4 text-right">
-                                                        <button
-                                                            onClick={() => {
-                                                                handleClosePosition(asset.id, p.quantity, p.isShortPosition);
-                                                                setShowGlobalPortfolio(false);
-                                                            }}
-                                                            className="text-xs font-bold py-1 px-3 rounded transition-colors bg-red-900/40 text-red-400 hover:bg-red-600 hover:text-white border border-red-800/50"
-                                                        >
-                                                            Close
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
+                                            return Object.entries(grouped).map(([assetId, posList]) => {
+                                                const asset = posList[0].asset;
+                                                const totalQty = posList.reduce((sum, p) => sum + p.quantity, 0);
+                                                const totalInterest = posList.reduce((sum, p) => sum + p.accruedInterest, 0);
+                                                const totalNotional = totalQty * asset.basePrice;
+                                                const netPnl = posList.reduce((sum, p) => {
+                                                    const pnl = p.isShortPosition
+                                                        ? (p.averageEntryPrice - asset.basePrice) * p.quantity
+                                                        : (asset.basePrice - p.averageEntryPrice) * p.quantity;
+                                                    return sum + pnl;
+                                                }, 0);
+
+                                                return (
+                                                    <tr key={assetId} className="text-gray-300 hover:bg-gray-800/50 transition-colors">
+                                                        <td className="py-4">
+                                                            <div className="font-bold text-white">{asset.symbol}</div>
+                                                            <div className="text-xs text-gray-500 truncate w-32">{asset.name}</div>
+                                                        </td>
+                                                        <td className="py-4">
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className={`text-[10px] w-fit font-black px-1.5 py-0.5 rounded ${posList.every(p => p.isShortPosition) ? 'bg-purple-900/50 text-purple-400 border border-purple-500/30' : posList.every(p => !p.isShortPosition) ? 'bg-green-900/40 text-green-400 border border-green-500/20' : 'bg-gray-700 text-gray-400'}`}>
+                                                                    {posList.every(p => p.isShortPosition) ? 'SHORT' : posList.every(p => !p.isShortPosition) ? 'LONG' : 'MIXED'}
+                                                                </span>
+                                                                <span className="text-[10px] text-gray-500 font-bold tracking-tight">{posList.length} POS</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-4 text-right font-mono">{totalQty.toFixed(2)}</td>
+                                                        <td className="py-4 text-right font-mono text-gray-400 text-xs">
+                                                            {totalInterest > 0 && <span className="text-orange-400 block text-[10px] font-bold">Δ {totalInterest.toFixed(2)} Int.</span>}
+                                                            Avg Δ {(posList.reduce((sum, p) => sum + p.averageEntryPrice * p.quantity, 0) / totalQty).toFixed(2)}
+                                                        </td>
+                                                        <td className="py-4 text-right font-mono text-white text-xs">Δ {asset.basePrice.toFixed(2)}</td>
+                                                        <td className="py-4 text-right">
+                                                            <div className="text-xs font-mono font-black text-gray-200 bg-gray-800 px-2 py-1 rounded inline-block border border-gray-700">
+                                                                x{Math.max(...posList.map(p => p.leverage || 1))}
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-4 text-right font-mono">
+                                                            <div className="text-xs text-orange-400/80">
+                                                                {posList.length === 1 ? (posList[0].liquidationPrice ? `Δ ${posList[0].liquidationPrice.toFixed(2)}` : 'N/A') : 'MIXED'}
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-4 text-right font-mono text-white">Δ {totalNotional.toFixed(2)}</td>
+                                                        <td className={`py-4 text-right font-mono font-bold ${netPnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                                            {netPnl >= 0 ? '+' : ''}{netPnl.toFixed(2)}
+                                                        </td>
+                                                        <td className="py-4 text-right">
+                                                            <button
+                                                                onClick={() => {
+                                                                    setShowingPositionModalAssetId(assetId);
+                                                                    setShowGlobalPortfolio(false);
+                                                                }}
+                                                                className="text-xs font-bold py-1 px-3 rounded transition-colors bg-blue-900/40 text-blue-400 hover:bg-blue-600 hover:text-white border border-blue-800/50"
+                                                            >
+                                                                Details
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            });
+                                        })()}
                                     </tbody>
                                 </table>
                             )}

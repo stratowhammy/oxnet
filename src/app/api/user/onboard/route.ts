@@ -21,6 +21,29 @@ const GOAL_DEFS: Record<string, { title: string; description: string; criteriaTy
     ],
 };
 
+const DIVERSIFICATION_GOALS = [
+    { title: 'Tech Mogul', description: 'Hold at least Δ 15,000 worth of stock in Technology.', criteriaTarget: 'Technology' },
+    { title: 'Industrialist', description: 'Hold at least Δ 15,000 worth of stock in Manufacturing.', criteriaTarget: 'Manufacturing' },
+    { title: 'Medical Pioneer', description: 'Hold at least Δ 15,000 worth of stock in Healthcare.', criteriaTarget: 'Healthcare' },
+    { title: 'Energy Baron', description: 'Hold at least Δ 15,000 worth of stock in Energy.', criteriaTarget: 'Energy' },
+    { title: 'Financial Whale', description: 'Hold at least Δ 15,000 worth of stock in Finance.', criteriaTarget: 'Finance' },
+    { title: 'Food Magnate', description: 'Hold at least Δ 15,000 worth of stock in Food.', criteriaTarget: 'Food' },
+    { title: 'Retail Giant', description: 'Hold at least Δ 15,000 worth of stock in Consumer.', criteriaTarget: 'Consumer' },
+    { title: 'Space Pioneer', description: 'Hold at least Δ 15,000 worth of stock in Space.', criteriaTarget: 'Space' },
+    { title: 'Logistics Emperor', description: 'Hold at least Δ 15,000 worth of stock in Transport.', criteriaTarget: 'Transport' },
+    { title: 'Estate Tycoon', description: 'Hold at least Δ 15,000 worth of stock in Real Estate.', criteriaTarget: 'Real Estate' },
+    { title: 'Material Wealth', description: 'Hold at least Δ 15,000 worth of stock in Materials.', criteriaTarget: 'Materials' },
+    { title: 'Education Patron', description: 'Hold at least Δ 15,000 worth of stock in Education.', criteriaTarget: 'Education' },
+    { title: 'Service Elite', description: 'Hold at least Δ 15,000 worth of stock in Services.', criteriaTarget: 'Services' },
+    { title: 'Media Tycoon', description: 'Hold at least Δ 15,000 worth of stock in Media.', criteriaTarget: 'Media' },
+    { title: 'Agri-Business', description: 'Hold at least Δ 15,000 worth of stock in Agriculture.', criteriaTarget: 'Agriculture' },
+    { title: 'Utility Master', description: 'Hold at least Δ 15,000 worth of stock in Utilities.', criteriaTarget: 'Utilities' },
+    { title: 'Infrastructure King', description: 'Hold at least Δ 15,000 worth of stock in Infrastructure.', criteriaTarget: 'Infrastructure' },
+    { title: 'Hospitality Ruler', description: 'Hold at least Δ 15,000 worth of stock in Hospitality.', criteriaTarget: 'Hospitality' },
+    { title: 'Corporate Creditor', description: 'Hold at least Δ 15,000 worth of Corporate Bonds.', criteriaTarget: 'Corporate Bonds' },
+    { title: 'Deficit Financer', description: 'Hold at least Δ 15,000 worth of Government Bonds.', criteriaTarget: 'Government Bonds' }
+].map(g => ({ ...g, criteriaType: 'HOLD_SECTOR_NOTIONAL', criteriaAmount: 15000, victoryPoints: 10 }));
+
 async function assignRoleGoals(userId: string, role: string, managedAssetId?: string | null) {
     const defs = GOAL_DEFS[role] || GOAL_DEFS.RETAIL;
 
@@ -163,6 +186,31 @@ export async function POST(request: Request) {
 
             // Auto-assign 2 role-aligned goal cards
             await assignRoleGoals(userId, role, null);
+
+            // Fetch or create the 20 diversification goals
+            const shuffledDiversification = [...DIVERSIFICATION_GOALS].sort(() => 0.5 - Math.random());
+            const selectedDiversification = shuffledDiversification.slice(0, 3);
+
+            for (const def of selectedDiversification) {
+                let card = await prisma.goalCard.findFirst({
+                    where: { title: def.title, criteriaType: def.criteriaType, criteriaTarget: def.criteriaTarget }
+                });
+                if (!card) {
+                    card = await prisma.goalCard.create({
+                        data: {
+                            title: def.title,
+                            description: def.description,
+                            criteriaType: def.criteriaType,
+                            criteriaTarget: def.criteriaTarget,
+                            criteriaAmount: def.criteriaAmount,
+                            victoryPoints: def.victoryPoints
+                        }
+                    });
+                }
+                await prisma.userGoal.create({
+                    data: { userId, goalCardId: card.id, costPaid: 0 }
+                });
+            }
 
             return NextResponse.json({
                 message: `Welcome, ${handle}! You are now a Retail Investor.`,

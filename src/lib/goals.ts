@@ -51,6 +51,20 @@ export async function evaluateGoalStatus(userId: string, goalCardId: string): Pr
         }
     }
 
+    if (goal.criteriaType === "HOLD_SECTOR_NOTIONAL") {
+        let sectorNotional = 0;
+        for (const port of user.portfolios) {
+            if (port.asset.sector === goal.criteriaTarget || goal.criteriaTarget === "ANY") {
+                sectorNotional += (port.quantity * port.asset.basePrice);
+            }
+        }
+
+        if (sectorNotional >= goal.criteriaAmount) {
+            return "EARNED";
+        }
+        return "POTENTIAL";
+    }
+
     // Default fallback
     return "POTENTIAL";
 }

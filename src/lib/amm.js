@@ -117,42 +117,65 @@ export class AutomatedMarketMaker {
             ];
 
             if (qtyToCover > 0) {
-                if (qtyToCover === existingShort.quantity) {
-                    txOps.push(prisma.portfolio.delete({ where: { id: existingShort.id } }));
-                } else {
-                    txOps.push(prisma.portfolio.update({
-                        where: { id: existingShort.id },
-                        data: { quantity: { decrement: qtyToCover } }
-                    }));
+                const targetShorts = await prisma.portfolio.findMany({
+                    where: { userId, assetId, isShortPosition: true },
+                    orderBy: { loanOriginatedAt: 'asc' }
+                });
+
+                let remainingToCover = qtyToCover;
+                for (const s of targetShorts) {
+                    if (remainingToCover <= 0) break;
+                    const canCover = Math.min(remainingToCover, s.quantity);
+
+                    if (canCover === s.quantity) {
+                        txOps.push(prisma.portfolio.delete({ where: { id: s.id } }));
+                        if (s.accruedInterest > 0) {
+                            txOps.push(prisma.user.update({
+                                where: { id: userId },
+                                data: { deltaBalance: { decrement: s.accruedInterest } }
+                            }));
+                        }
+                        if (s.loanAmount > 0) {
+                            txOps.push(prisma.user.update({
+                                where: { id: userId },
+                                data: { marginLoan: { decrement: s.loanAmount } }
+                            }));
+                        }
+                    } else {
+                        const loanReduction = (canCover / s.quantity) * s.loanAmount;
+                        txOps.push(prisma.portfolio.update({
+                            where: { id: s.id },
+                            data: {
+                                quantity: { decrement: canCover },
+                                loanAmount: { decrement: loanReduction }
+                            }
+                        }));
+                        txOps.push(prisma.user.update({
+                            where: { id: userId },
+                            data: { marginLoan: { decrement: loanReduction } }
+                        }));
+                    }
+                    remainingToCover -= canCover;
                 }
             }
+
             if (qtyToLong > 0) {
-                const existingLong = userPortfolios.find(p => p.assetId === assetId && !p.isShortPosition);
-                let newAvgEntry = executionPrice;
-                if (existingLong) {
-                    newAvgEntry = (existingLong.quantity * existingLong.averageEntryPrice + qtyToLong * executionPrice) / (existingLong.quantity + qtyToLong);
-                }
-
-                const newLiqPrice = newAvgEntry - (newAvgEntry / leverage);
-                const updateData = {
-                    quantity: { increment: qtyToLong },
-                    averageEntryPrice: newAvgEntry,
-                    leverage: leverage,
-                    liquidationPrice: newLiqPrice
-                };
-                const createData = {
-                    userId, assetId, quantity: qtyToLong, averageEntryPrice: executionPrice, isShortPosition: false,
-                    leverage: leverage,
-                    liquidationPrice: executionPrice - (executionPrice / leverage)
-                };
-
-                if (order.takeProfitPrice !== undefined) { updateData.takeProfitPrice = order.takeProfitPrice; createData.takeProfitPrice = order.takeProfitPrice; }
-                if (order.stopLossPrice !== undefined) { updateData.stopLossPrice = order.stopLossPrice; createData.stopLossPrice = order.stopLossPrice; }
-
-                txOps.push(prisma.portfolio.upsert({
-                    where: { userId_assetId_isShortPosition: { userId, assetId, isShortPosition: false } },
-                    update: updateData,
-                    create: createData
+                const portfolioLoan = (qtyToLong / quantity) * loanToAdd;
+                txOps.push(prisma.portfolio.create({
+                    data: {
+                        userId,
+                        assetId,
+                        quantity: qtyToLong,
+                        averageEntryPrice: executionPrice,
+                        isShortPosition: false,
+                        leverage: leverage,
+                        liquidationPrice: executionPrice - (executionPrice / leverage),
+                        takeProfitPrice: order.takeProfitPrice,
+                        stopLossPrice: order.stopLossPrice,
+                        loanAmount: portfolioLoan,
+                        loanOriginatedAt: new Date(),
+                        interestLastAccruedAt: new Date()
+                    }
                 }));
             }
 
@@ -176,41 +199,61 @@ export class AutomatedMarketMaker {
             const proceeds = amountReceivedFromPool - fee;
 
             if (type === 'SELL') {
-                const portfolio = userPortfolios.find(p => p.assetId === assetId && !p.isShortPosition);
-                if (!portfolio || portfolio.quantity < quantity) return { success: false, message: "Insufficient holdings to sell" };
+                const txOps = [];
+                const targetPortfolios = await prisma.portfolio.findMany({
+                    where: { userId, assetId, isShortPosition: false },
+                    orderBy: { loanOriginatedAt: 'asc' }
+                });
 
-                let loanToPay = 0;
-                let deltaToAdd = proceeds;
-                if (user.marginLoan > 0) {
-                    loanToPay = Math.min(proceeds, user.marginLoan);
-                    deltaToAdd = proceeds - loanToPay;
-                }
+                let remainingToSell = quantity;
+                for (const p of targetPortfolios) {
+                    if (remainingToSell <= 0) break;
+                    const canSell = Math.min(remainingToSell, p.quantity);
 
-                const txOps = [
-                    prisma.user.update({
-                        where: { id: userId },
-                        data: {
-                            deltaBalance: { increment: deltaToAdd },
-                            marginLoan: { decrement: loanToPay }
+                    if (canSell === p.quantity) {
+                        txOps.push(prisma.portfolio.delete({ where: { id: p.id } }));
+                        if (p.accruedInterest > 0) {
+                            txOps.push(prisma.user.update({
+                                where: { id: userId },
+                                data: { deltaBalance: { decrement: p.accruedInterest } }
+                            }));
                         }
-                    }),
-                    prisma.asset.update({
-                        where: { id: assetId },
-                        data: { supplyPool: newSupply, demandPool: newDemand, basePrice: executionPrice }
-                    }),
-                    prisma.transaction.create({
-                        data: { userId, assetId, type: 'SELL', amount: quantity, price: executionPrice, fee }
-                    })
-                ];
-
-                if (portfolio.quantity === quantity) {
-                    txOps.push(prisma.portfolio.delete({ where: { id: portfolio.id } }));
-                } else {
-                    txOps.push(prisma.portfolio.update({
-                        where: { id: portfolio.id },
-                        data: { quantity: { decrement: quantity } }
-                    }));
+                        if (p.loanAmount > 0) {
+                            txOps.push(prisma.user.update({
+                                where: { id: userId },
+                                data: { marginLoan: { decrement: p.loanAmount } }
+                            }));
+                        }
+                    } else {
+                        const loanReduction = (canSell / p.quantity) * p.loanAmount;
+                        txOps.push(prisma.portfolio.update({
+                            where: { id: p.id },
+                            data: {
+                                quantity: { decrement: canSell },
+                                loanAmount: { decrement: loanReduction }
+                            }
+                        }));
+                        txOps.push(prisma.user.update({
+                            where: { id: userId },
+                            data: { marginLoan: { decrement: loanReduction } }
+                        }));
+                    }
+                    remainingToSell -= canSell;
                 }
+
+                txOps.push(prisma.user.update({
+                    where: { id: userId },
+                    data: { deltaBalance: { increment: proceeds } }
+                }));
+
+                txOps.push(prisma.asset.update({
+                    where: { id: assetId },
+                    data: { supplyPool: newSupply, demandPool: newDemand, basePrice: executionPrice }
+                }));
+
+                txOps.push(prisma.transaction.create({
+                    data: { userId, assetId, type: 'SELL', amount: quantity, price: executionPrice, fee }
+                }));
 
                 await prisma.$transaction(txOps);
 
@@ -227,34 +270,20 @@ export class AutomatedMarketMaker {
                     return { success: false, message: `Insufficient margin. Max PP: ${maxPurchasingPower.toFixed(2)}, Req: ${notional.toFixed(2)}` };
                 }
 
-                const existingShort = userPortfolios.find(p => p.assetId === assetId && p.isShortPosition);
-                let newAvgEntry = executionPrice;
-                if (existingShort) {
-                    newAvgEntry = (existingShort.quantity * existingShort.averageEntryPrice + quantity * executionPrice) / (existingShort.quantity + quantity);
-                }
-
-                const newLiqPrice = newAvgEntry + (newAvgEntry / leverage);
-
                 const txOps = [
                     prisma.user.update({
                         where: { id: userId },
-                        data: { deltaBalance: { increment: proceeds } }
+                        data: {
+                            deltaBalance: { increment: proceeds },
+                            marginLoan: { increment: notional }
+                        }
                     }),
                     prisma.asset.update({
                         where: { id: assetId },
                         data: { supplyPool: newSupply, demandPool: newDemand, basePrice: executionPrice }
                     }),
-                    prisma.portfolio.upsert({
-                        where: { userId_assetId_isShortPosition: { userId, assetId, isShortPosition: true } },
-                        update: {
-                            quantity: { increment: quantity },
-                            averageEntryPrice: newAvgEntry,
-                            takeProfitPrice: order.takeProfitPrice,
-                            stopLossPrice: order.stopLossPrice,
-                            leverage: leverage,
-                            liquidationPrice: newLiqPrice
-                        },
-                        create: {
+                    prisma.portfolio.create({
+                        data: {
                             userId,
                             assetId,
                             quantity,
@@ -263,7 +292,10 @@ export class AutomatedMarketMaker {
                             takeProfitPrice: order.takeProfitPrice,
                             stopLossPrice: order.stopLossPrice,
                             leverage: leverage,
-                            liquidationPrice: executionPrice + (executionPrice / leverage)
+                            liquidationPrice: executionPrice + (executionPrice / leverage),
+                            loanAmount: notional,
+                            loanOriginatedAt: new Date(),
+                            interestLastAccruedAt: new Date()
                         }
                     }),
                     prisma.transaction.create({

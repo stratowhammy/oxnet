@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const MARKET_MAKER_ID = '10101010';
-const TARGET_MM_ORDERS = 15;
+const TARGET_MM_ORDERS = 40;
 
 export async function maintainMarketMakerOrders(assetId) {
     try {
@@ -19,41 +19,49 @@ export async function maintainMarketMakerOrders(assetId) {
             }
         });
 
-        const buyOrdersCount = currentOrders.filter(o => o.type === 'BUY').length;
-        const sellOrdersCount = currentOrders.filter(o => o.type === 'SELL').length;
+        const buyOrders = currentOrders.filter(o => o.type === 'BUY');
+        const sellOrders = currentOrders.filter(o => o.type === 'SELL');
 
         const ops = [];
 
-        let currentBuyPrice = basePrice * 0.999;
-        for (let i = buyOrdersCount; i < TARGET_MM_ORDERS; i++) {
-            ops.push(prisma.limitOrder.create({
-                data: {
-                    userId: MARKET_MAKER_ID,
-                    assetId: asset.id,
-                    type: 'BUY',
-                    quantity: Math.floor(Math.random() * 500) + 10,
-                    price: currentBuyPrice,
-                    leverage: 1.0,
-                    status: 'PENDING'
-                }
-            }));
-            currentBuyPrice *= 0.995;
+        // If Buy orders fall below 35, refill to 40
+        if (buyOrders.length < 35) {
+            console.log(`[MM] Refilling BUY orders for ${asset.symbol} (${buyOrders.length} -> 40)`);
+            for (let i = buyOrders.length; i < TARGET_MM_ORDERS; i++) {
+                // Spread between 1% and 5%
+                const spread = 0.01 + (Math.random() * 0.04);
+                ops.push(prisma.limitOrder.create({
+                    data: {
+                        userId: MARKET_MAKER_ID,
+                        assetId: asset.id,
+                        type: 'BUY',
+                        quantity: Math.floor(Math.random() * 500) + 20,
+                        price: basePrice * (1 - spread),
+                        leverage: 1.0,
+                        status: 'PENDING'
+                    }
+                }));
+            }
         }
 
-        let currentSellPrice = basePrice * 1.001;
-        for (let i = sellOrdersCount; i < TARGET_MM_ORDERS; i++) {
-            ops.push(prisma.limitOrder.create({
-                data: {
-                    userId: MARKET_MAKER_ID,
-                    assetId: asset.id,
-                    type: 'SELL',
-                    quantity: Math.floor(Math.random() * 500) + 10,
-                    price: currentSellPrice,
-                    leverage: 1.0,
-                    status: 'PENDING'
-                }
-            }));
-            currentSellPrice *= 1.005;
+        // If Sell orders fall below 35, refill to 40
+        if (sellOrders.length < 35) {
+            console.log(`[MM] Refilling SELL orders for ${asset.symbol} (${sellOrders.length} -> 40)`);
+            for (let i = sellOrders.length; i < TARGET_MM_ORDERS; i++) {
+                // Spread between 1% and 5%
+                const spread = 0.01 + (Math.random() * 0.04);
+                ops.push(prisma.limitOrder.create({
+                    data: {
+                        userId: MARKET_MAKER_ID,
+                        assetId: asset.id,
+                        type: 'SELL',
+                        quantity: Math.floor(Math.random() * 500) + 20,
+                        price: basePrice * (1 + spread),
+                        leverage: 1.0,
+                        status: 'PENDING'
+                    }
+                }));
+            }
         }
 
         if (ops.length > 0) {

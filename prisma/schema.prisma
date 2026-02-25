@@ -75,12 +75,14 @@ model Portfolio {
   isShortPosition   Boolean @default(false)
   takeProfitPrice   Float? // Optional auto-closure target
   stopLossPrice     Float? // Optional auto-closure defense
-  leverage          Float   @default(1.0)
-  liquidationPrice  Float?
-  user              User    @relation(fields: [userId], references: [id])
-  asset             Asset   @relation(fields: [assetId], references: [id])
-
-  @@unique([userId, assetId, isShortPosition])
+  leverage              Float     @default(1.0)
+  liquidationPrice      Float?
+  loanAmount            Float     @default(0.0)
+  accruedInterest       Float     @default(0.0)
+  loanOriginatedAt      DateTime  @default(now())
+  interestLastAccruedAt DateTime  @default(now())
+  user                  User      @relation(fields: [userId], references: [id])
+  asset                 Asset     @relation(fields: [assetId], references: [id])
 }
 
 model Transaction {
@@ -110,6 +112,7 @@ model NewsStory {
   competitorInversion Boolean
   summary             String?
   npcInvolved         String?
+  tags                String?  // JSON stringified array of tags
   publishedAt         DateTime @default(now())
 }
 
