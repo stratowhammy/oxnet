@@ -909,8 +909,13 @@ async function accrueMarginInterest() {
 
             if (hoursPassed >= 1) {
                 // Compound interest for the passed hours
+                // We want EXACTLY 0.5% (0.005) per 24 hours.
+                // Hourly rate r where (1 + r)^24 = 1.005
+                // r = 1.005^(1/24) - 1
+                const hourlyRate = Math.pow(1.005, 1 / 24) - 1;
+
                 const totalPrincipal = p.loanAmount + p.accruedInterest;
-                const newInterest = totalPrincipal * Math.pow(1 + MARGIN_INTEREST_HOURLY_RATE, hoursPassed) - totalPrincipal;
+                const newInterest = totalPrincipal * Math.pow(1 + hourlyRate, hoursPassed) - totalPrincipal;
 
                 if (newInterest > 0.0001) {
                     await prisma.portfolio.update({

@@ -145,42 +145,54 @@ export class AutomatedMarketMaker {
                     orderBy: { loanOriginatedAt: 'asc' } as any
                 });
 
+                let totalInterestPaid = 0;
+                let totalPrincipalRepaid = 0;
                 let remainingToCover = qtyToCover;
+
                 for (const s of targetShorts as any[]) {
                     if (remainingToCover <= 0) break;
                     const canCover = Math.min(remainingToCover, s.quantity);
 
                     if (canCover === s.quantity) {
                         txOps.push(prisma.portfolio.delete({ where: { id: s.id } }));
-                        // When closing a position, the accrued interest is deducted from the payout/balance
-                        if (s.accruedInterest > 0) {
-                            txOps.push(prisma.user.update({
-                                where: { id: userId },
-                                data: { deltaBalance: { decrement: s.accruedInterest } }
-                            }));
-                        }
-                        if (s.loanAmount > 0) {
-                            txOps.push(prisma.user.update({
-                                where: { id: userId },
-                                data: { marginLoan: { decrement: s.loanAmount } }
-                            }));
-                        }
+                        totalInterestPaid += s.accruedInterest;
+                        totalPrincipalRepaid += s.loanAmount;
                     } else {
                         const loanReduction = (canCover / s.quantity) * s.loanAmount;
+                        const interestReduction = (canCover / s.quantity) * s.accruedInterest;
+
                         txOps.push((prisma as any).portfolio.update({
                             where: { id: s.id },
                             data: {
                                 quantity: { decrement: canCover },
-                                loanAmount: { decrement: loanReduction }
+                                loanAmount: { decrement: loanReduction },
+                                accruedInterest: { decrement: interestReduction }
                             }
                         }));
-                        txOps.push(prisma.user.update({
-                            where: { id: userId },
-                            data: { marginLoan: { decrement: loanReduction } }
-                        }));
+                        totalInterestPaid += interestReduction;
+                        totalPrincipalRepaid += loanReduction;
                     }
                     remainingToCover -= canCover;
                 }
+
+                // To cover a short, you must BUY from the pool. Cost = amountToPayToPool (pro-rated for the cover part).
+                const costOfCovering = (qtyToCover / quantity) * cost;
+
+                // When they shorted, they gained `loanAmount` in cash (but it was locked as debt).
+                // Now they are paying `costOfCovering` to close it.
+                // Net change to their deltaBalance should be:
+                // They keep the original cash they got (which is already in deltaBalance, we just decrement the debt loanAmount)
+                // BUT they must PAY the costOfCovering and the totalInterestPaid from their deltaBalance.
+
+                const finalDeltaDeduction = costOfCovering + totalInterestPaid;
+
+                txOps.push(prisma.user.update({
+                    where: { id: userId },
+                    data: {
+                        deltaBalance: { decrement: finalDeltaDeduction },
+                        marginLoan: { decrement: totalPrincipalRepaid }
+                    }
+                }));
             }
 
             if (qtyToLong > 0) {
@@ -230,46 +242,59 @@ export class AutomatedMarketMaker {
                     orderBy: { loanOriginatedAt: 'asc' }
                 });
 
+                let totalInterestPaid = 0;
+                let totalPrincipalRepaid = 0;
                 let remainingToSell = quantity;
+
                 for (const p of targetPortfolios as any[]) {
                     if (remainingToSell <= 0) break;
                     const canSell = Math.min(remainingToSell, p.quantity);
 
                     if (canSell === p.quantity) {
                         txOps.push(prisma.portfolio.delete({ where: { id: p.id } }));
-                        // Deduct specific loan interest
-                        if (p.accruedInterest > 0) {
-                            txOps.push(prisma.user.update({
-                                where: { id: userId },
-                                data: { deltaBalance: { decrement: p.accruedInterest } }
-                            }));
-                        }
-                        // Also decrement global user margin loan for this specific principal
-                        if (p.loanAmount > 0) {
-                            txOps.push(prisma.user.update({
-                                where: { id: userId },
-                                data: { marginLoan: { decrement: p.loanAmount } }
-                            }));
-                        }
+                        totalInterestPaid += p.accruedInterest;
+                        totalPrincipalRepaid += p.loanAmount;
                     } else {
-                        // Partial close: we don't clear the loan yet, but maybe reduce it?
-                        // For simplicity, we clear principal only on full close, or pro-rate.
-                        // Pro-rate loan reduction:
+                        // Partial close: pro-rate the loan reduction
                         const loanReduction = (canSell / p.quantity) * p.loanAmount;
+                        // Partial close interest is tricky. For simplicity, we can let interest ride until full close,
+                        // or charge a proportional amount. Let's charge proportional.
+                        const interestReduction = (canSell / p.quantity) * p.accruedInterest;
+
                         txOps.push((prisma as any).portfolio.update({
                             where: { id: p.id },
                             data: {
                                 quantity: { decrement: canSell },
-                                loanAmount: { decrement: loanReduction }
+                                loanAmount: { decrement: loanReduction },
+                                accruedInterest: { decrement: interestReduction }
                             }
                         }));
-                        txOps.push(prisma.user.update({
-                            where: { id: userId },
-                            data: { marginLoan: { decrement: loanReduction } }
-                        }));
+                        totalInterestPaid += interestReduction;
+                        totalPrincipalRepaid += loanReduction;
                     }
                     remainingToSell -= canSell;
                 }
+
+                // Distribute proceeds:
+                // 1. Pay accrued interest first.
+                // 2. Pay down margin loan principal.
+                // 3. Any remainder goes to deltaBalance (Profit/Cash returned).
+                // If proceeds are insufficient to cover the loan, we just pay down what we can, and deltaBalance might drop if they took a massive loss (though margin calls should prevent this). Actually, in OxNet, selling a long means returning the asset for cash. The cash *must* pay the loan.
+
+                let cashNet = proceeds - totalInterestPaid;
+                let principalToPay = totalPrincipalRepaid;
+
+                // If they have enough cashNet to cover principal, the rest goes to their balance.
+                // If they DON'T have enough (loss), cashNet - principal is negative, which reduces their overall deltaBalance.
+                const finalDeltaChange = cashNet - principalToPay;
+
+                txOps.push(prisma.user.update({
+                    where: { id: userId },
+                    data: {
+                        deltaBalance: { increment: finalDeltaChange },
+                        marginLoan: { decrement: totalPrincipalRepaid }
+                    }
+                }));
 
                 await prisma.$transaction(txOps);
 

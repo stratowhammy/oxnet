@@ -1333,8 +1333,8 @@ async function main() {
 
     // Create Users
     const users = [
-        { id: '10101010', role: 'ADMIN', deltaBalance: 1000000000.0 }, // Central exchange account
-        { id: 'demo-user-1', role: 'STUDENT', deltaBalance: 100000.0 },
+        { id: '10101010', username: 'admin', password: 'This1s1smyAdmin', role: 'ADMIN', deltaBalance: 1000000000.0, onboarded: true }, // Central exchange account
+        { id: 'demo-user-1', username: 'demo', password: 'password', role: 'STUDENT', deltaBalance: 100000.0, onboarded: true },
     ];
 
     console.log('Seeding users...');
