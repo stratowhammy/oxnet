@@ -6,7 +6,7 @@ export default async function Leaderboard() {
     const allUsers = await prisma.user.findMany({
         where: {
             role: { not: 'ADMIN' },
-            username: { in: ['RiseWolf', 'CryptoWolf', 'QuantViper', 'BeanKing'] }
+            username: { in: ['RiseWolf', 'QuantViper', 'BeanKing'] }
         },
         include: {
             portfolios: {
@@ -38,8 +38,8 @@ export default async function Leaderboard() {
         }
 
         const totalEquity = user.deltaBalance - ((user as any).marginLoan || 0) + portfolioValue;
-        const totalNetPNL = totalEquity - STARTING_BALANCE;
-        const realizedPNL = totalNetPNL - unrealizedPNL;
+        const totalNetPNL = (user as any).realizedPnL + unrealizedPNL;
+        const realizedPNL = (user as any).realizedPnL;
 
         return {
             id: user.id,

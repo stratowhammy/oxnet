@@ -185,12 +185,14 @@ export class AutomatedMarketMaker {
                 // BUT they must PAY the costOfCovering and the totalInterestPaid from their deltaBalance.
 
                 const finalDeltaDeduction = costOfCovering + totalInterestPaid;
+                const realizedPnL = totalPrincipalRepaid - finalDeltaDeduction;
 
                 txOps.push(prisma.user.update({
                     where: { id: userId },
                     data: {
                         deltaBalance: { decrement: finalDeltaDeduction },
-                        marginLoan: { decrement: Math.max(0, totalPrincipalRepaid) }
+                        marginLoan: { decrement: Math.max(0, totalPrincipalRepaid) },
+                        realizedPnL: { increment: realizedPnL }
                     }
                 }));
             }
@@ -292,7 +294,8 @@ export class AutomatedMarketMaker {
                     where: { id: userId },
                     data: {
                         deltaBalance: { increment: finalDeltaChange },
-                        marginLoan: { decrement: Math.max(0, totalPrincipalRepaid) }
+                        marginLoan: { decrement: Math.max(0, totalPrincipalRepaid) },
+                        realizedPnL: { increment: finalDeltaChange }
                     }
                 }));
 

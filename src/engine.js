@@ -1,4 +1,5 @@
-import prisma from './lib/db.js';
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -108,6 +109,45 @@ export async function publishNewsStory() {
 
     const programmaticDirection = Math.random() > 0.5 ? "UP" : "DOWN";
     const programmaticIntensity = Math.floor(Math.random() * 5) + 1;
+
+    // 7 News Outlets
+    const newsOutlets = [
+        { name: "Vanguard News", stance: "Far-Left / Progressive / Anti-Capitalist Institution" },
+        { name: "Global Markets Daily", stance: "Centrist / Establishment / Pro-Corporate" },
+        { name: "The Capitalist Chronicle", stance: "Far-Right / Pro-Free Market / Anti-Regulation" },
+        { name: "Tech Disruption Insider", stance: "Technocratic / Accelerationist / Pro-Automation" },
+        { name: "The Zenith Observer", stance: "Academic / Analytical / Data-Driven" },
+        { name: "Underground Exchange", stance: "Anarcho-Capitalist / Crypto-Enthusiast" },
+        { name: "Public Sentiment Network", stance: "Populist / Retail-Trader Focused" }
+    ];
+
+    // 21 Unique Reporters
+    const reporters = [
+        { name: "Elena Rostova", style: "Aggressive investigative journalism" },
+        { name: "Marcus 'The Bull' Thorne", style: "Aggressive bullish hype" },
+        { name: "Sarah Jenkins", style: "Dry, factual reporting" },
+        { name: "David Chen", style: "Data-heavy analysis" },
+        { name: "Chloe Vance", style: "Sensationalist clickbait" },
+        { name: "Rex Sterling", style: "Old-school Wall Street insider" },
+        { name: "Aisha Rahman", style: "Focus on ethical implications" },
+        { name: "Viktor Drago", style: "Pessimistic doomsayer" },
+        { name: "Samira Patel", style: "Tech-optimist" },
+        { name: "Julian Vance", style: "Contrarian takes" },
+        { name: "Leo Vance", style: "Sarcastic and witty" },
+        { name: "Mia Wong", style: "Focus on retail investor pain" },
+        { name: "Omar Al-Fayed", style: "Global macroeconomic perspective" },
+        { name: "Priya Sharma", style: "ESG focused" },
+        { name: "Jack 'The Bear' Lawson", style: "Constant bearish warnings" },
+        { name: "Zoe Castillo", style: "Focus on startup disruption" },
+        { name: "Oliver Grant", style: "Focus on regulatory impact" },
+        { name: "Lily Chen", style: "Focus on consumer trends" },
+        { name: "Noah Miller", style: "Detailed fundamental analysis" },
+        { name: "Ava Davis", style: "Focus on market psychology" },
+        { name: "Ethan Moore", style: "Algorithmic trading insights" }
+    ];
+
+    const selectedOutlet = newsOutlets[Math.floor(Math.random() * newsOutlets.length)];
+    const selectedReporter = reporters[Math.floor(Math.random() * reporters.length)];
 
     // Fetch Reporter's Brain Context
     const targetAssetHistory = await prisma.newsStory.findMany({
@@ -243,10 +283,10 @@ In the 'Story' field, specifically refer to the NPC as "${npcIdentifier}" on fir
     if (!aiData) {
         // Fallback
         aiData = {
-            Headline: `Breakthrough in ${niche}`,
-            Story: `Advances in ${niche} hold promise for the future. The companies involved are poised to take advantage of these new developments. According to ${npcIdentifier}, this could lead to a new era of growth with rising demand for this stock and the sector as a whole.`,
-            Summary: `Advances in ${niche} are expected to reshape the sector according to ${npcIdentifier}.`,
-            Expected_Economic_Outcome: `This development could strengthen the market position of ${companyName}. Sector wide reverberations should be anticipated.`,
+            Headline: `Developments in ${niche}`,
+            Story: `Recent events involving ${companyName} have sparked significant discussion. According to ${npcIdentifier}, the unfolding situation reflects broader structural shifts. Whether these changes reinforce resilient free-market principles or expose systemic vulnerabilities remains a source of ongoing debate.`,
+            Summary: `Events surrounding ${companyName} are analyzed by ${npcIdentifier}.`,
+            Expected_Economic_Outcome: `Observers predict shifting dynamics based on the recent activities of ${companyName}.`,
             Direction: programmaticDirection,
             Intensity_Weight: programmaticIntensity,
             Competitor_Inversion: Math.random() > 0.7
@@ -271,11 +311,13 @@ In the 'Story' field, specifically refer to the NPC as "${npcIdentifier}" on fir
                 competitorInversion: inversion,
                 summary: aiData.Summary || null,
                 npcInvolved: selectedNpc,
-                tags: JSON.stringify(aiData.Tags || [sector, targetAsset.symbol, npcRecord.name])
+                tags: JSON.stringify(aiData.Tags || [sector, targetAsset.symbol, npcRecord.name]),
+                outlet: selectedOutlet.name,
+                reporter: selectedReporter.name
             }
         });
 
-        console.log(`[AI News] Published: ${newStory.headline}`);
+        console.log(`[AI News] Published: ${newStory.headline} (by ${selectedReporter.name}, ${selectedOutlet.name})`);
     } catch (dbErr) {
         console.error("Failed to save AI news story to DB:", dbErr.message);
     }
@@ -823,6 +865,12 @@ async function refreshAIContext() {
 
 // 5 Minutes = 300,000 ms
 const FIVE_MINS = 5 * 60 * 1000;
+// 11 Minutes
+const ELEVEN_MINS = 11 * 60 * 1000;
+// 3 Minutes
+const THREE_MINS = 3 * 60 * 1000;
+// 13 Minutes
+const THIRTEEN_MINS = 13 * 60 * 1000;
 // 15 Minutes = 900,000 ms
 const FIFTEEN_MINS = 15 * 60 * 1000;
 // 30 Minutes = 1,800,000 ms 
@@ -934,6 +982,137 @@ async function accrueMarginInterest() {
     }
 }
 
+// 7. Process Closest Buy Limit Order (runs every 11 mins)
+async function processClosestBuyOrder() {
+    console.log(`[${new Date().toISOString()}] Processing closest BUY order across all assets...`);
+    try {
+        const closestBuy = await prisma.limitOrder.findFirst({
+            where: { type: 'BUY', status: 'PENDING' },
+            orderBy: [{ price: 'desc' }, { createdAt: 'asc' }],
+            include: { asset: true }
+        });
+
+        if (closestBuy) {
+            console.log(`[Engine] Executing closest BUY for ${closestBuy.asset.symbol} at ${closestBuy.price}`);
+            await AutomatedMarketMaker.executeTrade({
+                userId: closestBuy.userId,
+                assetId: closestBuy.assetId,
+                type: 'BUY',
+                quantity: closestBuy.quantity,
+                leverage: closestBuy.leverage,
+                isInternal: false // Allow cascade to trigger
+            });
+            await prisma.limitOrder.update({ where: { id: closestBuy.id }, data: { status: 'EXECUTED' } });
+        }
+    } catch (e) { console.error("Error processing closest buy order:", e); }
+}
+
+// 8. Process Closest Sell Limit Order (runs every 13 mins)
+async function processClosestSellOrder() {
+    console.log(`[${new Date().toISOString()}] Processing closest SELL order across all assets...`);
+    try {
+        const closestSell = await prisma.limitOrder.findFirst({
+            where: { type: 'SELL', status: 'PENDING' },
+            orderBy: [{ price: 'asc' }, { createdAt: 'asc' }],
+            include: { asset: true }
+        });
+
+        if (closestSell) {
+            console.log(`[Engine] Executing closest SELL for ${closestSell.asset.symbol} at ${closestSell.price}`);
+            await AutomatedMarketMaker.executeTrade({
+                userId: closestSell.userId,
+                assetId: closestSell.assetId,
+                type: 'SELL',
+                quantity: closestSell.quantity,
+                leverage: closestSell.leverage,
+                isInternal: false // Allow cascade to trigger
+            });
+            await prisma.limitOrder.update({ where: { id: closestSell.id }, data: { status: 'EXECUTED' } });
+        }
+    } catch (e) { console.error("Error processing closest sell order:", e); }
+}
+
+// 9. Close Spread Gap (runs every 3 mins)
+const MARKET_MAKER_ID = '10101010';
+async function closeSpreadGap() {
+    console.log(`[${new Date().toISOString()}] Closing spread gaps for all assets...`);
+    try {
+        const assets = await prisma.asset.findMany();
+        let totalOps = [];
+
+        for (const asset of assets) {
+            const basePrice = asset.basePrice;
+
+            const highestBuy = await prisma.limitOrder.findFirst({
+                where: { assetId: asset.id, type: 'BUY', status: 'PENDING' },
+                orderBy: { price: 'desc' }
+            });
+            const lowestSell = await prisma.limitOrder.findFirst({
+                where: { assetId: asset.id, type: 'SELL', status: 'PENDING' },
+                orderBy: { price: 'asc' }
+            });
+
+            const currentHighestBuy = highestBuy ? highestBuy.price : basePrice * 0.985;
+            const currentLowestSell = lowestSell ? lowestSell.price : basePrice * 1.012;
+
+            const step = basePrice * 0.002; // 0.2% increments
+
+            // Fill BUY side gap (from highestBuy up to basePrice)
+            if (basePrice - currentHighestBuy > step) {
+                let currentInsertPrice = currentHighestBuy + step;
+                let count = 0;
+                while (currentInsertPrice < basePrice && count < 25) {
+                    totalOps.push(prisma.limitOrder.create({
+                        data: {
+                            userId: MARKET_MAKER_ID,
+                            assetId: asset.id,
+                            type: 'BUY',
+                            quantity: Math.floor(Math.random() * 200) + 10,
+                            price: currentInsertPrice,
+                            leverage: 1.0,
+                            status: 'PENDING'
+                        }
+                    }));
+                    currentInsertPrice += step;
+                    count++;
+                }
+            }
+
+            // Fill SELL side gap (from lowestSell down to basePrice)
+            if (currentLowestSell - basePrice > step) {
+                let currentInsertPrice = currentLowestSell - step;
+                let count = 0;
+                while (currentInsertPrice > basePrice && count < 25) {
+                    totalOps.push(prisma.limitOrder.create({
+                        data: {
+                            userId: MARKET_MAKER_ID,
+                            assetId: asset.id,
+                            type: 'SELL',
+                            quantity: Math.floor(Math.random() * 200) + 10,
+                            price: currentInsertPrice,
+                            leverage: 1.0,
+                            status: 'PENDING'
+                        }
+                    }));
+                    currentInsertPrice -= step;
+                    count++;
+                }
+            }
+        }
+
+        if (totalOps.length > 0) {
+            const chunkSize = 100;
+            for (let i = 0; i < totalOps.length; i += chunkSize) {
+                await prisma.$transaction(totalOps.slice(i, i + chunkSize));
+            }
+            console.log(`[Engine] Inserted ${totalOps.length} spread-tightening limit orders across all assets.`);
+        }
+    } catch (e) {
+        console.error("Error closing spread gap:", e);
+    }
+}
+
+
 console.log("Starting OxNet Background Engine...");
 
 // Initial kicks (news only if within trading hours)
@@ -964,3 +1143,7 @@ setInterval(checkHedgeFundPerformance, FIVE_MINS); // Check HFM fund performance
 setInterval(refreshAIContext, THIRTY_MINS); // Refresh AI context file every 30 minutes
 setInterval(accrueMarginInterest, FIVE_MINS); // Check for interest accrual eligibility frequently (runs if >= 1hr passed)
 
+// Periodic Processing of Closest Limit Orders
+setInterval(processClosestBuyOrder, ELEVEN_MINS);
+setInterval(processClosestSellOrder, THIRTEEN_MINS);
+setInterval(closeSpreadGap, THREE_MINS);

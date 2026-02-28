@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const MARKET_MAKER_ID = '10101010';
-const TARGET_MM_ORDERS = 65;
+const TARGET_MM_ORDERS = 50;
 
 export async function maintainMarketMakerOrders(assetId) {
     try {
@@ -11,9 +11,9 @@ export async function maintainMarketMakerOrders(assetId) {
 
         const basePrice = asset.basePrice;
 
+        // Fetch ALL pending orders, not just MM orders, to ensure total depth
         const currentOrders = await prisma.limitOrder.findMany({
             where: {
-                userId: MARKET_MAKER_ID,
                 assetId: asset.id,
                 status: 'PENDING'
             }
@@ -24,12 +24,12 @@ export async function maintainMarketMakerOrders(assetId) {
 
         const ops = [];
 
-        // If Buy orders fall below 60, refill to 65
-        if (buyOrders.length < 60) {
-            console.log(`[MM] Refilling BUY orders for ${asset.symbol} (${buyOrders.length} -> 65)`);
+        // If Buy orders fall below target depth, refill to target
+        if (buyOrders.length < TARGET_MM_ORDERS) {
+            console.log(`[MM] Refilling BUY orders for ${asset.symbol} (${buyOrders.length} -> ${TARGET_MM_ORDERS})`);
             for (let i = buyOrders.length; i < TARGET_MM_ORDERS; i++) {
-                // Spread between 0.1% and 1.5%
-                const spread = 0.001 + (Math.random() * 0.014);
+                // Spread between 0% and 1.5% below market price
+                const spread = Math.random() * 0.015;
                 ops.push(prisma.limitOrder.create({
                     data: {
                         userId: MARKET_MAKER_ID,
@@ -44,12 +44,12 @@ export async function maintainMarketMakerOrders(assetId) {
             }
         }
 
-        // If Sell orders fall below 60, refill to 65
-        if (sellOrders.length < 60) {
-            console.log(`[MM] Refilling SELL orders for ${asset.symbol} (${sellOrders.length} -> 65)`);
+        // If Sell orders fall below target depth, refill to target
+        if (sellOrders.length < TARGET_MM_ORDERS) {
+            console.log(`[MM] Refilling SELL orders for ${asset.symbol} (${sellOrders.length} -> ${TARGET_MM_ORDERS})`);
             for (let i = sellOrders.length; i < TARGET_MM_ORDERS; i++) {
-                // Spread between 0.1% and 1.5%
-                const spread = 0.001 + (Math.random() * 0.014);
+                // Spread between 0% and 1.2% above market price
+                const spread = Math.random() * 0.012;
                 ops.push(prisma.limitOrder.create({
                     data: {
                         userId: MARKET_MAKER_ID,

@@ -1352,9 +1352,16 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
             {selectedNews && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedNews(null)}>
                     <div className="bg-gray-900 border border-gray-800 rounded-xl max-w-2xl w-full p-8 shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <div className="flex justify-between items-start mb-6">
-                            <h2 className="text-2xl font-bold text-white">{selectedNews.headline}</h2>
-                            <button onClick={() => setSelectedNews(null)} className="text-gray-500 hover:text-white transition-colors">
+                        <div className="flex justify-between items-start mb-4">
+                            <div>
+                                <h2 className={`text-2xl font-bold mb-1 ${selectedNews.direction === 'UP' ? 'text-green-500' : 'text-red-500'}`}>{selectedNews.headline}</h2>
+                                {selectedNews.outlet && selectedNews.reporter && (
+                                    <div className="text-gray-400 text-sm font-semibold italic">
+                                        By {selectedNews.reporter} | <span className="text-gray-500">{selectedNews.outlet}</span>
+                                    </div>
+                                )}
+                            </div>
+                            <button onClick={() => setSelectedNews(null)} className="text-gray-500 hover:text-white transition-colors ml-4 mt-1">
                                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                             </button>
                         </div>
@@ -1367,10 +1374,8 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                                 <div className="text-white font-mono bg-gray-800 px-3 py-1 rounded inline-block">{selectedNews.targetSector}</div>
                             </div>
                             <div>
-                                <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Direction</div>
-                                <div className={`font-bold font-mono ${selectedNews.direction === 'UP' ? 'text-green-500' : 'text-red-500'}`}>
-                                    {selectedNews.direction}
-                                </div>
+                                <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Impact Scope</div>
+                                <div className="text-white font-mono bg-gray-800 px-3 py-1 rounded inline-block">{selectedNews.impactScope}</div>
                             </div>
                         </div>
                     </div>

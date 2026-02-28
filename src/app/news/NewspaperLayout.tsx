@@ -109,8 +109,13 @@ export default function NewspaperLayout({ leadStory, otherStories }: { leadStory
                                     {selectedNews.targetSpecialty}
                                 </span>
                             </div>
-                            <h2 className="text-2xl font-bold text-white leading-tight">{selectedNews.headline}</h2>
-                            <p className="text-gray-400 text-sm mt-2">{new Date(selectedNews.publishedAt).toLocaleString()}</p>
+                            <h2 className={`text-2xl font-bold leading-tight ${selectedNews.direction === 'UP' ? 'text-green-500' : 'text-red-500'}`}>{selectedNews.headline}</h2>
+                            {selectedNews.outlet && selectedNews.reporter && (
+                                <div className="text-gray-400 text-sm font-semibold italic mt-1">
+                                    By {selectedNews.reporter} | <span className="text-gray-500">{selectedNews.outlet}</span>
+                                </div>
+                            )}
+                            <p className="text-gray-500 text-xs mt-2">{new Date(selectedNews.publishedAt).toLocaleString()}</p>
                         </div>
                         <button onClick={closeModal} className="text-gray-500 hover:text-white transition-colors p-1">
                             ✕
@@ -177,6 +182,9 @@ export default function NewspaperLayout({ leadStory, otherStories }: { leadStory
                         <p className="text-gray-400 text-sm">Global economic events, analysis, and breaking sector movements.</p>
                     </div>
                     <div className="flex gap-4">
+                        <Link href="/news/archive" className="bg-gray-800 hover:bg-gray-700 text-white font-semibold flex items-center gap-2 py-2 px-4 rounded transition-colors text-sm border border-gray-700">
+                            News Archive
+                        </Link>
                         <Link href="/" className="bg-gray-800 hover:bg-gray-700 text-white font-semibold flex items-center gap-2 py-2 px-4 rounded transition-colors text-sm border border-gray-700">
                             <span>←</span> Exchange Dashboard
                         </Link>
@@ -195,14 +203,19 @@ export default function NewspaperLayout({ leadStory, otherStories }: { leadStory
                                 className="bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl p-5 cursor-pointer transition-all group shadow-sm hover:shadow-md hover:shadow-blue-900/5"
                                 onClick={() => setSelectedNews(story)}
                             >
-                                <div className="flex justify-between items-start mb-3">
-                                    <h3 className="text-xl font-bold text-gray-100 group-hover:text-blue-400 transition-colors pr-4">
+                                <div className="flex justify-between items-start mb-2">
+                                    <h3 className={`text-xl font-bold transition-colors pr-4 ${story.direction === 'UP' ? 'text-green-400 group-hover:text-green-300' : 'text-red-400 group-hover:text-red-300'}`}>
                                         {story.headline}
                                     </h3>
                                     <div className="text-xs text-gray-500 whitespace-nowrap mt-1">
                                         {new Date(story.publishedAt).toLocaleDateString()}
                                     </div>
                                 </div>
+                                {story.outlet && story.reporter && (
+                                    <div className="text-gray-400 text-xs font-semibold italic mb-3">
+                                        By {story.reporter} | <span className="text-gray-500">{story.outlet}</span>
+                                    </div>
+                                )}
 
                                 <p className="text-gray-400 text-sm mb-4 line-clamp-2">
                                     {story.summary || story.context}

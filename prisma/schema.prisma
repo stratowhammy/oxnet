@@ -18,6 +18,7 @@ model User {
   managedAssetId   String?                            // CEO only: which company they manage
   hedgeFundBalance Float         @default(0.0)        // HFM only: fund capital (starts 10M)
   deltaBalance     Float         @default(100000.0)
+  realizedPnL      Float         @default(0.0)
   marginLimit      Float         @default(0.0)
   marginLoan       Float         @default(0.0)
   lendingLimit     Float         @default(0.0)
@@ -113,8 +114,11 @@ model NewsStory {
   summary             String?
   npcInvolved         String?
   tags                String?  // JSON stringified array of tags
+  outlet              String?
+  reporter            String?
   publishedAt         DateTime @default(now())
 }
+
 
 model NPC {
   id          String @id @default(cuid())
