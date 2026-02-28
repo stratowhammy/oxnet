@@ -786,7 +786,8 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                     </button>
                     <button
                         onClick={() => setActiveTab('BANKING')}
-                        className={`flex-1 py-3 font-bold text-xs tracking-widest uppercase transition-colors ${activeTab === 'BANKING' ? 'bg-gray-800 text-white border-b-2 border-purple-500' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}
+                        disabled={user.id === 'guest'}
+                        className={`flex-1 py-3 font-bold text-xs tracking-widest uppercase transition-colors ${activeTab === 'BANKING' ? 'bg-gray-800 text-white border-b-2 border-purple-500' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'} ${user.id === 'guest' ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                         Banking
                     </button>
@@ -901,55 +902,68 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                     </div>
 
                     <div className="flex flex-wrap items-center justify-center gap-3 lg:gap-6 w-full lg:w-auto">
-                        <div className="text-sm font-mono text-gray-400">
-                            <span className="uppercase text-xs mr-2 font-bold tracking-widest">Callsign:</span>
-                            <span className="text-white bg-gray-800 px-3 py-1 rounded shadow-inner border border-gray-700">{user.username || user.id}</span>
-                        </div>
-                        <div className="flex bg-gray-800 p-1 rounded border border-gray-700">
-                            <div className="px-4 py-1 flex items-center gap-2 border-r border-gray-700">
-                                <span className="text-xs uppercase text-gray-400 font-bold tracking-widest">Delta</span>
-                                <span className="font-mono text-green-400 font-bold tracking-tight text-lg">Δ {user.deltaBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            </div>
-                            {user.marginLoan > 0 && (
-                                <div className="px-4 py-1 flex items-center gap-2">
-                                    <span className="text-xs uppercase text-gray-500 font-bold tracking-widest">Margin Loan</span>
-                                    <span className="font-mono text-red-500 tracking-tight">Δ {user.marginLoan.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        {user.id !== 'guest' ? (
+                            <>
+                                <div className="text-sm font-mono text-gray-400">
+                                    <span className="uppercase text-xs mr-2 font-bold tracking-widest">Callsign:</span>
+                                    <span className="text-white bg-gray-800 px-3 py-1 rounded shadow-inner border border-gray-700">{user.username || user.id}</span>
                                 </div>
-                            )}
-                        </div>
-                        <div className="flex bg-gray-800 p-1 rounded border border-gray-700 items-center justify-center">
-                            <button
-                                onClick={() => setShowGlobalPortfolio(true)}
-                                className="text-xs hover:text-white text-gray-400 border-r border-gray-700 px-3 py-1 font-bold uppercase tracking-widest transition-colors"
-                            >
-                                Portfolio
-                            </button>
-                            <a href="/news" className="text-xs hover:text-white text-gray-400 border-r border-gray-700 px-3 py-1 font-bold uppercase tracking-widest transition-colors">
-                                News
-                            </a>
-                            <a href="/goals" className="text-xs hover:text-white text-gray-400 border-r border-gray-700 px-3 py-1 font-bold uppercase tracking-widest transition-colors">
-                                Goals
-                            </a>
-                            <a href="/leaderboard" className="text-xs hover:text-white text-gray-400 px-3 py-1 font-bold uppercase tracking-widest transition-colors">
-                                Leaderboard
-                            </a>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            {user.role === 'ADMIN' && (
-                                <a
-                                    href="/admin"
-                                    className="text-xs font-bold uppercase tracking-widest text-yellow-400 hover:text-white px-3 py-2 border border-yellow-900 hover:bg-yellow-900/50 rounded transition-all"
-                                >
-                                    ⚙ Admin
+                                <div className="flex bg-gray-800 p-1 rounded border border-gray-700">
+                                    <div className="px-4 py-1 flex items-center gap-2 border-r border-gray-700">
+                                        <span className="text-xs uppercase text-gray-400 font-bold tracking-widest">Delta</span>
+                                        <span className="font-mono text-green-400 font-bold tracking-tight text-lg">Δ {user.deltaBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
+                                </div>
+                                <div className="flex bg-gray-800 p-1 rounded border border-gray-700 items-center justify-center">
+                                    <button
+                                        onClick={() => setShowGlobalPortfolio(true)}
+                                        className="text-xs hover:text-white text-gray-400 border-r border-gray-700 px-3 py-1 font-bold uppercase tracking-widest transition-colors"
+                                    >
+                                        Portfolio
+                                    </button>
+                                    <a href="/news" className="text-xs hover:text-white text-gray-400 border-r border-gray-700 px-3 py-1 font-bold uppercase tracking-widest transition-colors">
+                                        News
+                                    </a>
+                                    <a href="/goals" className="text-xs hover:text-white text-gray-400 border-r border-gray-700 px-3 py-1 font-bold uppercase tracking-widest transition-colors">
+                                        Goals
+                                    </a>
+                                    <a href="/leaderboard" className="text-xs hover:text-white text-gray-400 px-3 py-1 font-bold uppercase tracking-widest transition-colors">
+                                        Leaderboard
+                                    </a>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    {user.role === 'ADMIN' && (
+                                        <a
+                                            href="/admin"
+                                            className="text-xs font-bold uppercase tracking-widest text-yellow-400 hover:text-white px-3 py-2 border border-yellow-900 hover:bg-yellow-900/50 rounded transition-all"
+                                        >
+                                            ⚙ Admin
+                                        </a>
+                                    )}
+                                    <button
+                                        onClick={handleLogout}
+                                        className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white px-3 py-2 border border-gray-700 hover:bg-gray-800 rounded transition-all"
+                                    >
+                                        Disconnect
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="flex items-center gap-4">
+                                <a href="/news" className="text-xs hover:text-white text-gray-400 px-3 py-1 font-bold uppercase tracking-widest transition-colors">
+                                    News
                                 </a>
-                            )}
-                            <button
-                                onClick={handleLogout}
-                                className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white px-3 py-2 border border-gray-700 hover:bg-gray-800 rounded transition-all"
-                            >
-                                Disconnect
-                            </button>
-                        </div>
+                                <a href="/leaderboard" className="text-xs hover:text-white text-gray-400 px-3 py-1 font-bold uppercase tracking-widest transition-colors">
+                                    Leaderboard
+                                </a>
+                                <a
+                                    href="/login"
+                                    className="text-xs font-bold uppercase tracking-widest text-blue-400 hover:text-white px-6 py-2 border border-blue-900 hover:bg-blue-900/50 rounded-full transition-all shadow-[0_0_15px_rgba(59,130,246,0.2)]"
+                                >
+                                    Login
+                                </a>
+                            </div>
+                        )}
                     </div>
                 </header>
 
@@ -1238,10 +1252,10 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
 
                                         <button
                                             onClick={handleOrderSubmit}
-                                            disabled={quantity <= 0 || (executionType === 'LIMIT' && limitPrice === '') || (executionType === 'MARKET' && impactLoading)}
+                                            disabled={user.id === 'guest' || quantity <= 0 || (executionType === 'LIMIT' && limitPrice === '') || (executionType === 'MARKET' && impactLoading)}
                                             className={`w-full py-3 rounded font-bold text-white shadow-lg transition-all ${orderType === 'BUY' ? 'bg-green-600 hover:bg-green-500' : orderType === 'SELL' ? 'bg-red-600 hover:bg-red-500' : 'bg-purple-600 hover:bg-purple-500'} disabled:opacity-50 disabled:cursor-not-allowed`}
                                         >
-                                            {executionType === 'LIMIT' ? 'Place Limit' : orderType} {selectedAsset.symbol}
+                                            {user.id === 'guest' ? 'Login to Trade' : `${executionType === 'LIMIT' ? 'Place Limit' : orderType} ${selectedAsset.symbol}`}
                                         </button>
                                     </div>
 

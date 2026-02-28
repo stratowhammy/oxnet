@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const MARKET_MAKER_ID = '10101010';
-const TARGET_MM_ORDERS = 40;
+const TARGET_MM_ORDERS = 65;
 
 export async function maintainMarketMakerOrders(assetId) {
     try {
@@ -24,12 +24,12 @@ export async function maintainMarketMakerOrders(assetId) {
 
         const ops = [];
 
-        // If Buy orders fall below 35, refill to 40
-        if (buyOrders.length < 35) {
-            console.log(`[MM] Refilling BUY orders for ${asset.symbol} (${buyOrders.length} -> 40)`);
+        // If Buy orders fall below 60, refill to 65
+        if (buyOrders.length < 60) {
+            console.log(`[MM] Refilling BUY orders for ${asset.symbol} (${buyOrders.length} -> 65)`);
             for (let i = buyOrders.length; i < TARGET_MM_ORDERS; i++) {
-                // Spread between 1% and 5%
-                const spread = 0.01 + (Math.random() * 0.04);
+                // Spread between 0.1% and 1.5%
+                const spread = 0.001 + (Math.random() * 0.014);
                 ops.push(prisma.limitOrder.create({
                     data: {
                         userId: MARKET_MAKER_ID,
@@ -44,12 +44,12 @@ export async function maintainMarketMakerOrders(assetId) {
             }
         }
 
-        // If Sell orders fall below 35, refill to 40
-        if (sellOrders.length < 35) {
-            console.log(`[MM] Refilling SELL orders for ${asset.symbol} (${sellOrders.length} -> 40)`);
+        // If Sell orders fall below 60, refill to 65
+        if (sellOrders.length < 60) {
+            console.log(`[MM] Refilling SELL orders for ${asset.symbol} (${sellOrders.length} -> 65)`);
             for (let i = sellOrders.length; i < TARGET_MM_ORDERS; i++) {
-                // Spread between 1% and 5%
-                const spread = 0.01 + (Math.random() * 0.04);
+                // Spread between 0.1% and 1.5%
+                const spread = 0.001 + (Math.random() * 0.014);
                 ops.push(prisma.limitOrder.create({
                     data: {
                         userId: MARKET_MAKER_ID,

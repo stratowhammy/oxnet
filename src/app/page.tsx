@@ -10,28 +10,34 @@ export default async function Home() {
   const cookieStore = await cookies();
   const session = cookieStore.get('oxnet_session');
 
-  if (!session || !session.value) {
-    redirect('/login');
-  }
-
-  // Fetch session user
-  const user = await prisma.user.findUnique({
-    where: { id: session.value },
-    include: {
-      portfolios: {
-        include: {
-          asset: true
+  let user = null;
+  if (session && session.value) {
+    user = await prisma.user.findUnique({
+      where: { id: session.value },
+      include: {
+        portfolios: {
+          include: {
+            asset: true
+          }
         }
       }
-    }
-  });
-
-  if (!user) {
-    redirect('/login');
+    });
   }
 
+  // Define a guest user if not logged in or user not found
+  const guestUser = {
+    id: 'guest',
+    username: 'Guest',
+    role: 'USER',
+    deltaBalance: 0,
+    portfolios: [],
+    marginLoan: 0,
+  };
+
+  const currentUser = user || guestUser;
+
   // If user hasn't onboarded yet (and not admin), show role selection
-  if (!user.onboarded && user.role !== 'ADMIN') {
+  if (currentUser.id !== 'guest' && !currentUser.onboarded && currentUser.role !== 'ADMIN') {
     // Get all assets and find which ones already have a CEO
     const allAssets = await prisma.asset.findMany({
       where: { symbol: { not: 'DELTA' } },
@@ -101,7 +107,7 @@ export default async function Home() {
 
   return (
     <main className="h-screen overflow-hidden bg-gray-950">
-      <Dashboard initialUser={user} initialAssets={assets} initialNews={news} allUsers={allUsers} />
+      <Dashboard initialUser={currentUser as any} initialAssets={assets} initialNews={news} allUsers={allUsers} />
     </main>
   );
 }

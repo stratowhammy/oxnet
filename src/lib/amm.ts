@@ -190,7 +190,7 @@ export class AutomatedMarketMaker {
                     where: { id: userId },
                     data: {
                         deltaBalance: { decrement: finalDeltaDeduction },
-                        marginLoan: { decrement: totalPrincipalRepaid }
+                        marginLoan: { decrement: Math.max(0, totalPrincipalRepaid) }
                     }
                 }));
             }
@@ -206,7 +206,7 @@ export class AutomatedMarketMaker {
                         averageEntryPrice: executionPrice,
                         isShortPosition: false,
                         leverage: leverage,
-                        liquidationPrice: executionPrice - (executionPrice / leverage),
+                        liquidationPrice: executionPrice - (executionPrice / leverage) * 0.95,
                         takeProfitPrice: order.takeProfitPrice,
                         stopLossPrice: order.stopLossPrice,
                         loanAmount: portfolioLoan,
@@ -292,7 +292,7 @@ export class AutomatedMarketMaker {
                     where: { id: userId },
                     data: {
                         deltaBalance: { increment: finalDeltaChange },
-                        marginLoan: { decrement: totalPrincipalRepaid }
+                        marginLoan: { decrement: Math.max(0, totalPrincipalRepaid) }
                     }
                 }));
 
@@ -333,7 +333,7 @@ export class AutomatedMarketMaker {
                             takeProfitPrice: order.takeProfitPrice,
                             stopLossPrice: order.stopLossPrice,
                             leverage: leverage,
-                            liquidationPrice: executionPrice + (executionPrice / leverage),
+                            liquidationPrice: executionPrice + (executionPrice / leverage) * 0.95,
                             loanAmount: notional,
                             loanOriginatedAt: new Date(),
                             interestLastAccruedAt: new Date()

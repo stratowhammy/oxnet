@@ -6,7 +6,8 @@
     "dev": "next dev -H 0.0.0.0 -p 3000",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "engine": "node src/engine.js"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
