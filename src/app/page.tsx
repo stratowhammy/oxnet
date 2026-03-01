@@ -84,18 +84,6 @@ export default async function Home() {
     take: 50
   });
 
-  const allUsers = await prisma.user.findMany({
-    select: {
-      id: true,
-      username: true,
-      lendingLimit: true,
-      lendingRate: true,
-      loansGiven: {
-        where: { status: 'ACTIVE' }
-      }
-    }
-  });
-
   if (assets.length === 0) {
     return (
       <main className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
@@ -109,7 +97,7 @@ export default async function Home() {
 
   return (
     <main className="h-screen overflow-hidden bg-gray-950">
-      <Dashboard initialUser={currentUser as any} initialAssets={assets} initialNews={news} allUsers={allUsers} />
+      <Dashboard initialUser={currentUser as any} initialAssets={assets} initialNews={news} />
     </main>
   );
 }

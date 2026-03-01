@@ -6,10 +6,10 @@ import NewspaperLayout from './NewspaperLayout';
 export const dynamic = 'force-dynamic';
 
 export default async function NewsPage() {
-    // Fetch the 12 most recent stories
+    // Fetch the 10 most recent stories
     const recentStories = await prisma.newsStory.findMany({
         orderBy: { publishedAt: 'desc' },
-        take: 12
+        take: 10
     });
 
     if (recentStories.length === 0) {

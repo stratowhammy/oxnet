@@ -5,12 +5,12 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 export default async function ArchivePage() {
-    // Fetch all stories EXCEPT the top 12 which are on the front page
+    // Fetch all stories EXCEPT the top 10 which are on the front page
     const allStories = await prisma.newsStory.findMany({
         orderBy: { publishedAt: 'desc' },
     });
 
-    const archivedStories = allStories.slice(12);
+    const archivedStories = allStories.slice(10);
 
     return (
         <main className="min-h-screen bg-gray-950 text-gray-100 font-sans p-4 md:p-8 pb-20">
@@ -54,9 +54,9 @@ export default async function ArchivePage() {
                                         </div>
                                     </div>
 
-                                    {story.outlet && story.reporter && (
+                                    {(story as any).outlet && (story as any).reporter && (
                                         <div className="text-gray-400 text-xs font-semibold italic mb-4">
-                                            By {story.reporter} | <span className="text-gray-500">{story.outlet}</span>
+                                            By {(story as any).reporter} | <span className="text-gray-500">{(story as any).outlet}</span>
                                         </div>
                                     )}
 

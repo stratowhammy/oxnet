@@ -284,8 +284,7 @@ function SectorIndexView({ selectedSector, sectorAssets, sectorIndexData, onSele
     );
 }
 
-// @ts-ignore
-export default function Dashboard({ initialUser, initialAssets, initialNews, allUsers = [] }: { initialUser: User, initialAssets: Asset[], initialNews: NewsStory[], allUsers?: any[] }) {
+export default function Dashboard({ initialUser, initialAssets, initialNews }: { initialUser: User, initialAssets: Asset[], initialNews: NewsStory[] }) {
     // --- State: Layout & Selection ---
     const [selectedAssetId, setSelectedAssetId] = useState<string>(initialAssets[0]?.id || '');
     const [searchTerm, setSearchTerm] = useState('');
@@ -296,22 +295,15 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
     const [showingPositionModalAssetId, setShowingPositionModalAssetId] = useState<string | null>(null);
     const [assetNews, setAssetNews] = useState<NewsStory[]>([]);
 
-    const [activeTab, setActiveTab] = useState<'TRADE' | 'BANKING' | 'SECTORS'>('TRADE');
+    const [activeTab, setActiveTab] = useState<'TRADE' | 'FENNPAY' | 'SECTORS'>('TRADE');
     const [selectedSector, setSelectedSector] = useState<string | null>(null);
 
     // --- State: Data ---
-    const [user, setUser] = useState<User>(initialUser);
-    const [assets, setAssets] = useState<Asset[]>(initialAssets);
-    const [news, setNews] = useState<NewsStory[]>(initialNews);
+    const user = initialUser;
+    const assets = initialAssets;
+    const news = initialNews;
 
     const router = useRouter();
-
-    // Sync with fresh server props when router.refresh() triggers
-    useEffect(() => {
-        setUser(initialUser);
-        setAssets(initialAssets);
-        setNews(initialNews);
-    }, [initialUser, initialAssets, initialNews]);
 
     // Derived
     const selectedAsset = useMemo(() => assets.find(a => a.id === selectedAssetId), [assets, selectedAssetId]);
@@ -788,11 +780,11 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                         Sectors
                     </button>
                     <button
-                        onClick={() => setActiveTab('BANKING')}
+                        onClick={() => setActiveTab('FENNPAY')}
                         disabled={user.id === 'guest'}
-                        className={`flex-1 py-3 font-bold text-xs tracking-widest uppercase transition-colors ${activeTab === 'BANKING' ? 'bg-gray-800 text-white border-b-2 border-purple-500' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'} ${user.id === 'guest' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`flex-1 py-3 font-bold text-xs tracking-widest uppercase transition-colors ${activeTab === 'FENNPAY' ? 'bg-gray-800 text-white border-b-2 border-purple-500' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'} ${user.id === 'guest' ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
-                        Banking
+                        FennPay
                     </button>
                 </div>
 
@@ -971,8 +963,8 @@ export default function Dashboard({ initialUser, initialAssets, initialNews, all
                 </header>
 
                 {/* Dashboard Content */}
-                {activeTab === 'BANKING' ? (
-                    <Banking user={user} allUsers={allUsers} />
+                {activeTab === 'FENNPAY' ? (
+                    <Banking user={user} />
                 ) : activeTab === 'SECTORS' ? (
                     <SectorIndexView
                         selectedSector={selectedSector}
