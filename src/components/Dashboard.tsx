@@ -43,6 +43,7 @@ type User = {
     hedgeFundBalance?: number;
     deltaBalance: number;
     marginLoan: number;
+    realizedPnL?: number;
     lendingLimit?: number;
     lendingRate?: number;
     frozen?: boolean;
@@ -61,6 +62,8 @@ type NewsStory = {
     publishedAt: Date | null;
     summary?: string | null;
     tags?: string | null;
+    outlet?: string | null;
+    reporter?: string | null;
 };
 
 // --- Mock Data Generator (moved from TradingInterface) ---

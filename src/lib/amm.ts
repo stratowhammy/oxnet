@@ -403,7 +403,8 @@ export class AutomatedMarketMaker {
                     await prisma.limitOrder.update({ where: { id: bestBuy.id }, data: { status: 'EXECUTED' } });
                     if (res.executionPrice) currentPrice = res.executionPrice;
                     executedAny = true;
-                } else if (res.message && res.message.toLowerCase().includes('insufficient')) {
+                } else {
+                    console.log(`[AMM] Cascade BUY failed: ${res.message}. Cancelling order ${bestBuy.id}`);
                     await prisma.limitOrder.update({ where: { id: bestBuy.id }, data: { status: 'CANCELLED' } });
                     executedAny = true; // Still marked as "changed" to re-check others
                 }
@@ -431,7 +432,8 @@ export class AutomatedMarketMaker {
                     await prisma.limitOrder.update({ where: { id: bestSellRefresh.id }, data: { status: 'EXECUTED' } });
                     if (res.executionPrice) currentPrice = res.executionPrice;
                     executedAny = true;
-                } else if (res.message && res.message.toLowerCase().includes('insufficient')) {
+                } else {
+                    console.log(`[AMM] Cascade SELL failed: ${res.message}. Cancelling order ${bestSellRefresh.id}`);
                     await prisma.limitOrder.update({ where: { id: bestSellRefresh.id }, data: { status: 'CANCELLED' } });
                     executedAny = true;
                 }

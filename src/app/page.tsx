@@ -32,6 +32,8 @@ export default async function Home() {
     deltaBalance: 0,
     portfolios: [],
     marginLoan: 0,
+    onboarded: true,
+    realizedPnL: 0
   };
 
   const currentUser = user || guestUser;
@@ -55,8 +57,8 @@ export default async function Home() {
     return (
       <main className="h-screen overflow-hidden bg-gray-950">
         <RoleSelection
-          userId={user.id}
-          username={user.username}
+          userId={currentUser.id}
+          username={currentUser.username || "Investor"}
           availableCompanies={availableCompanies}
         />
       </main>

@@ -50,6 +50,14 @@ export async function POST(req: Request) {
             }
         });
 
+        // Trigger order book cascade instantly
+        try {
+            const { AutomatedMarketMaker } = await import('@/lib/amm');
+            await AutomatedMarketMaker.resolveCrossedLimitOrders(assetId, asset.basePrice);
+        } catch (e) {
+            console.error("Failed to instantly trigger order book cascade:", e);
+        }
+
         return NextResponse.json({ success: true, message: `Limit Order created at ${price}`, order: limitOrder });
 
     } catch (error) {

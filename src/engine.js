@@ -248,6 +248,7 @@ In the 'Story' field, specifically refer to the NPC as "${npcIdentifier}" on fir
     try {
         const response = await fetch(LLM_URL, {
             method: 'POST',
+            signal: AbortSignal.timeout(60000), // 60s timeout to prevent hanging
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 model: LLM_MODEL,
@@ -898,7 +899,10 @@ function isWithinTradingHours() {
 }
 
 // Scheduled wrapper for news: Checks every minute, publishes based on schedule mode
+let isPublishingNews = false;
 async function scheduledPublishNewsStory() {
+    if (isPublishingNews) return;
+    isPublishingNews = true;
     try {
         const setting = await prisma.globalSetting.findUnique({ where: { key: 'NEWS_SCHEDULE_MODE' } });
         const mode = setting?.value || 'MODE_24_7'; // Default to 24/7 if not set
@@ -932,6 +936,8 @@ async function scheduledPublishNewsStory() {
         await publishNewsStory();
     } catch (e) {
         console.error("Error in scheduled news publish:", e);
+    } finally {
+        isPublishingNews = false;
     }
 }
 
