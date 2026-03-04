@@ -1,0 +1,1818 @@
+{
+  "QUAN": [
+    {
+      "symbol": "ALGQ",
+      "weight": 0.229
+    },
+    {
+      "symbol": "AUTA",
+      "weight": 0.128
+    },
+    {
+      "symbol": "VAL3",
+      "weight": 0.198
+    },
+    {
+      "symbol": "REAL",
+      "weight": 0.271
+    }
+  ],
+  "GENE": [
+    {
+      "symbol": "HELB",
+      "weight": 0.213
+    },
+    {
+      "symbol": "PENE",
+      "weight": 0.178
+    }
+  ],
+  "AUTO": [
+    {
+      "symbol": "SEAW",
+      "weight": 0.255
+    },
+    {
+      "symbol": "MRSB",
+      "weight": 0.15
+    },
+    {
+      "symbol": "MODB",
+      "weight": 0.29
+    }
+  ],
+  "MEDI": [
+    {
+      "symbol": "ARG",
+      "weight": 0.18
+    },
+    {
+      "symbol": "HYDZ",
+      "weight": 0.289
+    }
+  ],
+  "ROOM": [
+    {
+      "symbol": "GRN",
+      "weight": 0.116
+    },
+    {
+      "symbol": "XON",
+      "weight": 0.103
+    }
+  ],
+  "HOLO": [
+    {
+      "symbol": "GENE",
+      "weight": 0.283
+    },
+    {
+      "symbol": "SPAC",
+      "weight": 0.114
+    }
+  ],
+  "HIGH": [
+    {
+      "symbol": "BEAN",
+      "weight": 0.292
+    },
+    {
+      "symbol": "PLAS",
+      "weight": 0.121
+    },
+    {
+      "symbol": "SOFT",
+      "weight": 0.298
+    },
+    {
+      "symbol": "SYNT",
+      "weight": 0.172
+    }
+  ],
+  "DEEP": [
+    {
+      "symbol": "TELO",
+      "weight": 0.15
+    },
+    {
+      "symbol": "HELI",
+      "weight": 0.283
+    }
+  ],
+  "HUMA": [
+    {
+      "symbol": "MOLE",
+      "weight": 0.209
+    },
+    {
+      "symbol": "PRIH",
+      "weight": 0.118
+    },
+    {
+      "symbol": "VOID",
+      "weight": 0.178
+    },
+    {
+      "symbol": "ALCO",
+      "weight": 0.109
+    }
+  ],
+  "DIGI": [
+    {
+      "symbol": "GBIL",
+      "weight": 0.294
+    },
+    {
+      "symbol": "GENZ",
+      "weight": 0.291
+    },
+    {
+      "symbol": "ROOM",
+      "weight": 0.158
+    },
+    {
+      "symbol": "GLOB",
+      "weight": 0.24
+    }
+  ],
+  "BIOD": [
+    {
+      "symbol": "LIDA",
+      "weight": 0.253
+    },
+    {
+      "symbol": "SYNT",
+      "weight": 0.234
+    },
+    {
+      "symbol": "TUTO",
+      "weight": 0.237
+    }
+  ],
+  "BRAI": [
+    {
+      "symbol": "ALCO",
+      "weight": 0.15
+    },
+    {
+      "symbol": "DROC",
+      "weight": 0.15
+    }
+  ],
+  "DECE": [
+    {
+      "symbol": "VORB",
+      "weight": 0.23
+    },
+    {
+      "symbol": "TOUR",
+      "weight": 0.251
+    }
+  ],
+  "LIDA": [
+    {
+      "symbol": "SUPE",
+      "weight": 0.273
+    },
+    {
+      "symbol": "DIST",
+      "weight": 0.212
+    },
+    {
+      "symbol": "OSCI",
+      "weight": 0.262
+    }
+  ],
+  "GENZ": [
+    {
+      "symbol": "FLOW",
+      "weight": 0.126
+    },
+    {
+      "symbol": "MOLE",
+      "weight": 0.124
+    },
+    {
+      "symbol": "DEEU",
+      "weight": 0.234
+    },
+    {
+      "symbol": "MRSB",
+      "weight": 0.222
+    }
+  ],
+  "CRIS": [
+    {
+      "symbol": "BLOC",
+      "weight": 0.287
+    },
+    {
+      "symbol": "GENV",
+      "weight": 0.274
+    },
+    {
+      "symbol": "FLAT",
+      "weight": 0.102
+    }
+  ],
+  "TELO": [
+    {
+      "symbol": "VACU",
+      "weight": 0.189
+    },
+    {
+      "symbol": "ALGQ",
+      "weight": 0.295
+    }
+  ],
+  "DRON": [
+    {
+      "symbol": "HYDR",
+      "weight": 0.221
+    },
+    {
+      "symbol": "PARA",
+      "weight": 0.192
+    },
+    {
+      "symbol": "VALR",
+      "weight": 0.198
+    },
+    {
+      "symbol": "ALGQ",
+      "weight": 0.295
+    }
+  ],
+  "PRIN": [
+    {
+      "symbol": "IMPL",
+      "weight": 0.172
+    },
+    {
+      "symbol": "ATOM",
+      "weight": 0.225
+    },
+    {
+      "symbol": "BASE",
+      "weight": 0.3
+    },
+    {
+      "symbol": "GHOS",
+      "weight": 0.293
+    }
+  ],
+  "IMPL": [
+    {
+      "symbol": "COMP",
+      "weight": 0.26
+    },
+    {
+      "symbol": "MOLT",
+      "weight": 0.199
+    },
+    {
+      "symbol": "MICR",
+      "weight": 0.106
+    }
+  ],
+  "UNIV": [
+    {
+      "symbol": "ATOM",
+      "weight": 0.187
+    },
+    {
+      "symbol": "GLOB",
+      "weight": 0.252
+    }
+  ],
+  "SMAR": [
+    {
+      "symbol": "PARA",
+      "weight": 0.215
+    },
+    {
+      "symbol": "BIOD",
+      "weight": 0.18
+    },
+    {
+      "symbol": "ANON",
+      "weight": 0.247
+    },
+    {
+      "symbol": "CRIC",
+      "weight": 0.223
+    }
+  ],
+  "CIRC": [
+    {
+      "symbol": "BASL",
+      "weight": 0.148
+    },
+    {
+      "symbol": "OSCI",
+      "weight": 0.109
+    }
+  ],
+  "FLOW": [
+    {
+      "symbol": "WHOL",
+      "weight": 0.262
+    },
+    {
+      "symbol": "VOID",
+      "weight": 0.266
+    },
+    {
+      "symbol": "DRON",
+      "weight": 0.138
+    }
+  ],
+  "SYNT": [
+    {
+      "symbol": "FLOW",
+      "weight": 0.173
+    },
+    {
+      "symbol": "REAL",
+      "weight": 0.229
+    },
+    {
+      "symbol": "AUR",
+      "weight": 0.107
+    },
+    {
+      "symbol": "CLOT",
+      "weight": 0.245
+    }
+  ],
+  "TRAN": [
+    {
+      "symbol": "REAL",
+      "weight": 0.104
+    },
+    {
+      "symbol": "SKYS",
+      "weight": 0.114
+    },
+    {
+      "symbol": "GBIL",
+      "weight": 0.29
+    },
+    {
+      "symbol": "DIGI",
+      "weight": 0.177
+    }
+  ],
+  "SILE": [
+    {
+      "symbol": "DIGI",
+      "weight": 0.249
+    },
+    {
+      "symbol": "JETF",
+      "weight": 0.263
+    },
+    {
+      "symbol": "MOVI",
+      "weight": 0.109
+    },
+    {
+      "symbol": "ATOM",
+      "weight": 0.191
+    }
+  ],
+  "COMP": [
+    {
+      "symbol": "VAL3",
+      "weight": 0.18
+    },
+    {
+      "symbol": "PRIH",
+      "weight": 0.166
+    }
+  ],
+  "SEAW": [
+    {
+      "symbol": "LUXU",
+      "weight": 0.259
+    },
+    {
+      "symbol": "OSCI",
+      "weight": 0.295
+    },
+    {
+      "symbol": "AERO",
+      "weight": 0.188
+    }
+  ],
+  "GRAP": [
+    {
+      "symbol": "ANON",
+      "weight": 0.179
+    },
+    {
+      "symbol": "SOFT",
+      "weight": 0.176
+    },
+    {
+      "symbol": "HOLO",
+      "weight": 0.281
+    },
+    {
+      "symbol": "CUPR",
+      "weight": 0.254
+    }
+  ],
+  "DEEU": [
+    {
+      "symbol": "VACU",
+      "weight": 0.284
+    },
+    {
+      "symbol": "SUPE",
+      "weight": 0.131
+    }
+  ],
+  "OSCI": [
+    {
+      "symbol": "HYPB",
+      "weight": 0.222
+    },
+    {
+      "symbol": "BRAI",
+      "weight": 0.219
+    },
+    {
+      "symbol": "MOLE",
+      "weight": 0.129
+    }
+  ],
+  "JETF": [
+    {
+      "symbol": "PRIH",
+      "weight": 0.288
+    },
+    {
+      "symbol": "ANON",
+      "weight": 0.275
+    }
+  ],
+  "DRIV": [
+    {
+      "symbol": "HYDZ",
+      "weight": 0.264
+    },
+    {
+      "symbol": "HIGH",
+      "weight": 0.258
+    },
+    {
+      "symbol": "ALCO",
+      "weight": 0.266
+    },
+    {
+      "symbol": "WHOL",
+      "weight": 0.25
+    }
+  ],
+  "MOLT": [
+    {
+      "symbol": "ANON",
+      "weight": 0.276
+    },
+    {
+      "symbol": "DECC",
+      "weight": 0.268
+    },
+    {
+      "symbol": "CIRC",
+      "weight": 0.279
+    }
+  ],
+  "ONLY": [
+    {
+      "symbol": "WHOL",
+      "weight": 0.135
+    },
+    {
+      "symbol": "LITI",
+      "weight": 0.152
+    }
+  ],
+  "MICR": [
+    {
+      "symbol": "FLAT",
+      "weight": 0.174
+    },
+    {
+      "symbol": "AUR",
+      "weight": 0.115
+    },
+    {
+      "symbol": "SOL1",
+      "weight": 0.137
+    },
+    {
+      "symbol": "PLAU",
+      "weight": 0.265
+    }
+  ],
+  "SOCI": [
+    {
+      "symbol": "CRIS",
+      "weight": 0.108
+    },
+    {
+      "symbol": "ONLY",
+      "weight": 0.214
+    },
+    {
+      "symbol": "VALR",
+      "weight": 0.285
+    }
+  ],
+  "ALGO": [
+    {
+      "symbol": "BASL",
+      "weight": 0.179
+    },
+    {
+      "symbol": "ANON",
+      "weight": 0.156
+    },
+    {
+      "symbol": "DIST",
+      "weight": 0.238
+    },
+    {
+      "symbol": "COMP",
+      "weight": 0.283
+    }
+  ],
+  "ATOM": [
+    {
+      "symbol": "SOFT",
+      "weight": 0.216
+    },
+    {
+      "symbol": "BLOC",
+      "weight": 0.29
+    },
+    {
+      "symbol": "GRN",
+      "weight": 0.192
+    },
+    {
+      "symbol": "BEER",
+      "weight": 0.261
+    }
+  ],
+  "PRIH": [
+    {
+      "symbol": "LIDA",
+      "weight": 0.198
+    },
+    {
+      "symbol": "BLOC",
+      "weight": 0.259
+    },
+    {
+      "symbol": "ARG",
+      "weight": 0.149
+    }
+  ],
+  "CLOT": [
+    {
+      "symbol": "DROC",
+      "weight": 0.234
+    },
+    {
+      "symbol": "LITH",
+      "weight": 0.18
+    },
+    {
+      "symbol": "PLAU",
+      "weight": 0.294
+    }
+  ],
+  "CAFF": [
+    {
+      "symbol": "TUTO",
+      "weight": 0.283
+    },
+    {
+      "symbol": "FLOW",
+      "weight": 0.186
+    },
+    {
+      "symbol": "DRIV",
+      "weight": 0.282
+    }
+  ],
+  "BEER": [
+    {
+      "symbol": "BRAI",
+      "weight": 0.262
+    },
+    {
+      "symbol": "GENE",
+      "weight": 0.135
+    },
+    {
+      "symbol": "MICR",
+      "weight": 0.261
+    }
+  ],
+  "GENS": [
+    {
+      "symbol": "SUPE",
+      "weight": 0.162
+    },
+    {
+      "symbol": "UNIV",
+      "weight": 0.222
+    },
+    {
+      "symbol": "MODB",
+      "weight": 0.16
+    }
+  ],
+  "PREF": [
+    {
+      "symbol": "VORB",
+      "weight": 0.198
+    },
+    {
+      "symbol": "GENE",
+      "weight": 0.192
+    },
+    {
+      "symbol": "HELB",
+      "weight": 0.245
+    },
+    {
+      "symbol": "BIOD",
+      "weight": 0.196
+    }
+  ],
+  "PLAT": [
+    {
+      "symbol": "CIRC",
+      "weight": 0.18
+    },
+    {
+      "symbol": "QUAN",
+      "weight": 0.141
+    },
+    {
+      "symbol": "SOFT",
+      "weight": 0.281
+    }
+  ],
+  "SPAC": [
+    {
+      "symbol": "MERC",
+      "weight": 0.195
+    },
+    {
+      "symbol": "PLAT",
+      "weight": 0.193
+    },
+    {
+      "symbol": "AUR",
+      "weight": 0.148
+    },
+    {
+      "symbol": "PLAU",
+      "weight": 0.252
+    }
+  ],
+  "VACU": [
+    {
+      "symbol": "SMAR",
+      "weight": 0.281
+    },
+    {
+      "symbol": "CLOT",
+      "weight": 0.111
+    }
+  ],
+  "HYPE": [
+    {
+      "symbol": "SILE",
+      "weight": 0.212
+    },
+    {
+      "symbol": "GRN",
+      "weight": 0.133
+    }
+  ],
+  "FLAT": [
+    {
+      "symbol": "ORBI",
+      "weight": 0.298
+    },
+    {
+      "symbol": "BLOC",
+      "weight": 0.11
+    },
+    {
+      "symbol": "LITI",
+      "weight": 0.219
+    }
+  ],
+  "LUXU": [
+    {
+      "symbol": "GROW",
+      "weight": 0.195
+    },
+    {
+      "symbol": "SMAR",
+      "weight": 0.218
+    }
+  ],
+  "FLOA": [
+    {
+      "symbol": "HIGH",
+      "weight": 0.203
+    },
+    {
+      "symbol": "HUMA",
+      "weight": 0.204
+    }
+  ],
+  "SOL1": [
+    {
+      "symbol": "DEEP",
+      "weight": 0.112
+    },
+    {
+      "symbol": "URBM",
+      "weight": 0.157
+    },
+    {
+      "symbol": "DEEU",
+      "weight": 0.212
+    },
+    {
+      "symbol": "DIST",
+      "weight": 0.259
+    }
+  ],
+  "VAL3": [
+    {
+      "symbol": "AUTO",
+      "weight": 0.268
+    },
+    {
+      "symbol": "BLOC",
+      "weight": 0.177
+    }
+  ],
+  "NIPG": [
+    {
+      "symbol": "CIRC",
+      "weight": 0.246
+    },
+    {
+      "symbol": "GBIL",
+      "weight": 0.276
+    },
+    {
+      "symbol": "BEAN",
+      "weight": 0.202
+    }
+  ],
+  "URBM": [
+    {
+      "symbol": "BEER",
+      "weight": 0.229
+    },
+    {
+      "symbol": "GENE",
+      "weight": 0.104
+    },
+    {
+      "symbol": "TRAN",
+      "weight": 0.234
+    }
+  ],
+  "GBIL": [
+    {
+      "symbol": "XON",
+      "weight": 0.275
+    },
+    {
+      "symbol": "ONLY",
+      "weight": 0.25
+    }
+  ],
+  "NEXB": [
+    {
+      "symbol": "SKYS",
+      "weight": 0.149
+    },
+    {
+      "symbol": "HYDR",
+      "weight": 0.129
+    },
+    {
+      "symbol": "BLOC",
+      "weight": 0.146
+    },
+    {
+      "symbol": "PI",
+      "weight": 0.254
+    }
+  ],
+  "VORB": [
+    {
+      "symbol": "GENV",
+      "weight": 0.108
+    },
+    {
+      "symbol": "XON",
+      "weight": 0.127
+    },
+    {
+      "symbol": "PLAS",
+      "weight": 0.218
+    },
+    {
+      "symbol": "GBIL",
+      "weight": 0.286
+    }
+  ],
+  "GENB": [
+    {
+      "symbol": "SYNT",
+      "weight": 0.162
+    },
+    {
+      "symbol": "METH",
+      "weight": 0.185
+    },
+    {
+      "symbol": "GROW",
+      "weight": 0.235
+    },
+    {
+      "symbol": "TRAN",
+      "weight": 0.254
+    }
+  ],
+  "HELB": [
+    {
+      "symbol": "SOL1",
+      "weight": 0.163
+    },
+    {
+      "symbol": "GENE",
+      "weight": 0.172
+    },
+    {
+      "symbol": "BEER",
+      "weight": 0.268
+    },
+    {
+      "symbol": "GBIL",
+      "weight": 0.273
+    }
+  ],
+  "NEOB": [
+    {
+      "symbol": "SOL1",
+      "weight": 0.124
+    },
+    {
+      "symbol": "AUTA",
+      "weight": 0.133
+    }
+  ],
+  "DIST": [
+    {
+      "symbol": "GROW",
+      "weight": 0.12
+    },
+    {
+      "symbol": "DECE",
+      "weight": 0.219
+    }
+  ],
+  "HYPB": [
+    {
+      "symbol": "DIRE",
+      "weight": 0.107
+    },
+    {
+      "symbol": "JETF",
+      "weight": 0.119
+    },
+    {
+      "symbol": "PI",
+      "weight": 0.176
+    },
+    {
+      "symbol": "ALCO",
+      "weight": 0.296
+    }
+  ],
+  "MRSB": [
+    {
+      "symbol": "CAFF",
+      "weight": 0.253
+    },
+    {
+      "symbol": "ALCO",
+      "weight": 0.234
+    }
+  ],
+  "HASH": [
+    {
+      "symbol": "SEAW",
+      "weight": 0.237
+    },
+    {
+      "symbol": "SOL1",
+      "weight": 0.29
+    }
+  ],
+  "MODB": [
+    {
+      "symbol": "VAL3",
+      "weight": 0.14
+    },
+    {
+      "symbol": "TUTO",
+      "weight": 0.125
+    },
+    {
+      "symbol": "PLAU",
+      "weight": 0.198
+    },
+    {
+      "symbol": "GENV",
+      "weight": 0.189
+    }
+  ],
+  "AUR": [
+    {
+      "symbol": "ATOM",
+      "weight": 0.258
+    },
+    {
+      "symbol": "LUXU",
+      "weight": 0.282
+    }
+  ],
+  "ARG": [
+    {
+      "symbol": "CIRC",
+      "weight": 0.251
+    },
+    {
+      "symbol": "FUEL",
+      "weight": 0.238
+    }
+  ],
+  "FUEL": [
+    {
+      "symbol": "GLOB",
+      "weight": 0.257
+    },
+    {
+      "symbol": "BIOD",
+      "weight": 0.249
+    },
+    {
+      "symbol": "MOLE",
+      "weight": 0.145
+    },
+    {
+      "symbol": "HYDR",
+      "weight": 0.274
+    }
+  ],
+  "LITH": [
+    {
+      "symbol": "PLAU",
+      "weight": 0.115
+    },
+    {
+      "symbol": "TOUR",
+      "weight": 0.124
+    }
+  ],
+  "BEAN": [
+    {
+      "symbol": "BASE",
+      "weight": 0.127
+    },
+    {
+      "symbol": "WHOL",
+      "weight": 0.127
+    },
+    {
+      "symbol": "URAN",
+      "weight": 0.124
+    },
+    {
+      "symbol": "CLOT",
+      "weight": 0.296
+    }
+  ],
+  "GRN": [
+    {
+      "symbol": "VOID",
+      "weight": 0.206
+    },
+    {
+      "symbol": "ZEN",
+      "weight": 0.127
+    }
+  ],
+  "HYDR": [
+    {
+      "symbol": "CROS",
+      "weight": 0.114
+    },
+    {
+      "symbol": "ENER",
+      "weight": 0.16
+    },
+    {
+      "symbol": "FLOW",
+      "weight": 0.144
+    }
+  ],
+  "URAN": [
+    {
+      "symbol": "DEEP",
+      "weight": 0.199
+    },
+    {
+      "symbol": "SMAR",
+      "weight": 0.215
+    }
+  ],
+  "CUPR": [
+    {
+      "symbol": "METH",
+      "weight": 0.129
+    },
+    {
+      "symbol": "PI",
+      "weight": 0.175
+    },
+    {
+      "symbol": "LITI",
+      "weight": 0.149
+    },
+    {
+      "symbol": "NUCL",
+      "weight": 0.251
+    }
+  ],
+  "MAG": [
+    {
+      "symbol": "PRIN",
+      "weight": 0.285
+    },
+    {
+      "symbol": "HYPE",
+      "weight": 0.221
+    },
+    {
+      "symbol": "DROC",
+      "weight": 0.27
+    },
+    {
+      "symbol": "FUEL",
+      "weight": 0.295
+    }
+  ],
+  "PI": [
+    {
+      "symbol": "CRIS",
+      "weight": 0.298
+    },
+    {
+      "symbol": "MRSB",
+      "weight": 0.188
+    },
+    {
+      "symbol": "VALR",
+      "weight": 0.161
+    },
+    {
+      "symbol": "SILE",
+      "weight": 0.161
+    }
+  ],
+  "TAU": [
+    {
+      "symbol": "HELI",
+      "weight": 0.19
+    },
+    {
+      "symbol": "SOL1",
+      "weight": 0.192
+    },
+    {
+      "symbol": "TOUR",
+      "weight": 0.201
+    },
+    {
+      "symbol": "GROW",
+      "weight": 0.228
+    }
+  ],
+  "XON": [
+    {
+      "symbol": "ORBI",
+      "weight": 0.238
+    },
+    {
+      "symbol": "BRAI",
+      "weight": 0.28
+    },
+    {
+      "symbol": "GROW",
+      "weight": 0.215
+    },
+    {
+      "symbol": "CLOT",
+      "weight": 0.191
+    }
+  ],
+  "HELI": [
+    {
+      "symbol": "MRSB",
+      "weight": 0.28
+    },
+    {
+      "symbol": "FLOW",
+      "weight": 0.288
+    },
+    {
+      "symbol": "GROW",
+      "weight": 0.163
+    }
+  ],
+  "VOID": [
+    {
+      "symbol": "BIOD",
+      "weight": 0.141
+    },
+    {
+      "symbol": "NEOB",
+      "weight": 0.109
+    }
+  ],
+  "VALR": [
+    {
+      "symbol": "SPAC",
+      "weight": 0.169
+    },
+    {
+      "symbol": "VORB",
+      "weight": 0.17
+    },
+    {
+      "symbol": "MICR",
+      "weight": 0.171
+    }
+  ],
+  "ZEN": [
+    {
+      "symbol": "GENS",
+      "weight": 0.182
+    },
+    {
+      "symbol": "HUMA",
+      "weight": 0.25
+    },
+    {
+      "symbol": "REAL",
+      "weight": 0.168
+    },
+    {
+      "symbol": "HYPB",
+      "weight": 0.181
+    }
+  ],
+  "AURE": [
+    {
+      "symbol": "HYPE",
+      "weight": 0.109
+    },
+    {
+      "symbol": "HOLO",
+      "weight": 0.21
+    },
+    {
+      "symbol": "SOCI",
+      "weight": 0.294
+    },
+    {
+      "symbol": "BLOC",
+      "weight": 0.185
+    }
+  ],
+  "BASE": [
+    {
+      "symbol": "PENE",
+      "weight": 0.218
+    },
+    {
+      "symbol": "NEXB",
+      "weight": 0.107
+    },
+    {
+      "symbol": "VAL3",
+      "weight": 0.277
+    },
+    {
+      "symbol": "URAN",
+      "weight": 0.17
+    }
+  ],
+  "GROW": [
+    {
+      "symbol": "MEDI",
+      "weight": 0.132
+    },
+    {
+      "symbol": "FLOA",
+      "weight": 0.259
+    },
+    {
+      "symbol": "NUCL",
+      "weight": 0.152
+    }
+  ],
+  "SUPE": [
+    {
+      "symbol": "MERC",
+      "weight": 0.285
+    },
+    {
+      "symbol": "CRIC",
+      "weight": 0.274
+    }
+  ],
+  "DIRE": [
+    {
+      "symbol": "SILE",
+      "weight": 0.128
+    },
+    {
+      "symbol": "ENER",
+      "weight": 0.135
+    },
+    {
+      "symbol": "IMPL",
+      "weight": 0.195
+    },
+    {
+      "symbol": "VOID",
+      "weight": 0.276
+    }
+  ],
+  "GHOS": [
+    {
+      "symbol": "GRN",
+      "weight": 0.228
+    },
+    {
+      "symbol": "METH",
+      "weight": 0.177
+    },
+    {
+      "symbol": "SOCI",
+      "weight": 0.116
+    }
+  ],
+  "MERC": [
+    {
+      "symbol": "PI",
+      "weight": 0.104
+    },
+    {
+      "symbol": "URBM",
+      "weight": 0.12
+    },
+    {
+      "symbol": "SPAC",
+      "weight": 0.204
+    },
+    {
+      "symbol": "LUXU",
+      "weight": 0.129
+    }
+  ],
+  "NUCL": [
+    {
+      "symbol": "DIRE",
+      "weight": 0.156
+    },
+    {
+      "symbol": "VRTX",
+      "weight": 0.143
+    },
+    {
+      "symbol": "MAG",
+      "weight": 0.185
+    }
+  ],
+  "PENE": [
+    {
+      "symbol": "FLAT",
+      "weight": 0.208
+    },
+    {
+      "symbol": "DECC",
+      "weight": 0.187
+    },
+    {
+      "symbol": "ARG",
+      "weight": 0.253
+    }
+  ],
+  "LITI": [
+    {
+      "symbol": "FUEL",
+      "weight": 0.161
+    },
+    {
+      "symbol": "MODB",
+      "weight": 0.234
+    },
+    {
+      "symbol": "XON",
+      "weight": 0.186
+    },
+    {
+      "symbol": "GRN",
+      "weight": 0.13
+    }
+  ],
+  "TOUR": [
+    {
+      "symbol": "HYDR",
+      "weight": 0.226
+    },
+    {
+      "symbol": "GHOS",
+      "weight": 0.206
+    },
+    {
+      "symbol": "SEAW",
+      "weight": 0.104
+    }
+  ],
+  "GENV": [
+    {
+      "symbol": "AURE",
+      "weight": 0.164
+    },
+    {
+      "symbol": "HYDR",
+      "weight": 0.225
+    }
+  ],
+  "WHOL": [
+    {
+      "symbol": "DEEP",
+      "weight": 0.146
+    },
+    {
+      "symbol": "FRAC",
+      "weight": 0.137
+    },
+    {
+      "symbol": "XON",
+      "weight": 0.12
+    }
+  ],
+  "DECW": [
+    {
+      "symbol": "UNIV",
+      "weight": 0.272
+    },
+    {
+      "symbol": "VAL3",
+      "weight": 0.133
+    }
+  ],
+  "MOVI": [
+    {
+      "symbol": "MAG",
+      "weight": 0.194
+    },
+    {
+      "symbol": "MANA",
+      "weight": 0.29
+    },
+    {
+      "symbol": "CROS",
+      "weight": 0.298
+    },
+    {
+      "symbol": "HYPE",
+      "weight": 0.281
+    }
+  ],
+  "ALGQ": [
+    {
+      "symbol": "VRTX",
+      "weight": 0.112
+    },
+    {
+      "symbol": "ZEN",
+      "weight": 0.279
+    },
+    {
+      "symbol": "URBM",
+      "weight": 0.217
+    },
+    {
+      "symbol": "FUEL",
+      "weight": 0.111
+    }
+  ],
+  "SKYS": [
+    {
+      "symbol": "AUTA",
+      "weight": 0.269
+    },
+    {
+      "symbol": "HYPE",
+      "weight": 0.216
+    },
+    {
+      "symbol": "SOL1",
+      "weight": 0.206
+    }
+  ],
+  "METH": [
+    {
+      "symbol": "DEEU",
+      "weight": 0.159
+    },
+    {
+      "symbol": "HYDZ",
+      "weight": 0.2
+    },
+    {
+      "symbol": "DIRE",
+      "weight": 0.146
+    }
+  ],
+  "ENER": [
+    {
+      "symbol": "VALR",
+      "weight": 0.225
+    },
+    {
+      "symbol": "ATOM",
+      "weight": 0.165
+    },
+    {
+      "symbol": "REAL",
+      "weight": 0.148
+    }
+  ],
+  "GLOB": [
+    {
+      "symbol": "HIGH",
+      "weight": 0.295
+    },
+    {
+      "symbol": "ORBI",
+      "weight": 0.296
+    },
+    {
+      "symbol": "MICR",
+      "weight": 0.122
+    },
+    {
+      "symbol": "VRTX",
+      "weight": 0.203
+    }
+  ],
+  "PLAS": [
+    {
+      "symbol": "MODB",
+      "weight": 0.266
+    },
+    {
+      "symbol": "FUEL",
+      "weight": 0.276
+    }
+  ],
+  "INDU": [
+    {
+      "symbol": "ALGQ",
+      "weight": 0.175
+    },
+    {
+      "symbol": "PLAS",
+      "weight": 0.262
+    }
+  ],
+  "MOLE": [
+    {
+      "symbol": "TOUR",
+      "weight": 0.113
+    },
+    {
+      "symbol": "AUR",
+      "weight": 0.208
+    },
+    {
+      "symbol": "BEER",
+      "weight": 0.289
+    },
+    {
+      "symbol": "ALGO",
+      "weight": 0.1
+    }
+  ],
+  "SOFT": [
+    {
+      "symbol": "ROOM",
+      "weight": 0.249
+    },
+    {
+      "symbol": "DIST",
+      "weight": 0.26
+    }
+  ],
+  "HYDZ": [
+    {
+      "symbol": "BEER",
+      "weight": 0.222
+    },
+    {
+      "symbol": "DIST",
+      "weight": 0.122
+    },
+    {
+      "symbol": "MOVI",
+      "weight": 0.295
+    },
+    {
+      "symbol": "ALGQ",
+      "weight": 0.181
+    }
+  ],
+  "PLAU": [
+    {
+      "symbol": "MOVI",
+      "weight": 0.106
+    },
+    {
+      "symbol": "WHOL",
+      "weight": 0.29
+    },
+    {
+      "symbol": "FRAC",
+      "weight": 0.212
+    }
+  ],
+  "AUTA": [
+    {
+      "symbol": "FLOW",
+      "weight": 0.114
+    },
+    {
+      "symbol": "PLAU",
+      "weight": 0.199
+    }
+  ],
+  "ORBI": [
+    {
+      "symbol": "DIRE",
+      "weight": 0.202
+    },
+    {
+      "symbol": "VACU",
+      "weight": 0.122
+    },
+    {
+      "symbol": "SOFT",
+      "weight": 0.293
+    }
+  ],
+  "CRIC": [
+    {
+      "symbol": "DIGI",
+      "weight": 0.22
+    },
+    {
+      "symbol": "SYNT",
+      "weight": 0.207
+    },
+    {
+      "symbol": "CAFF",
+      "weight": 0.239
+    },
+    {
+      "symbol": "GENS",
+      "weight": 0.137
+    }
+  ],
+  "ALCO": [
+    {
+      "symbol": "SOL1",
+      "weight": 0.207
+    },
+    {
+      "symbol": "CUPR",
+      "weight": 0.262
+    },
+    {
+      "symbol": "VOID",
+      "weight": 0.14
+    },
+    {
+      "symbol": "GHOS",
+      "weight": 0.265
+    }
+  ],
+  "AERO": [
+    {
+      "symbol": "ORBI",
+      "weight": 0.169
+    },
+    {
+      "symbol": "HYDR",
+      "weight": 0.283
+    }
+  ],
+  "TUTO": [
+    {
+      "symbol": "GENS",
+      "weight": 0.184
+    },
+    {
+      "symbol": "BIOD",
+      "weight": 0.18
+    },
+    {
+      "symbol": "ROOM",
+      "weight": 0.23
+    },
+    {
+      "symbol": "AUR",
+      "weight": 0.203
+    }
+  ],
+  "DROC": [
+    {
+      "symbol": "HYDZ",
+      "weight": 0.103
+    },
+    {
+      "symbol": "ALGQ",
+      "weight": 0.239
+    },
+    {
+      "symbol": "UNIV",
+      "weight": 0.101
+    }
+  ],
+  "BASL": [
+    {
+      "symbol": "MAG",
+      "weight": 0.273
+    },
+    {
+      "symbol": "CIRC",
+      "weight": 0.223
+    },
+    {
+      "symbol": "MEDI",
+      "weight": 0.148
+    }
+  ],
+  "PARA": [
+    {
+      "symbol": "ARG",
+      "weight": 0.231
+    },
+    {
+      "symbol": "PLAS",
+      "weight": 0.182
+    }
+  ],
+  "CROS": [
+    {
+      "symbol": "PARA",
+      "weight": 0.162
+    },
+    {
+      "symbol": "CRIC",
+      "weight": 0.249
+    },
+    {
+      "symbol": "DECW",
+      "weight": 0.251
+    }
+  ],
+  "ANON": [
+    {
+      "symbol": "DECC",
+      "weight": 0.145
+    },
+    {
+      "symbol": "FUEL",
+      "weight": 0.166
+    }
+  ],
+  "MANA": [
+    {
+      "symbol": "DRON",
+      "weight": 0.28
+    },
+    {
+      "symbol": "SILE",
+      "weight": 0.257
+    },
+    {
+      "symbol": "PRIN",
+      "weight": 0.192
+    },
+    {
+      "symbol": "SKYS",
+      "weight": 0.257
+    }
+  ],
+  "REAL": [
+    {
+      "symbol": "PLAU",
+      "weight": 0.261
+    },
+    {
+      "symbol": "ALGQ",
+      "weight": 0.141
+    },
+    {
+      "symbol": "VALR",
+      "weight": 0.113
+    }
+  ],
+  "FRAC": [
+    {
+      "symbol": "AURE",
+      "weight": 0.217
+    },
+    {
+      "symbol": "SOL1",
+      "weight": 0.271
+    }
+  ],
+  "DECC": [
+    {
+      "symbol": "METH",
+      "weight": 0.166
+    },
+    {
+      "symbol": "NEOB",
+      "weight": 0.147
+    },
+    {
+      "symbol": "HYDR",
+      "weight": 0.159
+    }
+  ],
+  "BLOC": [
+    {
+      "symbol": "HYDZ",
+      "weight": 0.165
+    },
+    {
+      "symbol": "ZEN",
+      "weight": 0.23
+    },
+    {
+      "symbol": "GENS",
+      "weight": 0.193
+    }
+  ],
+  "VRTX": [
+    {
+      "symbol": "PLAS",
+      "weight": 0.136
+    },
+    {
+      "symbol": "MOLT",
+      "weight": 0.197
+    },
+    {
+      "symbol": "PREF",
+      "weight": 0.118
+    }
+  ]
+}

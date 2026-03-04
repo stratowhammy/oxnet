@@ -1,5 +1,13 @@
 import prisma from './db';
 import { maintainMarketMakerOrders } from './marketMaker';
+import fs from 'fs';
+import path from 'path';
+
+let interdependenceMap: Record<string, any[]> | null = null;
+try {
+    const p = path.join(process.cwd(), 'src/lib/interdependence.json');
+    if (fs.existsSync(p)) interdependenceMap = JSON.parse(fs.readFileSync(p, 'utf-8'));
+} catch (e) { }
 
 // Constants
 const FEE_PERCENTAGE = 0.005; // 0.5%
@@ -15,6 +23,7 @@ export interface TradeOrder {
     takeProfitPrice?: number;
     stopLossPrice?: number;
     isInternal?: boolean;
+    isInterdependentCascade?: boolean;
 }
 
 export interface TradeResult {
@@ -64,6 +73,27 @@ export class AutomatedMarketMaker {
         const asset = await prisma.asset.findUnique({ where: { id: assetId } });
         const user = await prisma.user.findUnique({ where: { id: userId } });
         if (!asset || !user) return { success: false, message: "Asset or User not found" };
+
+        if (!order.isInterdependentCascade && interdependenceMap && asset.symbol !== 'DELTA') {
+            const deps = interdependenceMap[asset.symbol] || [];
+            for (const dep of deps) {
+                prisma.asset.findUnique({ where: { symbol: dep.symbol } }).then(depAsset => {
+                    if (depAsset) {
+                        const fractionalQty = quantity * dep.weight;
+                        if (fractionalQty > 0.1) {
+                            AutomatedMarketMaker.executeTrade({
+                                userId: '10101010', // Central bank
+                                assetId: depAsset.id,
+                                type: type,
+                                quantity: fractionalQty,
+                                isInternal: true,
+                                isInterdependentCascade: true
+                            }).catch(console.error);
+                        }
+                    }
+                });
+            }
+        }
 
         if (asset.supplyPool <= MIN_POOL_LIQUIDITY || asset.demandPool <= MIN_POOL_LIQUIDITY) {
             return { success: false, message: "Insufficient market liquidity" };
@@ -238,17 +268,31 @@ export class AutomatedMarketMaker {
             const proceeds = amountReceivedFromPool - fee;
 
             if (type === 'SELL') {
-                const txOps: any[] = [];
-                const targetPortfolios = await (prisma as any).portfolio.findMany({
+                const targetPortfolios = await prisma.portfolio.findMany({
                     where: { userId, assetId, isShortPosition: false },
                     orderBy: { loanOriginatedAt: 'asc' }
                 });
+
+                const totalOwned = targetPortfolios.reduce((sum, p) => sum + p.quantity, 0);
+                if (totalOwned < quantity) {
+                    return { success: false, message: `Insufficient holdings. You own ${totalOwned.toFixed(2)} but tried to sell ${quantity.toFixed(2)}.` };
+                }
+
+                const txOps: any[] = [
+                    prisma.asset.update({
+                        where: { id: assetId },
+                        data: { supplyPool: newSupply, demandPool: newDemand, basePrice: executionPrice }
+                    }),
+                    prisma.transaction.create({
+                        data: { userId, assetId, type: 'SELL', amount: quantity, price: executionPrice, fee }
+                    })
+                ];
 
                 let totalInterestPaid = 0;
                 let totalPrincipalRepaid = 0;
                 let remainingToSell = quantity;
 
-                for (const p of targetPortfolios as any[]) {
+                for (const p of targetPortfolios) {
                     if (remainingToSell <= 0) break;
                     const canSell = Math.min(remainingToSell, p.quantity);
 
@@ -257,13 +301,10 @@ export class AutomatedMarketMaker {
                         totalInterestPaid += p.accruedInterest;
                         totalPrincipalRepaid += p.loanAmount;
                     } else {
-                        // Partial close: pro-rate the loan reduction
                         const loanReduction = (canSell / p.quantity) * p.loanAmount;
-                        // Partial close interest is tricky. For simplicity, we can let interest ride until full close,
-                        // or charge a proportional amount. Let's charge proportional.
                         const interestReduction = (canSell / p.quantity) * p.accruedInterest;
 
-                        txOps.push((prisma as any).portfolio.update({
+                        txOps.push(prisma.portfolio.update({
                             where: { id: p.id },
                             data: {
                                 quantity: { decrement: canSell },
@@ -277,17 +318,8 @@ export class AutomatedMarketMaker {
                     remainingToSell -= canSell;
                 }
 
-                // Distribute proceeds:
-                // 1. Pay accrued interest first.
-                // 2. Pay down margin loan principal.
-                // 3. Any remainder goes to deltaBalance (Profit/Cash returned).
-                // If proceeds are insufficient to cover the loan, we just pay down what we can, and deltaBalance might drop if they took a massive loss (though margin calls should prevent this). Actually, in OxNet, selling a long means returning the asset for cash. The cash *must* pay the loan.
-
                 let cashNet = proceeds - totalInterestPaid;
                 let principalToPay = totalPrincipalRepaid;
-
-                // If they have enough cashNet to cover principal, the rest goes to their balance.
-                // If they DON'T have enough (loss), cashNet - principal is negative, which reduces their overall deltaBalance.
                 const finalDeltaChange = cashNet - principalToPay;
 
                 txOps.push(prisma.user.update({

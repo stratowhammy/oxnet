@@ -16,7 +16,7 @@ try {
 
 // Configuration for local AI
 const LLM_URL = process.env.LLM_URL || 'http://127.0.0.1:1234/v1/chat/completions';
-const LLM_MODEL = process.env.LLM_MODEL || 'qwen/qwen3-vl-4b';
+const LLM_MODEL = process.env.LLM_MODEL || 'mistral'; // updated to mistral
 
 const sectorsMap = {};
 assets.forEach(asset => {
@@ -77,6 +77,11 @@ You are the central intelligence behind the OxNet global economic simulation. Ou
 4. Maintain a consistent fictional reality. Build on the provided global macroeconomic history.
 5. Tone: Professional, objective financial journalism. Use non-definite words like "should", "could", "predicts", or "may" when discussing future economic outcomes.
 6. Format: STRICTLY JSON conforming to the requested schema. No markdown wrapping.
+7. Content Constraints (CRITICAL):
+   - The story MUST be between 5 and 10 sentences long.
+   - The writing MUST be at an 8th-grade reading level (simple, clear language).
+   - The first line MUST be unique and not repeat typical opening phrases.
+   - The story MUST clearly cover the who, what, when, why, and how (if applicable).
 `;
 
     const prompt = `
@@ -119,7 +124,7 @@ In the 'Story' field, specifically refer to the NPC as "${npcIdentifier}" on fir
             body: JSON.stringify({
                 model: LLM_MODEL,
                 messages: [
-                    { role: "system", content: "You are a highly capable AI trained to output pure JSON data only." },
+                    { role: "system", content: "You are a highly capable AI trained to output pure JSON data only. Follow all formatting constraints strictly." },
                     { role: "user", content: prompt }
                 ],
                 temperature: 0.7

@@ -25,7 +25,7 @@ export async function POST(request: Request) {
         const cookieStore = await cookies();
         cookieStore.set('oxnet_session', user.id, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: false, // Safari requires false for HTTP connections (Chrome allows true for localhost)
             sameSite: 'lax',
             path: '/',
             maxAge: 60 * 60 * 24 * 7 // 1 week

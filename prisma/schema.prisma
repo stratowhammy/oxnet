@@ -13,24 +13,24 @@ model User {
   password         String        @default("password")
   role             String        @default("STUDENT")
   frozen           Boolean       @default(false)
-  playerRole       String        @default("UNSET")   // UNSET, CEO, HEDGE_FUND, RETAIL
+  playerRole       String        @default("UNSET")
   onboarded        Boolean       @default(false)
-  managedAssetId   String?                            // CEO only: which company they manage
-  hedgeFundBalance Float         @default(0.0)        // HFM only: fund capital (starts 10M)
+  managedAssetId   String?
+  hedgeFundBalance Float         @default(0.0)
   deltaBalance     Float         @default(100000.0)
   realizedPnL      Float         @default(0.0)
   marginLimit      Float         @default(0.0)
   marginLoan       Float         @default(0.0)
   lendingLimit     Float         @default(0.0)
   lendingRate      Float         @default(0.0)
+  ceoScenarios     CeoScenario[]
+  bids             GoalAuction[]
+  limitOrders      LimitOrder[]
+  loansTaken       Loan[]        @relation("Borrower")
+  loansGiven       Loan[]        @relation("Lender")
   portfolios       Portfolio[]
   transactions     Transaction[]
   userGoals        UserGoal[]
-  bids             GoalAuction[]
-  loansGiven       Loan[]        @relation("Lender")
-  loansTaken       Loan[]        @relation("Borrower")
-  limitOrders      LimitOrder[]
-  ceoScenarios     CeoScenario[]
 }
 
 model Asset {
@@ -44,11 +44,11 @@ model Asset {
   supplyPool   Float
   demandPool   Float
   basePrice    Float
-  portfolios   Portfolio[]
-  transactions Transaction[]
-  priceHistory PriceHistory[]
-  limitOrders  LimitOrder[]
   ceoScenarios CeoScenario[]
+  limitOrders  LimitOrder[]
+  portfolios   Portfolio[]
+  priceHistory PriceHistory[]
+  transactions Transaction[]
 }
 
 model CeoScenario {
@@ -59,31 +59,31 @@ model CeoScenario {
   choiceA       String
   choiceB       String
   choiceC       String
-  chosenOption  String?                          // null = unanswered, "A"/"B"/"C"
+  chosenOption  String?
   answeredAt    DateTime?
   newsPublished Boolean   @default(false)
   createdAt     DateTime  @default(now())
-  user          User      @relation(fields: [userId], references: [id])
   asset         Asset     @relation(fields: [assetId], references: [id])
+  user          User      @relation(fields: [userId], references: [id])
 }
 
 model Portfolio {
-  id                String  @id @default(cuid())
-  userId            String
-  assetId           String
-  quantity          Float
-  averageEntryPrice Float
-  isShortPosition   Boolean @default(false)
-  takeProfitPrice   Float? // Optional auto-closure target
-  stopLossPrice     Float? // Optional auto-closure defense
-  leverage              Float     @default(1.0)
+  id                    String   @id @default(cuid())
+  userId                String
+  assetId               String
+  quantity              Float
+  averageEntryPrice     Float
+  isShortPosition       Boolean  @default(false)
+  takeProfitPrice       Float?
+  stopLossPrice         Float?
+  leverage              Float    @default(1.0)
   liquidationPrice      Float?
-  loanAmount            Float     @default(0.0)
-  accruedInterest       Float     @default(0.0)
-  loanOriginatedAt      DateTime  @default(now())
-  interestLastAccruedAt DateTime  @default(now())
-  user                  User      @relation(fields: [userId], references: [id])
-  asset                 Asset     @relation(fields: [assetId], references: [id])
+  loanAmount            Float    @default(0.0)
+  accruedInterest       Float    @default(0.0)
+  loanOriginatedAt      DateTime @default(now())
+  interestLastAccruedAt DateTime @default(now())
+  asset                 Asset    @relation(fields: [assetId], references: [id])
+  user                  User     @relation(fields: [userId], references: [id])
 }
 
 model Transaction {
@@ -91,15 +91,13 @@ model Transaction {
   userId    String
   assetId   String
   type      String
-  amount    Float // Quantity traded
-  price     Float // Execution price per unit
-  fee       Float // 0.5% fee
+  amount    Float
+  price     Float
+  fee       Float
   timestamp DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
   asset     Asset    @relation(fields: [assetId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 }
-
-// Enums removed for SQLite compatibility
 
 model NewsStory {
   id                  String   @id @default(cuid())
@@ -113,19 +111,18 @@ model NewsStory {
   competitorInversion Boolean
   summary             String?
   npcInvolved         String?
-  tags                String?  // JSON stringified array of tags
+  tags                String?
   outlet              String?
   reporter            String?
   publishedAt         DateTime @default(now())
 }
-
 
 model NPC {
   id          String @id @default(cuid())
   name        String @unique
   title       String
   institution String
-  category    String // Government, Finance, Science, Media
+  category    String
 }
 
 model PriceHistory {
@@ -145,8 +142,8 @@ model GoalCard {
   id             String        @id @default(cuid())
   title          String
   description    String
-  criteriaType   String        // e.g. "HOLD_ASSET_QUANTITY", "TOTAL_EQUITY"
-  criteriaTarget String        // e.g. assetId or "ANY"
+  criteriaType   String
+  criteriaTarget String
   criteriaAmount Float
   victoryPoints  Int
   auctions       GoalAuction[]
@@ -162,8 +159,8 @@ model GoalAuction {
   highestBid      Float    @default(0.0)
   highestBidderId String?
   isActive        Boolean  @default(true)
-  goalCard        GoalCard @relation(fields: [goalCardId], references: [id])
   highestBidder   User?    @relation(fields: [highestBidderId], references: [id])
+  goalCard        GoalCard @relation(fields: [goalCardId], references: [id])
 }
 
 model UserGoal {
@@ -172,8 +169,8 @@ model UserGoal {
   goalCardId String
   acquiredAt DateTime @default(now())
   costPaid   Float
-  user       User     @relation(fields: [userId], references: [id])
   goalCard   GoalCard @relation(fields: [goalCardId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
 }
 
 model Loan {
@@ -183,47 +180,43 @@ model Loan {
   principal    Float
   interestRate Float
   amountOwed   Float
-  status       String   @default("ACTIVE") // "ACTIVE" or "REPAID"
+  status       String   @default("ACTIVE")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-
-  lender       User     @relation("Lender", fields: [lenderId], references: [id])
   borrower     User     @relation("Borrower", fields: [borrowerId], references: [id])
+  lender       User     @relation("Lender", fields: [lenderId], references: [id])
 }
 
 model LimitOrder {
   id        String   @id @default(cuid())
   userId    String
   assetId   String
-  type      String   // "BUY" or "SELL" or "SHORT" or "COVER"
+  type      String
   quantity  Float
-  price     Float    // The target execution price
+  price     Float
   leverage  Float    @default(1.0)
-  status    String   @default("PENDING") // PENDING, EXECUTED, CANCELLED
+  status    String   @default("PENDING")
   createdAt DateTime @default(now())
-
-  user      User     @relation(fields: [userId], references: [id])
   asset     Asset    @relation(fields: [assetId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 model InviteCode {
-  code      String   @id           // 8-digit alphanumeric code
-  used      Boolean  @default(false)
-  usedById  String?                // userId who redeemed it
-  createdAt DateTime @default(now())
+  code      String    @id
+  used      Boolean   @default(false)
+  usedById  String?
+  createdAt DateTime  @default(now())
   usedAt    DateTime?
 }
 
 model SectorIndex {
-  id        String   @id @default(cuid())
-  sector    String
-  indexPrice Float                   // Average basePrice of all assets in this sector
+  id         String   @id @default(cuid())
+  sector     String
+  indexPrice Float
   timestamp  DateTime @default(now())
 
   @@index([sector, timestamp])
 }
-
-
 
 model GlobalSetting {
   id    String @id @default(cuid())

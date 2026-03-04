@@ -299,9 +299,67 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
     const [selectedSector, setSelectedSector] = useState<string | null>(null);
 
     // --- State: Data ---
-    const user = initialUser;
-    const assets = initialAssets;
+    const [user, setUser] = useState<User>(initialUser);
+    const [assets, setAssets] = useState<Asset[]>(initialAssets);
     const news = initialNews;
+
+    // Sync state with props when server refreshes
+    useEffect(() => {
+        setUser(initialUser);
+    }, [initialUser]);
+
+    useEffect(() => {
+        setAssets(initialAssets);
+    }, [initialAssets]);
+
+    // Fetch user portfolio updates
+    const fetchPortfolio = async () => {
+        if (user.id === 'guest') return;
+        try {
+            const res = await fetch('/api/user/portfolio');
+            if (res.ok) {
+                const data = await res.json();
+                setUser(prev => ({
+                    ...prev,
+                    deltaBalance: data.deltaBalance,
+                    portfolios: data.portfolios
+                }));
+            }
+        } catch (e) {
+            console.error("Failed to fetch portfolio", e);
+        }
+    };
+
+    const fetchPrices = async () => {
+        try {
+            const res = await fetch('/api/assets/prices');
+            if (res.ok) {
+                const priceData = await res.json() as { id: string, basePrice: number }[];
+                setAssets(prevAssets => {
+                    return prevAssets.map(asset => {
+                        const updated = priceData.find(p => p.id === asset.id);
+                        if (updated) return { ...asset, basePrice: updated.basePrice };
+                        return asset;
+                    });
+                });
+            }
+        } catch (e) {
+            console.error("Failed to fetch prices", e);
+        }
+    };
+
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        if (user.id !== 'guest') {
+            fetchPortfolio();
+            fetchPrices();
+            interval = setInterval(() => {
+                fetchPortfolio();
+                fetchPrices();
+            }, 5000); // Poll every 5s
+        }
+        return () => clearInterval(interval);
+    }, [user.id]);
 
     const router = useRouter();
 
@@ -697,6 +755,7 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
             const json = await res.json();
             if (res.ok) {
                 alert(`${executionType === 'LIMIT' ? 'Limit Order Placed' : 'Trade Successful'}: ${json.message}`);
+                await Promise.all([fetchPortfolio(), fetchPrices()]);
                 router.refresh(); // Optimistic server re-fetch without state wipe
                 setQuantity(0);
                 if (executionType === 'LIMIT') setLimitPrice('');
@@ -729,6 +788,7 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
             const json = await res.json();
             if (res.ok) {
                 alert(`Position Closed: ${json.message}`);
+                await fetchPortfolio();
                 router.refresh();
             } else {
                 alert(`Error closing position: ${json.error}`);
@@ -1482,6 +1542,7 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
                         });
                         const data = await res.json();
                         if (data.success) {
+                            await fetchPortfolio();
                             router.refresh(); // Trigger server data refresh
                         } else {
                             alert(data.error || 'Failed to pay interest');

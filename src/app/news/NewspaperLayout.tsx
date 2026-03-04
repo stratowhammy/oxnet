@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 
 export default function NewspaperLayout({ leadStory, otherStories }: { leadStory: any, otherStories: any[] }) {
     const [selectedNews, setSelectedNews] = useState<any | null>(null);
+    const [activeTag, setActiveTag] = useState<string | null>(null);
     const router = useRouter();
 
     const closeModal = () => setSelectedNews(null);
@@ -75,7 +76,8 @@ export default function NewspaperLayout({ leadStory, otherStories }: { leadStory
             .map(s => {
                 let sTags: string[] = [];
                 try {
-                    sTags = typeof s.tags === 'string' ? JSON.parse(s.tags) : s.tags;
+                    const parsed = typeof s.tags === 'string' ? JSON.parse(s.tags) : s.tags;
+                    if (Array.isArray(parsed)) sTags = parsed;
                 } catch (e) { }
                 const intersection = sTags.filter(t => tags.includes(t));
                 return { story: s, score: intersection.length, sharedTags: intersection };
@@ -131,9 +133,13 @@ export default function NewspaperLayout({ leadStory, otherStories }: { leadStory
                             <div className="flex flex-wrap gap-2 pt-2">
                                 <span className="text-gray-500 text-xs py-1">TAGS:</span>
                                 {parsedTags.map(tag => (
-                                    <span key={tag} className="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded-full border border-gray-700">
+                                    <button
+                                        key={tag}
+                                        onClick={(e) => { e.stopPropagation(); setActiveTag(tag); closeModal(); }}
+                                        className="text-xs bg-gray-800 text-gray-300 hover:text-blue-400 hover:bg-gray-700 px-2 py-1 rounded-full border border-gray-700 transition-colors"
+                                    >
                                         #{tag}
-                                    </span>
+                                    </button>
                                 ))}
                             </div>
                         )}
@@ -164,6 +170,16 @@ export default function NewspaperLayout({ leadStory, otherStories }: { leadStory
     };
 
     const allDisplayStories = [leadStory, ...otherStories].filter(Boolean);
+    const filteredStories = activeTag
+        ? allDisplayStories.filter(story => {
+            try {
+                const tags = typeof story.tags === 'string' ? JSON.parse(story.tags) : story.tags;
+                return Array.isArray(tags) && tags.includes(activeTag);
+            } catch (e) {
+                return false;
+            }
+        })
+        : allDisplayStories;
 
     return (
         <main className="min-h-screen bg-gray-950 text-gray-100 font-sans p-4 md:p-8">
@@ -191,9 +207,24 @@ export default function NewspaperLayout({ leadStory, otherStories }: { leadStory
                     </div>
                 </header>
 
+                {activeTag && (
+                    <div className="mb-6 flex justify-between items-center bg-blue-900/20 border border-blue-500/30 p-4 rounded-xl">
+                        <div className="flex items-center gap-3">
+                            <span className="text-gray-400 font-bold text-sm">Filtering by Tag:</span>
+                            <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-black tracking-widest uppercase">#{activeTag}</span>
+                        </div>
+                        <button
+                            onClick={() => setActiveTag(null)}
+                            className="text-blue-400 hover:text-white text-sm font-bold transition-colors"
+                        >
+                            Clear Filter ✕
+                        </button>
+                    </div>
+                )}
+
                 {/* News Feed List */}
                 <div className="space-y-4">
-                    {allDisplayStories.map((story) => {
+                    {filteredStories.map((story) => {
                         let parsedTags: string[] = [];
                         try { parsedTags = typeof story.tags === 'string' ? JSON.parse(story.tags) : story.tags; } catch (e) { }
 
@@ -227,7 +258,13 @@ export default function NewspaperLayout({ leadStory, otherStories }: { leadStory
                                     </span>
 
                                     {Array.isArray(parsedTags) && parsedTags.map(tag => (
-                                        <span key={tag} className="text-xs text-gray-500">#{tag}</span>
+                                        <button
+                                            key={tag}
+                                            onClick={(e) => { e.stopPropagation(); setActiveTag(tag); }}
+                                            className="text-xs text-gray-500 hover:text-blue-400 transition-colors"
+                                        >
+                                            #{tag}
+                                        </button>
                                     ))}
                                 </div>
                             </div>

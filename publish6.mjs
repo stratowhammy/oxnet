@@ -4,7 +4,7 @@ import path from 'path';
 
 const prisma = new PrismaClient();
 const LLM_URL = process.env.LLM_URL || 'http://127.0.0.1:1234/v1/chat/completions';
-const LLM_MODEL = process.env.LLM_MODEL || 'qwen/qwen3-vl-4b';
+const LLM_MODEL = process.env.LLM_MODEL || 'mistral';
 
 const aiContextPath = path.join(process.cwd(), 'ai_news_context.md');
 const aiContextText = fs.existsSync(aiContextPath) ? fs.readFileSync(aiContextPath, 'utf-8') : '';
@@ -42,7 +42,7 @@ CRITICAL INSTRUCTION: Write this story about '${companyName}'. Output strictly t
             body: JSON.stringify({
                 model: LLM_MODEL,
                 messages: [
-                    { role: 'system', content: 'You are a highly capable AI trained to output pure JSON data only. All generated text must be written at an 8th grade reading level — use simple, clear language that a 13-year-old could understand. Avoid jargon, complex sentence structures, and advanced vocabulary.' },
+                    { role: 'system', content: 'You are a highly capable AI trained to output pure JSON data only. All generated text must be written at an 8th grade reading level — use simple, clear language that a 13-year-old could understand. Avoid jargon, complex sentence structures, and advanced vocabulary. The story MUST be between 5 and 10 sentences long, no more, no less. The first line MUST be unique and context-specific (do NOT use repeating lines). The story MUST clearly cover the who, what, when, why, and how (if applicable).' },
                     { role: 'user', content: prompt }
                 ],
                 temperature: 0.7

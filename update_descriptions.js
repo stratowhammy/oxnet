@@ -1,61 +1,78 @@
 import { PrismaClient } from '@prisma/client';
+import fs from 'fs';
+import path from 'path';
 
 const prisma = new PrismaClient();
 
-const FIAT_LORE = [
-    "Issued by a neutral banking haven, this currency benefits from strict banking secrecy laws and a stable, highly educated populace.",
-    "The primary economic unit of the Valerian Union, a sprawling coalition of states struggling with internal political friction but backed by massive industrial output.",
-    "A legacy fiat currency suffering from decades of quantitative easing, now buoyed primarily by its historical status and military hegemony.",
-    "An emerging market currency experiencing rapid inflation, tied closely to the export of essential bio-engineered agricultural products.",
-    "A highly digitized state currency with absolute surveillance capabilities, offering instant settlement but enforcing strict capital controls."
+const FIRST_NAMES = ["Alexander", "Victoria", "Julian", "Marcus", "Elena", "Sophia", "David", "Artemis", "Chen", "Olivia", "Omar", "Aisha"];
+const LAST_NAMES = ["Vance", "Sterling", "Cross", "Mercer", "Blackwood", "Sato", "Al-Fayed", "Kovac", "Holloway", "Chen", "Ramirez"];
+const TRAITS = [
+    "known for ruthless cost-cutting and aggressive expansion",
+    "a visionary futurist who often ignores short-term profits",
+    "a highly technical leader obsessed with micro-optimizations",
+    "a charismatic dealmaker with deep political connections",
+    "a secretive workaholic who rarely makes public appearances",
+    "a former hedge-fund manager ruthlessly focused on shareholder value",
+    "a populist leader beloved by retail investors but hated by institutions",
+    "an eccentric genius prone to unpredictable strategic pivots",
+    "a steady, conservative operator who prioritizes risk management",
+    "a firebrand who openly mocks competitors and regulators alike"
 ];
 
-const CRYPTO_LORE = [
-    "Utilizes a novel Proof-of-Space-Time consensus algorithm combined with Zero-Knowledge Rollups, achieving infinite scalability at the cost of high initial node setup.",
-    "A privacy-focused protocol using ring signatures and stealth addresses to completely obfuscate transaction history from all forensic analysis.",
-    "A Layer 3 interoperability bridge that mathematically guarantees cross-chain swaps without relying on centralized liquidity pools.",
-    "An experimental smart-contract platform driven by an integrated AI oracle that autonomously adjusts gas fees based on network sentiment.",
-    "A meme-origin token that accidentally achieved widespread adoption after an algorithm error caused it to become the sole currency of a popular virtual metaverse."
-];
+function getRandomItem(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+}
 
-const GENERIC_LORE = [
-    "A major player in its specific sector, known for aggressive M&A strategies and consistent, albeit unexciting, quarterly dividends.",
-    "An innovative disruptor struggling to capture market share from entrenched incumbents, currently burning through significant venture capital.",
-    "A heavily regulated entity operating critical infrastructure, offering a slow-growth profile but serving as a dependable portfolio anchor.",
-    "A highly volatile speculative venture heavily dependent on favorable regulatory changes and unproven technological breakthroughs.",
-    "A sprawling conglomerate with a diversified product line, currently undergoing a massive internal restructuring to improve profit margins."
+const templates = [
+    (name, niche, ceo, trait, depsText) => `${name} is the premier operator in the ${niche} space. At the helm is CEO ${ceo}, ${trait}. The firm's operations are deeply intertwined with ${depsText}.`,
+    (name, niche, ceo, trait, depsText) => `Pioneering advancements in ${niche}, ${name} remains a highly watched entity. Chief Executive ${ceo} leads the charge, functioning as ${trait}. Strategic dependencies include ${depsText}.`,
+    (name, niche, ceo, trait, depsText) => `Specializing exclusively in ${niche}, ${name} has built a massive industrial footprint. The company is guided by ${ceo}, widely regarded as ${trait}. Supply chain links inextricably connect them to ${depsText}.`,
+    (name, niche, ceo, trait, depsText) => `Operating at the bleeding edge of ${niche}, ${name} pushes boundaries daily. Direction is set by CEO ${ceo}, ${trait}. Market conditions for them closely mirror those of ${depsText}.`,
+    (name, niche, ceo, trait, depsText) => `As a global powerhouse touching ${niche}, ${name} maintains absolute market dominance. Leadership falls to ${ceo}, ${trait}. They rely heavily on the performance and outputs of ${depsText}.`
 ];
 
 async function updateDescriptions() {
     console.log("Fetching all assets...");
-    const assets = await prisma.asset.findMany();
+    const assets = await prisma.asset.findMany({ where: { symbol: { not: 'DELTA' } } });
 
-    let fiatIndex = 0;
-    let cryptoIndex = 0;
-    let genericIndex = 0;
+    const interDepPath = path.join(process.cwd(), 'src/lib/interdependence.json');
+    let interdependence = {};
+    if (fs.existsSync(interDepPath)) {
+        interdependence = JSON.parse(fs.readFileSync(interDepPath, 'utf8'));
+    }
 
-    console.log("Imbuing assets with lore...");
-    for (const asset of assets) {
-        let newDescription = "";
+    // Map ID -> Symbol for easy lookup
+    const idToSymbol = {};
+    const symbolToName = {};
+    assets.forEach(a => {
+        idToSymbol[a.id] = a.symbol;
+        symbolToName[a.symbol] = a.name;
+    });
 
-        if (asset.sector === 'Fiat' || asset.sector === 'Currency') {
-            newDescription = FIAT_LORE[fiatIndex % FIAT_LORE.length];
-            fiatIndex++;
-        } else if (asset.sector === 'Crypto') {
-            newDescription = CRYPTO_LORE[cryptoIndex % CRYPTO_LORE.length];
-            cryptoIndex++;
-        } else {
-            // Give standard corporate/other assets a generic but flavorful description
-            newDescription = GENERIC_LORE[genericIndex % GENERIC_LORE.length];
-            genericIndex++;
+    console.log("Generating unique lore...");
+    for (let i = 0; i < assets.length; i++) {
+        const asset = assets[i];
+
+        const ceoName = `${getRandomItem(FIRST_NAMES)} ${getRandomItem(LAST_NAMES)}`;
+        const trait = getRandomItem(TRAITS);
+
+        const deps = interdependence[asset.symbol] || [];
+        let depsText = "several unlisted entities";
+        if (deps.length > 0) {
+            depsText = deps.map(d => symbolToName[d.symbol] ? `${symbolToName[d.symbol]} (${d.symbol})` : d.symbol).join(' and ');
         }
 
-        // Add a touch of specific flavor based on the asset's niche
-        newDescription += ` Known for: ${asset.niche.toLowerCase()}.`;
+        const template = templates[i % templates.length];
+        // Ensure absolutely no repeating first lines or repeating lines overall
+        // By injecting the exact company name, niche, CEO name, trait, and deps differently each time,
+        // and using a slightly changing sentence structure, we avoid repetition.
+        // We will also add a unique identifier sentence just in case.
+        const baseDesc = template(asset.name, asset.niche, ceoName, trait, depsText);
+        const uniqueDesc = `${baseDesc} Ticker symbol ${asset.symbol} serves as the primary gauge of their success.`;
 
         await prisma.asset.update({
             where: { id: asset.id },
-            data: { description: newDescription }
+            data: { description: uniqueDesc }
         });
     }
 
