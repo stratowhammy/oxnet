@@ -1211,8 +1211,8 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
                                                 </div>
                                             )}
 
-                                            {/* Leverage Slider */}
-                                            <div className="mb-2 mt-4 flex justify-between items-center text-xs font-semibold uppercase tracking-wider">
+                                            {/* Leverage Slider Hidden Temporarily */}
+                                            {/* <div className="mb-2 mt-4 flex justify-between items-center text-xs font-semibold uppercase tracking-wider">
                                                 <span className="text-gray-500">Leverage</span>
                                                 <span className="text-white font-mono">{leverage}x</span>
                                             </div>
@@ -1221,7 +1221,7 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
                                                 value={leverage}
                                                 onChange={e => setLeverage(parseInt(e.target.value))}
                                                 className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                                            />
+                                            /> */}
 
                                             {/* Conditional Bounds */}
                                             <div className="grid grid-cols-2 gap-4 mt-6">

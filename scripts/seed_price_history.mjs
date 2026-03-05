@@ -6,7 +6,7 @@ async function run() {
     const assets = await prisma.asset.findMany();
     console.log(`Found ${assets.length} assets.`);
 
-    const BARS_TO_GENERATE = 300;
+    const BARS_TO_GENERATE = 600;
     const INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
     const now = Date.now();
 
@@ -55,7 +55,7 @@ async function run() {
         await prisma.priceHistory.createMany({
             data: historyData
         });
-        console.log(`Seeded 300 bars for ${asset.symbol}`);
+        console.log(`Seeded 600 bars for ${asset.symbol}`);
     }
 
     console.log('Seeding complete.');

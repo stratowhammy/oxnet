@@ -63,12 +63,12 @@ async function recordPriceHistories() {
         data: historyCreates
     });
 
-    // Prune old price history: Keep only the most recent 500 bars per asset
+    // Prune old price history: Keep only the most recent 600 bars per asset
     for (const a of assets) {
         const cutoff = await prisma.priceHistory.findFirst({
             where: { assetId: a.id },
             orderBy: { timestamp: 'desc' },
-            skip: 300, // Target 300 bars for maximum efficiency
+            skip: 600, // Target 600 bars for maximum efficiency
             select: { id: true, timestamp: true }
         });
 
