@@ -34,23 +34,23 @@ model User {
 }
 
 model Asset {
-  id           String         @id @default(cuid())
-  symbol       String         @unique
-  name         String
-  type         String
-  sector       String
-  niche        String
-  description  String
-  supplyPool   Float
-  demandPool   Float
-  basePrice       Float
-  earningsDrift   Float          @default(0.0)
-  nextEarningsAt  DateTime       @default(now())
-  ceoScenarios    CeoScenario[]
-  limitOrders  LimitOrder[]
-  portfolios   Portfolio[]
-  priceHistory PriceHistory[]
-  transactions Transaction[]
+  id             String         @id @default(cuid())
+  symbol         String         @unique
+  name           String
+  type           String
+  sector         String
+  niche          String
+  description    String
+  supplyPool     Float
+  demandPool     Float
+  basePrice      Float
+  earningsDrift  Float          @default(0.0)
+  nextEarningsAt DateTime       @default(now())
+  ceoScenarios   CeoScenario[]
+  limitOrders    LimitOrder[]
+  portfolios     Portfolio[]
+  priceHistory   PriceHistory[]
+  transactions   Transaction[]
 }
 
 model CeoScenario {
