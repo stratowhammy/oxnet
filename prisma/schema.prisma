@@ -43,8 +43,10 @@ model Asset {
   description  String
   supplyPool   Float
   demandPool   Float
-  basePrice    Float
-  ceoScenarios CeoScenario[]
+  basePrice       Float
+  earningsDrift   Float          @default(0.0)
+  nextEarningsAt  DateTime       @default(now())
+  ceoScenarios    CeoScenario[]
   limitOrders  LimitOrder[]
   portfolios   Portfolio[]
   priceHistory PriceHistory[]

@@ -71,6 +71,10 @@ export function calculatePriceShift(asset, timestampMs) {
     const sectorPhase = ((timestampMs + sectorOffset) % sectorCycle) / sectorCycle * Math.PI * 2;
     const sectorDrift = Math.sin(sectorPhase) * 0.00005;
 
+    // 4. EARNINGS DRIFT
+    // The explicit sentiment-driven earnings drift applied natively to the asset.
+    const earningsDrift = asset.earningsDrift || 0.0;
+
     // Combined percentage shift
-    return randomWalkShift + macroDrift + sectorDrift;
+    return randomWalkShift + macroDrift + sectorDrift + earningsDrift;
 }

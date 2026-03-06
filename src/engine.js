@@ -63,12 +63,12 @@ async function recordPriceHistories() {
         data: historyCreates
     });
 
-    // Prune old price history: Keep only the most recent 600 bars per asset
+    // Prune old price history: Keep only the most recent 672 bars per asset
     for (const a of assets) {
         const cutoff = await prisma.priceHistory.findFirst({
             where: { assetId: a.id },
             orderBy: { timestamp: 'desc' },
-            skip: 600, // Target 600 bars for maximum efficiency
+            skip: 672, // Target 672 bars for maximum efficiency
             select: { id: true, timestamp: true }
         });
 
@@ -86,6 +86,167 @@ async function recordPriceHistories() {
     currentCandles = {};
 
     console.log(`Recorded snapshot for ${assets.length} assets. Pruning complete.`);
+}
+
+// 1.5 Process Dynamic Earnings Cycles (runs periodically)
+async function processEarningsCycles() {
+    console.log(`[${new Date().toISOString()}] Checking for overdue Earnings Reports...`);
+    const now = new Date();
+
+    // Find stocks that are due for an earnings report
+    const dueStocks = await prisma.asset.findMany({
+        where: {
+            type: 'STOCK',
+            nextEarningsAt: { lte: now }
+        }
+    });
+
+    if (dueStocks.length === 0) return;
+
+    for (const asset of dueStocks) {
+        console.log(`Generating Earnings for ${asset.name} (${asset.symbol}) due since ${asset.nextEarningsAt.toISOString()}...`);
+
+        // 1. Calculate 72-hour News Sentiment
+        const seventyTwoHoursAgo = new Date(now.getTime() - (72 * 60 * 60 * 1000));
+        const recentNews = await prisma.newsStory.findMany({
+            where: {
+                publishedAt: { gte: seventyTwoHoursAgo },
+                tags: { contains: asset.symbol }
+            }
+        });
+
+        let sentimentScore = 0;
+        for (const story of recentNews) {
+            sentimentScore += (story.direction === 'UP' ? 1 : -1) * story.intensityWeight;
+        }
+
+        // Add a tiny bit of random noise so it's not purely monotonic if there's no news
+        sentimentScore += (Math.random() - 0.5) * 2;
+
+        const programmaticDirection = sentimentScore > 0 ? "UP" : "DOWN";
+        const beatOrMiss = programmaticDirection === "UP" ? "beat expectations" : "missed expectations";
+        const programmaticIntensity = Math.min(5, Math.ceil(Math.abs(sentimentScore) / 2) || 2);
+
+        // Calculate the new persistent drift (e.g. sentiment of +5 -> +0.00025 drift per tick)
+        const newDrift = sentimentScore * 0.00005;
+
+        // 2. Draft the Report using LLM
+        const newsOutlets = [
+            { name: "Global Markets Daily", stance: "Centrist" },
+            { name: "The Zenith Observer", stance: "Data-Driven" },
+            { name: "Vanguard News", stance: "Institutional" }
+        ];
+        const reporters = ["Sarah Jenkins", "David Chen", "Rex Sterling"];
+
+        const selectedOutlet = newsOutlets[Math.floor(Math.random() * newsOutlets.length)];
+        const selectedReporter = reporters[Math.floor(Math.random() * reporters.length)];
+
+        const prompt = `
+# OxNet News Engine Rules
+You are an objective financial reporter for a global economic simulation. Output purely functional JSON.
+1. NEVER reference real-world companies.
+2. ONLY reference the requested company.
+3. Tone: Professional, objective financial journalism. MUST write at a 6th to 8th-grade reading level.
+4. Format: STRICTLY JSON conforming to the requested schema. No markdown wrapping.
+
+**NEW STORY REQUEST: QUARTERLY EARNINGS REPORT**
+Target Company: "${asset.name}" (${asset.symbol})
+Sector: "${asset.sector}"
+Overall Outcome: The company ${beatOrMiss} for Q3/Q4.
+Sentiment Score Context: The net score from recent news was ${sentimentScore.toFixed(2)}. If positive, explain they overcame challenges or rode positive momentum. If negative, explain past events caught up to them.
+
+CRITICAL TARGET LITERACY: 6th to 8th grade. Explain the business reason simply. Give their 'forward guidance' for next quarter.
+CRITICAL: Include exactly one Markdown link naturally inside the Story, e.g., \`[${asset.name}](/?search=${asset.symbol})\`.
+
+You MUST respond ONLY with a raw JSON object matching exactly this schema:
+{
+  "Headline": "String (Short earnings headline)",
+  "Story": "String (4-6 simple sentences. Explain outcome. MUST include exactly one Markdown link.)",
+  "Summary": "String (1 short sentence summary)",
+  "Expected_Economic_Outcome": "String (1 line explaining what happens next simply)",
+  "Direction": "${programmaticDirection}",
+  "Intensity_Weight": ${programmaticIntensity},
+  "Competitor_Inversion": false,
+  "Tags": ["Q3 Earnings", "${asset.sector}", "${asset.symbol}"]
+}
+`;
+
+        const fallbackData = {
+            Headline: `${asset.name} Earnings Report`,
+            Story: `[${asset.name}](/?search=${asset.symbol}) released its earnings today. The company ${beatOrMiss}. Leaders told investors the next quarter looks ${programmaticDirection === 'UP' ? 'promising' : 'challenging'}.`,
+            Summary: `${asset.name} reported results.`,
+            Expected_Economic_Outcome: `This news should impact the stock and its related sector.`,
+            Direction: programmaticDirection,
+            Intensity_Weight: programmaticIntensity,
+            Competitor_Inversion: false,
+            Tags: ["Q3 Earnings", asset.sector, asset.symbol]
+        };
+
+        let aiData;
+        try {
+            const response = await fetch(LLM_URL, {
+                method: 'POST',
+                signal: AbortSignal.timeout(60000),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: LLM_MODEL,
+                    messages: [
+                        { role: "system", content: "You are a highly capable AI trained to output pure JSON data only." },
+                        { role: "user", content: prompt }
+                    ],
+                    temperature: 0.6
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.choices && data.choices.length > 0) {
+                    const content = data.choices[0].message.content.trim();
+                    const cleaned = content.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
+                    aiData = JSON.parse(cleaned);
+                }
+            }
+        } catch (e) {
+            console.error(`Generation failed for ${asset.symbol}:`, e.message);
+        }
+
+        const finalData = aiData || fallbackData;
+
+        // 3. Publish News and Update Asset state atomically
+        const nextDate = new Date(now.getTime() + (72 * 60 * 60 * 1000)); // Exactly 72 hours from now
+
+        try {
+            await prisma.$transaction([
+                prisma.newsStory.create({
+                    data: {
+                        headline: finalData.Headline || fallbackData.Headline,
+                        context: finalData.Story || fallbackData.Story,
+                        targetSector: asset.sector,
+                        targetSpecialty: asset.niche,
+                        impactScope: "SECTOR",
+                        direction: (String(finalData.Direction || programmaticDirection).toUpperCase() === 'DOWN') ? 'DOWN' : 'UP',
+                        intensityWeight: Number(finalData.Intensity_Weight) || programmaticIntensity,
+                        competitorInversion: finalData.Competitor_Inversion || false,
+                        summary: finalData.Summary || fallbackData.Summary,
+                        npcInvolved: null,
+                        tags: JSON.stringify(finalData.Tags || fallbackData.Tags),
+                        outlet: selectedOutlet.name,
+                        reporter: selectedReporter
+                    }
+                }),
+                prisma.asset.update({
+                    where: { id: asset.id },
+                    data: {
+                        earningsDrift: newDrift,
+                        nextEarningsAt: nextDate
+                    }
+                })
+            ]);
+            console.log(`Successfully processed Earnings Cycle for ${asset.symbol}`);
+        } catch (err) {
+            console.error(`DB Update failed for earnings on ${asset.symbol}:`, err);
+        }
+    }
 }
 
 // 2. Publish a News Story every 30 minutes
@@ -187,6 +348,13 @@ export async function publishNewsStory() {
         `- **${a.name}** (${a.symbol})\n  Niche: ${a.niche}\n  Price: Δ${a.basePrice.toFixed(2)} | Supply: ${a.supplyPool.toFixed(0)} | Demand: ${a.demandPool.toFixed(0)}\n  Description: ${a.description}`
     ).join('\n\n');
 
+    // Fetch Recent Earnings Context
+    const recentEarnings = await prisma.newsStory.findFirst({
+        where: { tags: { contains: "Q3 Earnings" }, tags: { contains: targetAsset.symbol } },
+        orderBy: { publishedAt: 'desc' }
+    });
+    const earningsLine = recentEarnings ? `\n**Most Recent Earnings Report:**\n[${recentEarnings.publishedAt.toISOString().split('T')[0]}] ${recentEarnings.headline} - ${recentEarnings.summary || recentEarnings.context.substring(0, 150)}` : '';
+
     const rulesAndIdentity = `
 # OxNet News Engine Rules (CRITICAL)
 You are the central intelligence behind the OxNet global economic simulation. Output purely functional JSON to manipulate the fictional economy.
@@ -212,7 +380,7 @@ ${targetAssetLines}
 ${sectorHistoryLines}
 
 **Recent history involving NPC ${selectedNpc}:**
-${npcHistoryLines}
+${npcHistoryLines}${earningsLine}
 
 ## Target Company Context
 ${assetDetailsLines}
@@ -1148,6 +1316,7 @@ setInterval(processCeoDecisions, TWO_MINS); // Check for CEO decisions to turn i
 setInterval(checkHedgeFundPerformance, FIVE_MINS); // Check HFM fund performance
 setInterval(refreshAIContext, THIRTY_MINS); // Refresh AI context file every 30 minutes
 setInterval(accrueMarginInterest, FIVE_MINS); // Check for interest accrual eligibility frequently (runs if >= 1hr passed)
+setInterval(processEarningsCycles, FIVE_MINS); // Check for overdue earnings reports
 
 // Periodic Processing of Closest Limit Orders
 setInterval(processClosestBuyOrder, ELEVEN_MINS);
