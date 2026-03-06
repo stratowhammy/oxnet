@@ -153,13 +153,21 @@ function SectorIndexView({ selectedSector, sectorAssets, sectorIndexData, onSele
             timeScale: { borderVisible: false },
         });
 
-        const lineSeries = chart.addSeries(LineSeries, {
-            color: '#22c55e',
-            lineWidth: 2,
-            title: `${selectedSector} Index`,
+        const candlestickSeries = chart.addSeries(CandlestickSeries, {
+            upColor: '#26a69a',
+            downColor: '#ef5350',
+            borderVisible: false,
+            wickUpColor: '#26a69a',
+            wickDownColor: '#ef5350'
         });
 
-        lineSeries.setData(sectorIndexData.map(d => ({ time: d.time as any, value: d.close })));
+        candlestickSeries.setData(sectorIndexData.map(d => ({
+            time: d.time as any,
+            open: d.open,
+            high: d.high,
+            low: d.low,
+            close: d.close
+        })));
         chart.timeScale().fitContent();
 
         const handleResize = () => {
@@ -409,7 +417,8 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
             // @ts-ignore
             const history = asset.priceHistory || [];
             for (const ph of history) {
-                const ts = new Date(ph.timestamp).toISOString().split('T')[0];
+                // Group by exact 15-minute UNIX timestamp matching the asset charts
+                const ts = Math.floor(new Date(ph.timestamp).getTime() / 1000).toString();
                 if (!timeMap[ts]) timeMap[ts] = { open: [], high: [], low: [], close: [] };
                 timeMap[ts].open.push(ph.open);
                 timeMap[ts].high.push(ph.high);
@@ -421,9 +430,10 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
         const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
 
         return Object.entries(timeMap)
-            .sort(([a], [b]) => a.localeCompare(b))
+            // Sort numerically by timestamp
+            .sort(([a], [b]) => Number(a) - Number(b))
             .map(([time, vals]) => ({
-                time,
+                time: Number(time),
                 open: avg(vals.open),
                 high: avg(vals.high),
                 low: avg(vals.low),
