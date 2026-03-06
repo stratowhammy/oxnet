@@ -155,15 +155,19 @@ Sector: "${asset.sector}"
 Overall Outcome: The company ${beatOrMiss} for Q3/Q4.
 Sentiment Score Context: The net score from recent news was ${sentimentScore.toFixed(2)}. If positive, explain they overcame challenges or rode positive momentum. If negative, explain past events caught up to them.
 
-CRITICAL TARGET LITERACY: 6th to 8th grade. Explain the business reason simply. Give their 'forward guidance' for next quarter.
-CRITICAL: Include exactly one Markdown link naturally inside the Story, e.g., \`[${asset.name}](/?search=${asset.symbol})\`.
+CRITICAL INSTRUCTIONS: 
+- Your report MUST detail exactly HOW, WHAT, and WHY the company ${beatOrMiss}. Make it unique to their industry.
+- You MUST provide a specific, fake dollar figure for their "Projected Future Earnings" next quarter (e.g. "$45.2 Million" or "$1.8 Billion").
+- CRITICAL TARGET LITERACY: 6th to 8th grade. Keep it simple.
+- CRITICAL: Include exactly one Markdown link naturally inside the Story, e.g., \`[${asset.name}](/?search=${asset.symbol})\`.
 
 You MUST respond ONLY with a raw JSON object matching exactly this schema:
 {
   "Headline": "String (Short earnings headline)",
-  "Story": "String (4-6 simple sentences. Explain outcome. MUST include exactly one Markdown link.)",
+  "Story": "String (4-6 simple sentences explaining strictly HOW, WHAT, and WHY they missed or beat. MUST include exactly one Markdown link.)",
   "Summary": "String (1 short sentence summary)",
   "Expected_Economic_Outcome": "String (1 line explaining what happens next simply)",
+  "Projected_Future_Earnings": "String (Specific dollar figure forecast for next Quarter, e.g. '$120.5 Million')",
   "Direction": "${programmaticDirection}",
   "Intensity_Weight": ${programmaticIntensity},
   "Competitor_Inversion": false,
@@ -173,9 +177,10 @@ You MUST respond ONLY with a raw JSON object matching exactly this schema:
 
         const fallbackData = {
             Headline: `${asset.name} Earnings Report`,
-            Story: `[${asset.name}](/?search=${asset.symbol}) released its earnings today. The company ${beatOrMiss}. Leaders told investors the next quarter looks ${programmaticDirection === 'UP' ? 'promising' : 'challenging'}.`,
+            Story: `[${asset.name}](/?search=${asset.symbol}) released its earnings today. The company ${beatOrMiss}. Leaders cited shifting demand in the ${asset.sector} space as the primary driver for these results. They noted that operational costs and recent product launches heavily influenced the quarter's outcome.`,
             Summary: `${asset.name} reported results.`,
             Expected_Economic_Outcome: `This news should impact the stock and its related sector.`,
+            Projected_Future_Earnings: programmaticDirection === 'UP' ? '$185.4 Million' : '$42.1 Million',
             Direction: programmaticDirection,
             Intensity_Weight: programmaticIntensity,
             Competitor_Inversion: false,
@@ -215,19 +220,25 @@ You MUST respond ONLY with a raw JSON object matching exactly this schema:
         // 3. Publish News and Update Asset state atomically
         const nextDate = new Date(now.getTime() + (72 * 60 * 60 * 1000)); // Exactly 72 hours from now
 
+        const storyBody = finalData.Story || fallbackData.Story;
+        const projectionFigure = finalData.Projected_Future_Earnings || fallbackData.Projected_Future_Earnings;
+
+        const finalContext = `${storyBody}\n\n**Projected Future Earnings:** ${projectionFigure}`;
+        const finalSummary = `${finalData.Summary || fallbackData.Summary} | Projected Next Q: ${projectionFigure}`;
+
         try {
             await prisma.$transaction([
                 prisma.newsStory.create({
                     data: {
                         headline: finalData.Headline || fallbackData.Headline,
-                        context: finalData.Story || fallbackData.Story,
+                        context: finalContext,
                         targetSector: asset.sector,
                         targetSpecialty: asset.niche,
                         impactScope: "SECTOR",
                         direction: (String(finalData.Direction || programmaticDirection).toUpperCase() === 'DOWN') ? 'DOWN' : 'UP',
                         intensityWeight: Number(finalData.Intensity_Weight) || programmaticIntensity,
                         competitorInversion: finalData.Competitor_Inversion || false,
-                        summary: finalData.Summary || fallbackData.Summary,
+                        summary: finalSummary,
                         npcInvolved: null,
                         tags: JSON.stringify(finalData.Tags || fallbackData.Tags),
                         outlet: selectedOutlet.name,
