@@ -134,52 +134,60 @@ function SectorIndexView({ selectedSector, sectorAssets, sectorIndexData, onSele
     allAssets: any[];
 }) {
     const sectorChartRef = useRef<HTMLDivElement>(null);
+    const chartInstanceRef = useRef<any>(null);
+    const seriesRef = useRef<any>(null);
+    const visibleRangeRef = useRef<any>(null);
+
+    // Reset zoom when switching sectors
+    useEffect(() => {
+        visibleRangeRef.current = null;
+    }, [selectedSector]);
 
     useEffect(() => {
         if (!sectorChartRef.current || sectorIndexData.length === 0) return;
 
-        const chart = createChart(sectorChartRef.current, {
-            layout: {
-                background: { type: ColorType.Solid, color: '#111827' },
-                textColor: '#d1d5db',
-            },
-            width: sectorChartRef.current.clientWidth,
-            height: 350,
-            grid: {
-                vertLines: { color: '#374151' },
-                horzLines: { color: '#374151' },
-            },
-            rightPriceScale: { borderVisible: false },
-            timeScale: { borderVisible: false },
-        });
+        if (!chartInstanceRef.current) {
+            const chart = createChart(sectorChartRef.current, {
+                layout: { background: { type: ColorType.Solid, color: '#111827' }, textColor: '#d1d5db' },
+                width: sectorChartRef.current.clientWidth,
+                height: 350,
+                grid: { vertLines: { color: '#374151' }, horzLines: { color: '#374151' } },
+                rightPriceScale: { borderVisible: false },
+                timeScale: { borderVisible: false },
+            });
 
-        const candlestickSeries = chart.addSeries(CandlestickSeries, {
-            upColor: '#26a69a',
-            downColor: '#ef5350',
-            borderVisible: false,
-            wickUpColor: '#26a69a',
-            wickDownColor: '#ef5350'
-        });
+            const lineSeries = chart.addSeries(LineSeries, {
+                color: '#22c55e', // text-green-500
+                lineWidth: 2,
+            });
 
-        candlestickSeries.setData(sectorIndexData.map(d => ({
+            chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+                if (range) visibleRangeRef.current = range;
+            });
+
+            const handleResize = () => {
+                if (sectorChartRef.current) chart.applyOptions({ width: sectorChartRef.current.clientWidth });
+            };
+            window.addEventListener('resize', handleResize);
+
+            chartInstanceRef.current = chart;
+            seriesRef.current = lineSeries;
+        }
+
+        const chart = chartInstanceRef.current;
+        const series = seriesRef.current;
+
+        series.setData(sectorIndexData.map(d => ({
             time: d.time as any,
-            open: d.open,
-            high: d.high,
-            low: d.low,
-            close: d.close
+            value: d.close // LineSeries only needs value
         })));
-        chart.timeScale().fitContent();
 
-        const handleResize = () => {
-            if (sectorChartRef.current) chart.applyOptions({ width: sectorChartRef.current.clientWidth });
-        };
-        window.addEventListener('resize', handleResize);
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-            chart.remove();
-        };
-    }, [sectorIndexData, selectedSector]);
+        if (visibleRangeRef.current) {
+            chart.timeScale().setVisibleLogicalRange(visibleRangeRef.current);
+        } else {
+            chart.timeScale().fitContent();
+        }
+    }, [sectorIndexData]);
 
     if (!selectedSector) {
         // Overview: all sectors as cards
@@ -593,8 +601,9 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
             s.bbLower.setData([]);
         }
 
-        // Only explicitly set range if it was wiped (e.g. changing assets)
-        if (!visibleRangeRef.current && chartData.length > 0) {
+        if (visibleRangeRef.current) {
+            chart.timeScale().setVisibleLogicalRange(visibleRangeRef.current);
+        } else if (chartData.length > 0) {
             const lastIndex = chartData.length - 1;
             chart.timeScale().setVisibleLogicalRange({
                 from: Math.max(0, lastIndex - 100),
