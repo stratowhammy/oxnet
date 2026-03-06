@@ -239,7 +239,7 @@ export default function NewspaperLayout({ leadStory, otherStories }: { leadStory
                                         {story.headline}
                                     </h3>
                                     <div className="text-xs text-gray-500 whitespace-nowrap mt-1">
-                                        {new Date(story.publishedAt).toLocaleDateString()}
+                                        {new Date(story.publishedAt).toLocaleString()}
                                     </div>
                                 </div>
                                 {story.outlet && story.reporter && (

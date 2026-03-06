@@ -1400,6 +1400,40 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
                                         })()}
                                     </div>
 
+                                    {/* Latest Earnings Panel (Stocks Only) */}
+                                    {selectedAsset.type === 'STOCK' && (() => {
+                                        const latestEarnings = news.find((s: NewsStory) => {
+                                            if (!s.tags) return false;
+                                            try {
+                                                const tagsArray = typeof s.tags === 'string' ? JSON.parse(s.tags) : s.tags;
+                                                return Array.isArray(tagsArray) && tagsArray.includes('Q3 Earnings') && tagsArray.includes(selectedAsset.symbol);
+                                            } catch (e) {
+                                                return false;
+                                            }
+                                        });
+
+                                        if (!latestEarnings) return null;
+
+                                        return (
+                                            <div className="bg-gray-900 rounded-xl p-6 shadow-sm border border-indigo-900/50 flex-1 mt-6">
+                                                <h3 className="text-sm font-bold text-indigo-400 mb-3 border-b border-indigo-900/50 pb-2 flex items-center gap-2">
+                                                    <span className="bg-indigo-900/50 text-indigo-300 text-[10px] px-2 py-0.5 rounded font-black uppercase tracking-wider border border-indigo-500/20">Latest Q3 Report</span>
+                                                </h3>
+                                                <div className="space-y-3">
+                                                    <h4 className="text-white font-bold text-base leading-tight">{latestEarnings.headline}</h4>
+                                                    <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-line bg-gray-950 p-4 rounded-lg border border-gray-800">
+                                                        {latestEarnings.context.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')}
+                                                    </p>
+                                                    {latestEarnings.summary && (
+                                                        <div className="bg-indigo-950/30 border border-indigo-900/30 p-4 rounded-lg mt-3">
+                                                            <span className="text-indigo-400 font-black text-[10px] uppercase tracking-widest block mb-2">Executive Summary</span>
+                                                            <p className="text-indigo-200 text-sm font-semibold">{latestEarnings.summary}</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             </>
                         ) : (
