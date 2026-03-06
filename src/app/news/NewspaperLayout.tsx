@@ -17,7 +17,7 @@ export default function NewspaperLayout({ leadStory, otherStories }: { leadStory
 
         // Pattern for markdown links: [Text](/?search=SOMETHING)
         const linkPattern = /\[([^\]]+)\]\(\/\?search=([^)]+)\)/g;
-        const parts: (string | React.ReactNode)[] = [];
+        let parts: (string | React.ReactNode)[] = [];
         let lastIndex = 0;
         let match;
 
@@ -53,8 +53,11 @@ export default function NewspaperLayout({ leadStory, otherStories }: { leadStory
             parts.push(content.substring(lastIndex));
         }
 
-        // If no matches, return original text
+        // Return original if nothing happened
         if (parts.length === 0) return content;
+
+        // NOTE: If global symbol matching is ever needed here, apply the same .map() logic as the Dashboard to prevent infinite loops.
+        // For now, the Newspaper layout only parses Markdown links explicitly.
 
         return <>{parts}</>;
     };

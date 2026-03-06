@@ -303,6 +303,10 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
     const [showingPositionModalAssetId, setShowingPositionModalAssetId] = useState<string | null>(null);
     const [assetNews, setAssetNews] = useState<NewsStory[]>([]);
 
+    // --- State: Tutorial ---
+    const [showTutorial, setShowTutorial] = useState(false);
+    const [tutorialStep, setTutorialStep] = useState(0);
+
     const [activeTab, setActiveTab] = useState<'TRADE' | 'FENNPAY' | 'SECTORS'>('TRADE');
     const [selectedSector, setSelectedSector] = useState<string | null>(null);
 
@@ -365,9 +369,15 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
                 fetchPortfolio();
                 fetchPrices();
             }, 5000); // Poll every 5s
+
+            // Trigger tutorial on first visit for empty portfolios
+            const hasSeen = localStorage.getItem('oxnet_tutorial_seen');
+            if (!hasSeen && user.portfolios.length === 0) {
+                setShowTutorial(true);
+            }
         }
         return () => clearInterval(interval);
-    }, [user.id]);
+    }, [user.id, user.portfolios.length]);
 
     const router = useRouter();
 
@@ -519,89 +529,78 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
     // Default to 20 period for BB
     const bollingerData = useMemo(() => showBB ? calculateBollingerBands(chartData, 20, bbStdDev) : [], [chartData, showBB, bbStdDev]);
 
+    const seriesRefs = useRef<any>({});
+
     useEffect(() => {
-        if (!chartContainerRef.current || chartData.length === 0) return;
+        if (!chartContainerRef.current) return;
 
-        const chart = createChart(chartContainerRef.current, {
-            layout: {
-                background: { type: ColorType.Solid, color: '#111827' }, // gray-900
-                textColor: '#d1d5db',
-            },
-            width: chartContainerRef.current.clientWidth,
-            height: 400,
-            grid: {
-                vertLines: { color: '#374151' },
-                horzLines: { color: '#374151' },
-            },
-            rightPriceScale: {
-                borderVisible: false,
-            },
-            timeScale: {
-                borderVisible: false,
-            },
-        });
+        // Initialize chart strictly once
+        if (!chartRef.current) {
+            const chart = createChart(chartContainerRef.current, {
+                layout: { background: { type: ColorType.Solid, color: '#111827' }, textColor: '#d1d5db' },
+                width: chartContainerRef.current.clientWidth,
+                height: 400,
+                grid: { vertLines: { color: '#374151' }, horzLines: { color: '#374151' } },
+                rightPriceScale: { borderVisible: false },
+                timeScale: { borderVisible: false },
+            });
 
-        const candlestickSeries = chart.addSeries(CandlestickSeries, {
-            upColor: '#10b981', downColor: '#ef4444',
-            borderVisible: false,
-            wickUpColor: '#10b981', wickDownColor: '#ef4444',
-        });
-        candlestickSeries.setData(chartData);
+            seriesRefs.current.main = chart.addSeries(CandlestickSeries, {
+                upColor: '#10b981', downColor: '#ef4444', borderVisible: false, wickUpColor: '#10b981', wickDownColor: '#ef4444',
+            });
+            seriesRefs.current.sma10 = chart.addSeries(LineSeries, { color: '#fbbf24', lineWidth: 1, title: 'SMA 10' });
+            seriesRefs.current.sma20 = chart.addSeries(LineSeries, { color: '#f97316', lineWidth: 1, title: 'SMA 20' });
+            seriesRefs.current.sma50 = chart.addSeries(LineSeries, { color: '#3b82f6', lineWidth: 1, title: 'SMA 50' });
+            seriesRefs.current.sma100 = chart.addSeries(LineSeries, { color: '#ef4444', lineWidth: 1, title: 'SMA 100' });
+            seriesRefs.current.sma200 = chart.addSeries(LineSeries, { color: '#8b5cf6', lineWidth: 1, title: 'SMA 200' });
+            seriesRefs.current.bbUpper = chart.addSeries(LineSeries, { color: '#e5e7eb', lineWidth: 1, lineStyle: 2, title: `BB Upper` });
+            seriesRefs.current.bbLower = chart.addSeries(LineSeries, { color: '#e5e7eb', lineWidth: 1, lineStyle: 2, title: `BB Lower` });
+            seriesRefs.current.bbMiddle = chart.addSeries(LineSeries, { color: '#a78bfa', lineWidth: 1, title: `BB Mid` });
 
-        const sma10Series = chart.addSeries(LineSeries, { color: '#fbbf24', lineWidth: 1, title: 'SMA 10' });
-        const sma20Series = chart.addSeries(LineSeries, { color: '#f97316', lineWidth: 1, title: 'SMA 20' });
-        const sma50Series = chart.addSeries(LineSeries, { color: '#3b82f6', lineWidth: 1, title: 'SMA 50' });
-        const sma100Series = chart.addSeries(LineSeries, { color: '#ef4444', lineWidth: 1, title: 'SMA 100' });
-        const sma200Series = chart.addSeries(LineSeries, { color: '#8b5cf6', lineWidth: 1, title: 'SMA 200' });
+            chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+                if (range) visibleRangeRef.current = range;
+            });
 
-        const bbUpperSeries = chart.addSeries(LineSeries, { color: '#e5e7eb', lineWidth: 1, lineStyle: 2, title: `BB Upper (${bbStdDev})` });
-        const bbLowerSeries = chart.addSeries(LineSeries, { color: '#e5e7eb', lineWidth: 1, lineStyle: 2, title: `BB Lower (${bbStdDev})` });
-        const bbMiddleSeries = chart.addSeries(LineSeries, { color: '#a78bfa', lineWidth: 1, title: `BB Mid` });
+            const handleResize = () => {
+                if (chartContainerRef.current) chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+            };
+            window.addEventListener('resize', handleResize);
 
-        if (showSMA10) sma10Series.setData(sma10);
-        if (showSMA20) sma20Series.setData(sma20);
-        if (showSMA50) sma50Series.setData(sma50);
-        if (showSMA100) sma100Series.setData(sma100);
-        if (showSMA200) sma200Series.setData(sma200);
-
-        if (showBB && bollingerData.length > 0) {
-            bbUpperSeries.setData(bollingerData.map(d => ({ time: d.time as any, value: d.upper })));
-            bbMiddleSeries.setData(bollingerData.map(d => ({ time: d.time as any, value: d.middle })));
-            bbLowerSeries.setData(bollingerData.map(d => ({ time: d.time as any, value: d.lower })));
+            chartRef.current = chart;
         }
 
-        if (visibleRangeRef.current) {
-            try {
-                chart.timeScale().setVisibleLogicalRange(visibleRangeRef.current);
-            } catch (e) {
-                console.warn("Failed to restore chart range", e);
-            }
-        } else if (chartData.length > 0) {
-            // Default view: Last 100 candles
+        const chart = chartRef.current;
+        const s = seriesRefs.current;
+
+        // Apply visual updates safely without destroying the chart
+        if (chartData.length > 0) {
+            s.main.setData(chartData);
+        }
+
+        s.sma10.setData(showSMA10 ? sma10 : []);
+        s.sma20.setData(showSMA20 ? sma20 : []);
+        s.sma50.setData(showSMA50 ? sma50 : []);
+        s.sma100.setData(showSMA100 ? sma100 : []);
+        s.sma200.setData(showSMA200 ? sma200 : []);
+
+        if (showBB && bollingerData.length > 0) {
+            s.bbUpper.setData(bollingerData.map(d => ({ time: d.time as any, value: d.upper })));
+            s.bbMiddle.setData(bollingerData.map(d => ({ time: d.time as any, value: d.middle })));
+            s.bbLower.setData(bollingerData.map(d => ({ time: d.time as any, value: d.lower })));
+        } else {
+            s.bbUpper.setData([]);
+            s.bbMiddle.setData([]);
+            s.bbLower.setData([]);
+        }
+
+        // Only explicitly set range if it was wiped (e.g. changing assets)
+        if (!visibleRangeRef.current && chartData.length > 0) {
             const lastIndex = chartData.length - 1;
             chart.timeScale().setVisibleLogicalRange({
-                from: lastIndex - 100,
+                from: Math.max(0, lastIndex - 100),
                 to: lastIndex,
             });
         }
-
-        const handleResize = () => {
-            if (chartContainerRef.current) {
-                chart.applyOptions({ width: chartContainerRef.current.clientWidth });
-            }
-        };
-
-        // Listen for user zoom/scroll and update the ref immediately
-        chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-            if (range) visibleRangeRef.current = range;
-        });
-
-        window.addEventListener('resize', handleResize);
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-            chart.remove();
-        };
     }, [chartData, showSMA10, showSMA20, showSMA50, showSMA100, showSMA200, sma10, sma20, sma50, sma100, sma200, showBB, bollingerData, bbStdDev]);
 
     // --- Content Parser: News Interactivity ---
@@ -611,12 +610,11 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
         // Pattern for [Link Text](url)
         const markdownLinkPattern = /\[([^\]]+)\]\(([^)]+)\)/g;
 
-        const parts: (string | React.ReactNode)[] = [];
+        let parts: (string | React.ReactNode)[] = [];
         let lastIndex = 0;
         let match;
 
         while ((match = markdownLinkPattern.exec(content)) !== null) {
-            // Push preceding text as a string
             if (match.index > lastIndex) {
                 parts.push(content.substring(lastIndex, match.index));
             }
@@ -624,7 +622,6 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
             const linkText = match[1];
             const url = match[2];
 
-            // Handle sector searches from exactly how the prompt formats it: [Sector](/?search=Sector)
             if (url.startsWith('/?search=')) {
                 const query = decodeURIComponent(url.split('=')[1]);
                 parts.push(
@@ -632,8 +629,6 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
                         key={`mdlink-${match.index}`}
                         onClick={(e) => {
                             e.stopPropagation();
-                            // If it matches a sector, they might want to filter, but Dashboard doesn't have a direct sector filter yet
-                            // Instead we'll set the search term to let the main logic filter it
                             setSearchTerm(query);
                             setShowAssetDetails(false);
                             setSelectedNews(null);
@@ -655,49 +650,52 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
             parts.push(content.substring(lastIndex));
         }
 
-        // Now process $SYMBOL and names on the resulting set of strings
-        // We iterate through all assets to find matches for symbols or names
+        // Safe pass for auto-linking $SYMBOL or Asset Name
+        // To avoid infinite loops, we create a fresh array mapped over the existing parts
         for (let a = 0; a < assets.length; a++) {
             const asset = assets[a];
             const symbolPattern = new RegExp(`\\$${asset.symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g');
-            const namePattern = new RegExp(`\\b${asset.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g');
+            // Look for exactly the name, bordered by word boundaries
+            // We use 'g' but because we split, we only need a standard split RegEx
+            const nameRegexStr = `\\b${asset.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`;
+            const combinedRegex = new RegExp(`(${symbolPattern.source}|${nameRegexStr})`, 'g');
+
+            const newParts: (string | React.ReactNode)[] = [];
 
             for (let i = 0; i < parts.length; i++) {
-                if (typeof parts[i] !== 'string') continue;
-                const text = parts[i] as string;
-
-                const symbolMatch = text.match(symbolPattern);
-                const nameMatch = text.match(namePattern);
-
-                if (symbolMatch || nameMatch) {
-                    const pattern = symbolMatch ? symbolPattern : namePattern;
-                    const subParts = text.split(pattern);
-                    const newParts: (string | React.ReactNode)[] = [];
-
-                    subParts.forEach((part, index) => {
-                        newParts.push(part);
-                        if (index < subParts.length - 1) {
-                            newParts.push(
-                                <button
-                                    key={`asset-${asset.id}-${i}-${index}`}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedAssetId(asset.id);
-                                        setActiveTab('TRADE');
-                                        setSelectedNews(null);
-                                    }}
-                                    className="text-blue-400 hover:text-blue-300 font-bold underline decoration-blue-400/30 hover:decoration-blue-300 transition-all px-1 rounded hover:bg-blue-400/10"
-                                >
-                                    {symbolMatch ? `$${asset.symbol}` : asset.name}
-                                </button>
-                            );
-                        }
-                    });
-
-                    parts.splice(i, 1, ...newParts);
-                    i += newParts.length - 1;
+                const currentPart = parts[i];
+                if (typeof currentPart !== 'string') {
+                    newParts.push(currentPart);
+                    continue;
                 }
+
+                const subParts = currentPart.split(combinedRegex);
+
+                // When using a capturing group with split(), the matched strings are included in the output array.
+                // Output is: [text, match, text, match, text]
+                subParts.forEach((subPart, index) => {
+                    // Even indices are text chunks, odd indices are the matched values
+                    if (index % 2 === 0) {
+                        if (subPart) newParts.push(subPart);
+                    } else {
+                        newParts.push(
+                            <button
+                                key={`asset-${asset.id}-${i}-${index}`}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedAssetId(asset.id);
+                                    setActiveTab('TRADE');
+                                    setSelectedNews(null);
+                                }}
+                                className="text-blue-400 hover:text-blue-300 font-bold underline decoration-blue-400/30 hover:decoration-blue-300 transition-all px-1 rounded hover:bg-blue-400/10"
+                            >
+                                {subPart}
+                            </button>
+                        );
+                    }
+                });
             }
+            parts = newParts;
         }
 
         return parts;
@@ -1798,6 +1796,87 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
                                     </tbody>
                                 </table>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Onboarding Tutorial Overlay */}
+            {showTutorial && (
+                <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[100] p-4 font-sans">
+                    <div className="bg-gray-900 border border-indigo-500/30 rounded-2xl w-full max-w-lg shadow-[0_0_50px_rgba(79,70,229,0.15)] overflow-hidden relative">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"></div>
+
+                        <div className="p-8">
+                            {tutorialStep === 0 && (
+                                <div className="space-y-4">
+                                    <div className="w-12 h-12 bg-blue-900/40 rounded-xl flex items-center justify-center mb-6">
+                                        <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                    </div>
+                                    <h2 className="text-2xl font-black text-white">Welcome to OxNet</h2>
+                                    <p className="text-gray-400">You are entering a fully autonomous, simulated macroeconomic environment. Every price, news story, and trend is being actively simulated.</p>
+                                    <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 text-sm text-gray-300">
+                                        <ul className="space-y-2 list-disc list-inside">
+                                            <li><strong className="text-white">The Market:</strong> Divided into sectors. Price graphs display rolling 15-minute intervals.</li>
+                                            <li><strong className="text-white">Interaction:</strong> Use the interactive graph to pan and zoom through historical data natively.</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            )}
+
+                            {tutorialStep === 1 && (
+                                <div className="space-y-4">
+                                    <div className="w-12 h-12 bg-purple-900/40 rounded-xl flex items-center justify-center mb-6">
+                                        <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5a2 2 0 00-2-2h-2"></path></svg>
+                                    </div>
+                                    <h2 className="text-2xl font-black text-white">News & Earnings</h2>
+                                    <p className="text-gray-400">Information is the lifeblood of OxNet. Prices do not move randomly; they follow narratives.</p>
+                                    <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 text-sm text-gray-300">
+                                        <ul className="space-y-2 list-disc list-inside">
+                                            <li><strong className="text-white">AI Reporters:</strong> Watch the News Feed for dynamically generated stories.</li>
+                                            <li><strong className="text-white">72-Hour Earnings:</strong> Every company reports earnings cyclically. If they 'beat' expectations, their stock price trajectory drifts upward.</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            )}
+
+                            {tutorialStep === 2 && (
+                                <div className="space-y-4">
+                                    <div className="w-12 h-12 bg-green-900/40 rounded-xl flex items-center justify-center mb-6">
+                                        <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    </div>
+                                    <h2 className="text-2xl font-black text-white">Building Leverage</h2>
+                                    <p className="text-gray-400">You begin with a starting portfolio balance. It's time to build your empire.</p>
+                                    <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 text-sm text-gray-300">
+                                        <ul className="space-y-2 list-disc list-inside">
+                                            <li><strong className="text-white">Order Types:</strong> Execute instant Market orders or perfectly timed Limit orders.</li>
+                                            <li><strong className="text-white">Margin:</strong> If enabled, utilize leverage to exponentiate your exposure (and risk).</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="mt-8 flex items-center justify-between border-t border-gray-800/50 pt-6">
+                                <div className="flex space-x-2">
+                                    {[0, 1, 2].map((step) => (
+                                        <div key={step} className={`w-2 h-2 rounded-full transition-colors ${tutorialStep === step ? 'bg-indigo-500' : 'bg-gray-700'}`} />
+                                    ))}
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        if (tutorialStep < 2) {
+                                            setTutorialStep(tutorialStep + 1);
+                                        } else {
+                                            localStorage.setItem('oxnet_tutorial_seen', 'true');
+                                            setShowTutorial(false);
+                                        }
+                                    }}
+                                    className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg transition-colors flex items-center gap-2"
+                                >
+                                    {tutorialStep === 2 ? 'Start Trading' : 'Next'}
+                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
