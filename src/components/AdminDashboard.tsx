@@ -271,6 +271,39 @@ export default function AdminDashboard() {
         }
     }
 
+    // --- RAG Context Management ---
+    const [ragLoading, setRagLoading] = useState(false);
+
+    async function handleRAGAction(action: 'flush' | 'rebuild') {
+        const promptText = action === 'flush'
+            ? "Are you sure you want to FLUSH the LLM context memory? All semantic history will be detached from the AI memory."
+            : "Are you sure you want to REBUILD the LLM context memory? This will completely drop the current index and re-process all assets and news stories using the local vectorizer. This may take several seconds.";
+
+        if (!confirm(promptText)) return;
+
+        setRagLoading(true);
+        try {
+            const res = await fetch('/api/admin/embeddings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer admin-secret-key-123'
+                },
+                body: JSON.stringify({ action })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showFeedback('success', `${data.message} (${data.stats.totalIndexedItems} items indexed)`);
+            } else {
+                showFeedback('error', data.error || `Failed to ${action} context`);
+            }
+        } catch (e) {
+            showFeedback('error', 'Network error during RAG sub-routine.');
+        } finally {
+            setRagLoading(false);
+        }
+    }
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-gray-950">
@@ -324,7 +357,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Action Bar */}
-            <div className="px-6 mb-4 flex gap-3">
+            <div className="px-6 mb-4 flex gap-3 flex-wrap">
                 <button onClick={() => setModal('ADD_USER')} className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-widest px-4 py-2.5 rounded transition-colors">
                     + Add Student
                 </button>
@@ -334,10 +367,18 @@ export default function AdminDashboard() {
                 <button onClick={() => { setShowInvitePanel(!showInvitePanel); if (!showInvitePanel) fetchInviteCodes(); }} className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs uppercase tracking-widest px-4 py-2.5 rounded transition-colors">
                     🔑 Invite Codes
                 </button>
+                <div className="w-px h-8 bg-gray-800 mx-2 self-center"></div>
+                <button onClick={() => handleRAGAction('flush')} disabled={ragLoading} className="bg-red-800 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-widest px-4 py-2.5 rounded transition-colors disabled:opacity-50">
+                    {ragLoading ? 'Working...' : '🗑 Flush RAG Context'}
+                </button>
+                <button onClick={() => handleRAGAction('rebuild')} disabled={ragLoading} className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs uppercase tracking-widest px-4 py-2.5 rounded transition-colors disabled:opacity-50">
+                    {ragLoading ? 'Working...' : '⚡ Rebuild RAG DB'}
+                </button>
+                <div className="w-px h-8 bg-gray-800 mx-2 self-center"></div>
                 <button onClick={fetchUsers} className="bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold text-xs uppercase tracking-widest px-4 py-2.5 rounded border border-gray-700 transition-colors">
                     ↻ Refresh
                 </button>
-                <div className="ml-auto flex items-center gap-3 bg-gray-900 border border-gray-800 px-4 py-1.5 rounded">
+                <div className="ml-auto flex flex-wrap items-center gap-3 bg-gray-900 border border-gray-800 px-4 py-1.5 rounded">
                     <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">News Schedule:</span>
                     <button onClick={toggleNewsSchedule} className={`text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded transition-colors ${newsScheduleMode === 'MODE_24_7' ? 'bg-red-900/50 text-red-400 border border-red-800' : 'bg-green-900/50 text-green-400 border border-green-800'}`}>
                         {newsScheduleMode === 'MODE_24_7' ? '24/7 (30m)' : 'Mon-Fri 8-4 (10m)'}
