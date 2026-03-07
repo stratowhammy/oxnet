@@ -80,6 +80,7 @@ export default async function Home() {
 
   // Fetch all news stories
   const news = await prisma.newsStory.findMany({
+    where: { isEarningsReport: false },
     orderBy: { publishedAt: 'desc' },
     take: 50
   });

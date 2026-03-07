@@ -116,6 +116,7 @@ model NewsStory {
   tags                String?
   outlet              String?
   reporter            String?
+  isEarningsReport    Boolean  @default(false)
   publishedAt         DateTime @default(now())
 }
 

@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 export default async function NewsPage() {
     // Fetch the 10 most recent stories
     const recentStories = await prisma.newsStory.findMany({
+        where: { isEarningsReport: false },
         orderBy: { publishedAt: 'desc' },
         take: 10
     });

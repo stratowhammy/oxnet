@@ -89,7 +89,7 @@ async function recordPriceHistories() {
 }
 
 // 1.5 Process Dynamic Earnings Cycles (runs periodically)
-async function processEarningsCycles() {
+export async function processEarningsCycles() {
     console.log(`[${new Date().toISOString()}] Checking for overdue Earnings Reports...`);
     const now = new Date();
 
@@ -143,47 +143,52 @@ async function processEarningsCycles() {
 
         const prompt = `
 # OxNet News Engine Rules
-You are an objective financial reporter for a global economic simulation. Output purely functional JSON.
+You are the lead narrative storyteller for a global economic simulation. Output purely functional JSON.
 1. NEVER reference real-world companies.
 2. ONLY reference the requested company.
-3. Tone: Professional, objective financial journalism. MUST write at a 6th to 8th-grade reading level.
+3. Tone: Business friendly and engaging for a 12th grader, but vocabulary MUST be kept strictly to an 8th-grade reading level.
 4. Format: STRICTLY JSON conforming to the requested schema. No markdown wrapping.
 
-**NEW STORY REQUEST: QUARTERLY EARNINGS REPORT**
+**NEW STORY REQUEST: LONG-FORM QUARTERLY REPORT**
 Target Company: "${asset.name}" (${asset.symbol})
 Sector: "${asset.sector}"
+Specialty: "${asset.niche}"
+Company Description: "${asset.description}"
 Overall Outcome: The company ${beatOrMiss} for Q3/Q4.
-Sentiment Score Context: The net score from recent news was ${sentimentScore.toFixed(2)}. If positive, explain they overcame challenges or rode positive momentum. If negative, explain past events caught up to them.
+Sentiment Score Context: The net score from recent news was ${sentimentScore.toFixed(2)}.
 
 CRITICAL INSTRUCTIONS: 
-- Your report MUST detail exactly HOW, WHAT, and WHY the company ${beatOrMiss}. Make it unique to their industry.
-- You MUST provide a specific, fake dollar figure for their "Projected Future Earnings" next quarter (e.g. "$45.2 Million" or "$1.8 Billion").
-- CRITICAL TARGET LITERACY: 6th to 8th grade. Keep it simple.
-- CRITICAL: Include exactly one Markdown link naturally inside the Story, e.g., \`[${asset.name}](/?search=${asset.symbol})\`.
+- Your report MUST be approximately 500 words long. Do not write a short summary.
+- This is a creative world-building exercise. You MUST detail exactly WHO, WHAT, WHEN, WHERE, HOW, and WHY the company ${beatOrMiss}, using their specific products, services, and fake executive personalities. Create a rich tapestry of narrative connecting the company to the world.
+- You MUST provide a specific, fake dollar figure for their "Projected Future Earnings" next quarter (e.g. "$45.2 Million").
+- Asses a "Noteworthy_Score" from 1 to 100 on how shocking or market-moving this specific narrative is.
+- Include exactly one Markdown link naturally inside the Story, e.g., \`[${asset.name}](/?search=${asset.symbol})\`.
 
 You MUST respond ONLY with a raw JSON object matching exactly this schema:
 {
-  "Headline": "String (Short earnings headline)",
-  "Story": "String (4-6 simple sentences explaining strictly HOW, WHAT, and WHY they missed or beat. MUST include exactly one Markdown link.)",
+  "Headline": "String (Headline)",
+  "Story": "String (~500 words. Rich world-building narrative of exactly WHO, WHAT, WHEN, WHERE, HOW, and WHY.)",
   "Summary": "String (1 short sentence summary)",
   "Expected_Economic_Outcome": "String (1 line explaining what happens next simply)",
-  "Projected_Future_Earnings": "String (Specific dollar figure forecast for next Quarter, e.g. '$120.5 Million')",
+  "Projected_Future_Earnings": "String (Dollar figure forecast for next Quarter)",
   "Direction": "${programmaticDirection}",
   "Intensity_Weight": ${programmaticIntensity},
   "Competitor_Inversion": false,
+  "Noteworthy_Score": Number (1-100),
   "Tags": ["Q3 Earnings", "${asset.sector}", "${asset.symbol}"]
 }
 `;
 
         const fallbackData = {
-            Headline: `${asset.name} Earnings Report`,
-            Story: `[${asset.name}](/?search=${asset.symbol}) released its earnings today. The company ${beatOrMiss}. Leaders cited shifting demand in the ${asset.sector} space as the primary driver for these results. They noted that operational costs and recent product launches heavily influenced the quarter's outcome.`,
+            Headline: `${asset.name} Quarterly Report`,
+            Story: `[${asset.name}](/?search=${asset.symbol}) released its quarterly report today. The company ${beatOrMiss}. Leaders cited shifting demand in the ${asset.sector} space as the primary driver for these results. They noted that operational costs and recent product launches heavily influenced the quarter's outcome. They will need to adjust strategies for the upcoming cycle.`,
             Summary: `${asset.name} reported results.`,
             Expected_Economic_Outcome: `This news should impact the stock and its related sector.`,
             Projected_Future_Earnings: programmaticDirection === 'UP' ? '$185.4 Million' : '$42.1 Million',
             Direction: programmaticDirection,
             Intensity_Weight: programmaticIntensity,
             Competitor_Inversion: false,
+            Noteworthy_Score: 50,
             Tags: ["Q3 Earnings", asset.sector, asset.symbol]
         };
 
@@ -191,7 +196,7 @@ You MUST respond ONLY with a raw JSON object matching exactly this schema:
         try {
             const response = await fetch(LLM_URL, {
                 method: 'POST',
-                signal: AbortSignal.timeout(60000),
+                signal: AbortSignal.timeout(180000), // Give up to 3 minutes for 500 words
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     model: LLM_MODEL,
@@ -199,7 +204,7 @@ You MUST respond ONLY with a raw JSON object matching exactly this schema:
                         { role: "system", content: "You are a highly capable AI trained to output pure JSON data only." },
                         { role: "user", content: prompt }
                     ],
-                    temperature: 0.6
+                    temperature: 0.7
                 })
             });
 
@@ -226,8 +231,11 @@ You MUST respond ONLY with a raw JSON object matching exactly this schema:
         const finalContext = `${storyBody}\n\n**Projected Future Earnings:** ${projectionFigure}`;
         const finalSummary = `${finalData.Summary || fallbackData.Summary} | Projected Next Q: ${projectionFigure}`;
 
+        const isNoteworthy = (finalData.Noteworthy_Score > 80 || finalData.Intensity_Weight >= 5);
+
         try {
-            await prisma.$transaction([
+            const txs = [
+                // 1. Always create the long-form Quarterly Report (Hidden from live feed)
                 prisma.newsStory.create({
                     data: {
                         headline: finalData.Headline || fallbackData.Headline,
@@ -242,9 +250,11 @@ You MUST respond ONLY with a raw JSON object matching exactly this schema:
                         npcInvolved: null,
                         tags: JSON.stringify(finalData.Tags || fallbackData.Tags),
                         outlet: selectedOutlet.name,
-                        reporter: selectedReporter
+                        reporter: selectedReporter,
+                        isEarningsReport: true
                     }
                 }),
+                // 2. Update Asset State
                 prisma.asset.update({
                     where: { id: asset.id },
                     data: {
@@ -252,8 +262,40 @@ You MUST respond ONLY with a raw JSON object matching exactly this schema:
                         nextEarningsAt: nextDate
                     }
                 })
-            ]);
-            console.log(`Successfully processed Earnings Cycle for ${asset.symbol}`);
+            ];
+
+            // 3. If NOTEWORTHY, publish a short, punchy live-feed Alert bridging to the company
+            if (isNoteworthy) {
+                const alertHeadline = finalData.Direction === 'UP'
+                    ? `Market Shock: ${asset.name} Obliterates Quarterly Expectations`
+                    : `Crisis Alert: ${asset.name} Posts Stunning Quarterly Losses`;
+
+                const shortSummary = `Read the highly anticipated full Quarterly Report for [${asset.name}](/?search=${asset.symbol}) directly on their company page. The market is reacting aggressively to the latest fundamental figures.`;
+
+                txs.push(
+                    prisma.newsStory.create({
+                        data: {
+                            headline: alertHeadline,
+                            context: shortSummary,
+                            targetSector: asset.sector,
+                            targetSpecialty: asset.niche,
+                            impactScope: "SECTOR",
+                            direction: (String(finalData.Direction || programmaticDirection).toUpperCase() === 'DOWN') ? 'DOWN' : 'UP',
+                            intensityWeight: Number(finalData.Intensity_Weight) || programmaticIntensity,
+                            competitorInversion: finalData.Competitor_Inversion || false,
+                            summary: `Major Quarterly Filing from ${asset.symbol}.`,
+                            npcInvolved: null,
+                            tags: JSON.stringify(finalData.Tags || fallbackData.Tags),
+                            outlet: "Market Master Terminal",
+                            reporter: "Automated Desk",
+                            isEarningsReport: false
+                        }
+                    })
+                );
+            }
+
+            await prisma.$transaction(txs);
+            console.log(`Successfully processed Earnings Cycle for ${asset.symbol}. (Noteworthy Alert Triggered: ${isNoteworthy})`);
         } catch (err) {
             console.error(`DB Update failed for earnings on ${asset.symbol}:`, err);
         }
