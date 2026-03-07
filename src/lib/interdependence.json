@@ -21,10 +21,6 @@
     {
       "symbol": "HELB",
       "weight": 0.213
-    },
-    {
-      "symbol": "PENE",
-      "weight": 0.178
     }
   ],
   "AUTO": [
@@ -111,10 +107,6 @@
     {
       "symbol": "VOID",
       "weight": 0.178
-    },
-    {
-      "symbol": "ALCO",
-      "weight": 0.109
     }
   ],
   "DIGI": [
@@ -151,10 +143,6 @@
   ],
   "BRAI": [
     {
-      "symbol": "ALCO",
-      "weight": 0.15
-    },
-    {
       "symbol": "DROC",
       "weight": 0.15
     }
@@ -184,10 +172,6 @@
     }
   ],
   "GENZ": [
-    {
-      "symbol": "FLOW",
-      "weight": 0.126
-    },
     {
       "symbol": "MOLE",
       "weight": 0.124
@@ -313,25 +297,7 @@
       "weight": 0.109
     }
   ],
-  "FLOW": [
-    {
-      "symbol": "WHOL",
-      "weight": 0.262
-    },
-    {
-      "symbol": "VOID",
-      "weight": 0.266
-    },
-    {
-      "symbol": "DRON",
-      "weight": 0.138
-    }
-  ],
   "SYNT": [
-    {
-      "symbol": "FLOW",
-      "weight": 0.173
-    },
     {
       "symbol": "REAL",
       "weight": 0.229
@@ -467,10 +433,6 @@
       "weight": 0.258
     },
     {
-      "symbol": "ALCO",
-      "weight": 0.266
-    },
-    {
       "symbol": "WHOL",
       "weight": 0.25
     }
@@ -479,10 +441,6 @@
     {
       "symbol": "ANON",
       "weight": 0.276
-    },
-    {
-      "symbol": "DECC",
-      "weight": 0.268
     },
     {
       "symbol": "CIRC",
@@ -561,10 +519,6 @@
     {
       "symbol": "GRN",
       "weight": 0.192
-    },
-    {
-      "symbol": "BEER",
-      "weight": 0.261
     }
   ],
   "PRIH": [
@@ -593,34 +547,6 @@
     {
       "symbol": "PLAU",
       "weight": 0.294
-    }
-  ],
-  "CAFF": [
-    {
-      "symbol": "TUTO",
-      "weight": 0.283
-    },
-    {
-      "symbol": "FLOW",
-      "weight": 0.186
-    },
-    {
-      "symbol": "DRIV",
-      "weight": 0.282
-    }
-  ],
-  "BEER": [
-    {
-      "symbol": "BRAI",
-      "weight": 0.262
-    },
-    {
-      "symbol": "GENE",
-      "weight": 0.135
-    },
-    {
-      "symbol": "MICR",
-      "weight": 0.261
     }
   ],
   "GENS": [
@@ -670,10 +596,6 @@
     }
   ],
   "SPAC": [
-    {
-      "symbol": "MERC",
-      "weight": 0.195
-    },
     {
       "symbol": "PLAT",
       "weight": 0.193
@@ -785,10 +707,6 @@
   ],
   "URBM": [
     {
-      "symbol": "BEER",
-      "weight": 0.229
-    },
-    {
       "symbol": "GENE",
       "weight": 0.104
     },
@@ -849,10 +767,6 @@
       "weight": 0.162
     },
     {
-      "symbol": "METH",
-      "weight": 0.185
-    },
-    {
       "symbol": "GROW",
       "weight": 0.235
     },
@@ -869,10 +783,6 @@
     {
       "symbol": "GENE",
       "weight": 0.172
-    },
-    {
-      "symbol": "BEER",
-      "weight": 0.268
     },
     {
       "symbol": "GBIL",
@@ -911,22 +821,9 @@
     {
       "symbol": "PI",
       "weight": 0.176
-    },
-    {
-      "symbol": "ALCO",
-      "weight": 0.296
     }
   ],
-  "MRSB": [
-    {
-      "symbol": "CAFF",
-      "weight": 0.253
-    },
-    {
-      "symbol": "ALCO",
-      "weight": 0.234
-    }
-  ],
+  "MRSB": [],
   "HASH": [
     {
       "symbol": "SEAW",
@@ -1039,10 +936,6 @@
     {
       "symbol": "ENER",
       "weight": 0.16
-    },
-    {
-      "symbol": "FLOW",
-      "weight": 0.144
     }
   ],
   "URAN": [
@@ -1056,10 +949,6 @@
     }
   ],
   "CUPR": [
-    {
-      "symbol": "METH",
-      "weight": 0.129
-    },
     {
       "symbol": "PI",
       "weight": 0.175
@@ -1151,10 +1040,6 @@
       "weight": 0.28
     },
     {
-      "symbol": "FLOW",
-      "weight": 0.288
-    },
-    {
       "symbol": "GROW",
       "weight": 0.163
     }
@@ -1221,10 +1106,6 @@
   ],
   "BASE": [
     {
-      "symbol": "PENE",
-      "weight": 0.218
-    },
-    {
       "symbol": "NEXB",
       "weight": 0.107
     },
@@ -1252,10 +1133,6 @@
     }
   ],
   "SUPE": [
-    {
-      "symbol": "MERC",
-      "weight": 0.285
-    },
     {
       "symbol": "CRIC",
       "weight": 0.274
@@ -1285,30 +1162,8 @@
       "weight": 0.228
     },
     {
-      "symbol": "METH",
-      "weight": 0.177
-    },
-    {
       "symbol": "SOCI",
       "weight": 0.116
-    }
-  ],
-  "MERC": [
-    {
-      "symbol": "PI",
-      "weight": 0.104
-    },
-    {
-      "symbol": "URBM",
-      "weight": 0.12
-    },
-    {
-      "symbol": "SPAC",
-      "weight": 0.204
-    },
-    {
-      "symbol": "LUXU",
-      "weight": 0.129
     }
   ],
   "NUCL": [
@@ -1323,20 +1178,6 @@
     {
       "symbol": "MAG",
       "weight": 0.185
-    }
-  ],
-  "PENE": [
-    {
-      "symbol": "FLAT",
-      "weight": 0.208
-    },
-    {
-      "symbol": "DECC",
-      "weight": 0.187
-    },
-    {
-      "symbol": "ARG",
-      "weight": 0.253
     }
   ],
   "LITI": [
@@ -1455,20 +1296,6 @@
       "weight": 0.206
     }
   ],
-  "METH": [
-    {
-      "symbol": "DEEU",
-      "weight": 0.159
-    },
-    {
-      "symbol": "HYDZ",
-      "weight": 0.2
-    },
-    {
-      "symbol": "DIRE",
-      "weight": 0.146
-    }
-  ],
   "ENER": [
     {
       "symbol": "VALR",
@@ -1531,10 +1358,6 @@
       "weight": 0.208
     },
     {
-      "symbol": "BEER",
-      "weight": 0.289
-    },
-    {
       "symbol": "ALGO",
       "weight": 0.1
     }
@@ -1550,10 +1373,6 @@
     }
   ],
   "HYDZ": [
-    {
-      "symbol": "BEER",
-      "weight": 0.222
-    },
     {
       "symbol": "DIST",
       "weight": 0.122
@@ -1583,10 +1402,6 @@
   ],
   "AUTA": [
     {
-      "symbol": "FLOW",
-      "weight": 0.114
-    },
-    {
       "symbol": "PLAU",
       "weight": 0.199
     }
@@ -1615,30 +1430,8 @@
       "weight": 0.207
     },
     {
-      "symbol": "CAFF",
-      "weight": 0.239
-    },
-    {
       "symbol": "GENS",
       "weight": 0.137
-    }
-  ],
-  "ALCO": [
-    {
-      "symbol": "SOL1",
-      "weight": 0.207
-    },
-    {
-      "symbol": "CUPR",
-      "weight": 0.262
-    },
-    {
-      "symbol": "VOID",
-      "weight": 0.14
-    },
-    {
-      "symbol": "GHOS",
-      "weight": 0.265
     }
   ],
   "AERO": [
@@ -1723,10 +1516,6 @@
   ],
   "ANON": [
     {
-      "symbol": "DECC",
-      "weight": 0.145
-    },
-    {
       "symbol": "FUEL",
       "weight": 0.166
     }
@@ -1771,20 +1560,6 @@
     {
       "symbol": "SOL1",
       "weight": 0.271
-    }
-  ],
-  "DECC": [
-    {
-      "symbol": "METH",
-      "weight": 0.166
-    },
-    {
-      "symbol": "NEOB",
-      "weight": 0.147
-    },
-    {
-      "symbol": "HYDR",
-      "weight": 0.159
     }
   ],
   "BLOC": [
