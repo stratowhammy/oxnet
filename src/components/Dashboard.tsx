@@ -161,10 +161,6 @@ function SectorIndexView({ selectedSector, sectorAssets, sectorIndexData, onSele
                 lineWidth: 2,
             });
 
-            chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-                if (range) visibleRangeRef.current = range;
-            });
-
             const handleResize = () => {
                 if (sectorChartRef.current) chart.applyOptions({ width: sectorChartRef.current.clientWidth });
             };
@@ -176,14 +172,16 @@ function SectorIndexView({ selectedSector, sectorAssets, sectorIndexData, onSele
 
         const chart = chartInstanceRef.current;
         const series = seriesRef.current;
+        
+        const currentRange = chart.timeScale().getVisibleLogicalRange();
 
-        series.setData(sectorIndexData.map(d => ({
+        series.setData(sectorIndexData.map((d: any) => ({
             time: d.time as any,
             value: d.close // LineSeries only needs value
         })));
 
-        if (visibleRangeRef.current) {
-            chart.timeScale().setVisibleLogicalRange(visibleRangeRef.current);
+        if (currentRange) {
+            chart.timeScale().setVisibleLogicalRange(currentRange);
         } else {
             chart.timeScale().fitContent();
         }
@@ -565,10 +563,6 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
             seriesRefs.current.bbLower = chart.addSeries(LineSeries, { color: '#e5e7eb', lineWidth: 1, lineStyle: 2, title: `BB Lower` });
             seriesRefs.current.bbMiddle = chart.addSeries(LineSeries, { color: '#a78bfa', lineWidth: 1, title: `BB Mid` });
 
-            chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-                if (range) visibleRangeRef.current = range;
-            });
-
             const handleResize = () => {
                 if (chartContainerRef.current) chart.applyOptions({ width: chartContainerRef.current.clientWidth });
             };
@@ -576,14 +570,50 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
 
             chartRef.current = chart;
         }
+    }, []); // Only run once on mount
 
-        const chart = chartRef.current;
+    // Handle Main Data Updates
+    useEffect(() => {
         const s = seriesRefs.current;
+        const chart = chartRef.current;
+        if (!s.main || !chart || chartData.length === 0) return;
 
-        // Apply visual updates safely without destroying the chart
-        if (chartData.length > 0) {
-            s.main.setData(chartData);
+        // Determine if we just switched assets (we should fit content) or if we are just updating data
+        // If we want to preserve zoom while polling, we don't force setVisibleLogicalRange unless we really want to.
+        // But lightweight-charts needs us to retain the view when doing full setData, so we snapshot the range:
+        const currentRange = chart.timeScale().getVisibleLogicalRange();
+
+        s.main.setData(chartData);
+        
+        // Always set indicators data continuously with chartData so they don't break sync
+        if (showSMA10) s.sma10.setData(sma10);
+        if (showSMA20) s.sma20.setData(sma20);
+        if (showSMA50) s.sma50.setData(sma50);
+        if (showSMA100) s.sma100.setData(sma100);
+        if (showSMA200) s.sma200.setData(sma200);
+
+        if (showBB && bollingerData.length > 0) {
+            s.bbUpper.setData(bollingerData.map((d: any) => ({ time: d.time, value: d.upper })));
+            s.bbMiddle.setData(bollingerData.map((d: any) => ({ time: d.time, value: d.middle })));
+            s.bbLower.setData(bollingerData.map((d: any) => ({ time: d.time, value: d.lower })));
         }
+
+        // Restore the view gracefully
+        if (currentRange) {
+            chart.timeScale().setVisibleLogicalRange(currentRange);
+        } else {
+            const lastIndex = chartData.length - 1;
+            chart.timeScale().setVisibleLogicalRange({
+                from: Math.max(0, lastIndex - 100),
+                to: lastIndex,
+            });
+        }
+    }, [chartData, sma10, sma20, sma50, sma100, sma200, bollingerData]);
+
+    // Handle Indicator Toggles ONLY
+    useEffect(() => {
+        const s = seriesRefs.current;
+        if (!s.main) return;
 
         s.sma10.setData(showSMA10 ? sma10 : []);
         s.sma20.setData(showSMA20 ? sma20 : []);
@@ -592,25 +622,15 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
         s.sma200.setData(showSMA200 ? sma200 : []);
 
         if (showBB && bollingerData.length > 0) {
-            s.bbUpper.setData(bollingerData.map(d => ({ time: d.time as any, value: d.upper })));
-            s.bbMiddle.setData(bollingerData.map(d => ({ time: d.time as any, value: d.middle })));
-            s.bbLower.setData(bollingerData.map(d => ({ time: d.time as any, value: d.lower })));
+            s.bbUpper.setData(bollingerData.map((d: any) => ({ time: d.time, value: d.upper })));
+            s.bbMiddle.setData(bollingerData.map((d: any) => ({ time: d.time, value: d.middle })));
+            s.bbLower.setData(bollingerData.map((d: any) => ({ time: d.time, value: d.lower })));
         } else {
             s.bbUpper.setData([]);
             s.bbMiddle.setData([]);
             s.bbLower.setData([]);
         }
-
-        if (visibleRangeRef.current) {
-            chart.timeScale().setVisibleLogicalRange(visibleRangeRef.current);
-        } else if (chartData.length > 0) {
-            const lastIndex = chartData.length - 1;
-            chart.timeScale().setVisibleLogicalRange({
-                from: Math.max(0, lastIndex - 100),
-                to: lastIndex,
-            });
-        }
-    }, [chartData, showSMA10, showSMA20, showSMA50, showSMA100, showSMA200, sma10, sma20, sma50, sma100, sma200, showBB, bollingerData, bbStdDev]);
+    }, [showSMA10, showSMA20, showSMA50, showSMA100, showSMA200, showBB]);
 
     // --- Content Parser: News Interactivity ---
     const renderClickableContent = (content: string) => {

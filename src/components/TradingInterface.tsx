@@ -37,7 +37,7 @@ export default function TradingInterface({ initialAssets }: { initialAssets: { i
     const assetId = selectedAssetId;
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<any>(null);
-    const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+    const seriesRefs = useRef<any>({});
 
     const [data, setData] = useState<Candle[]>([]);
     const [loading, setLoading] = useState(true);
@@ -69,56 +69,57 @@ export default function TradingInterface({ initialAssets }: { initialAssets: { i
     const sma50 = useMemo(() => calculateSMA(data, 50), [data]);
     const sma100 = useMemo(() => calculateSMA(data, 100), [data]);
 
-    // Chart Rendering
+    // Chart Initialization & Rendering
     useEffect(() => {
         if (!chartContainerRef.current || data.length === 0) return;
 
-        const chart = createChart(chartContainerRef.current, {
-            layout: {
-                background: { type: ColorType.Solid, color: '#1f2937' }, // Dark mode bg
-                textColor: '#d1d5db',
-            },
-            width: chartContainerRef.current.clientWidth,
-            height: 400,
-            grid: {
-                vertLines: { color: '#374151' },
-                horzLines: { color: '#374151' },
-            }
-        });
+        if (!chartRef.current) {
+            const chart = createChart(chartContainerRef.current, {
+                layout: {
+                    background: { type: ColorType.Solid, color: '#1f2937' }, // Dark mode bg
+                    textColor: '#d1d5db',
+                },
+                width: chartContainerRef.current.clientWidth,
+                height: 400,
+                grid: {
+                    vertLines: { color: '#374151' },
+                    horzLines: { color: '#374151' },
+                }
+            });
 
-        const candlestickSeries = chart.addSeries(CandlestickSeries, {
-            upColor: '#26a69a', downColor: '#ef5350', borderVisible: false, wickUpColor: '#26a69a', wickDownColor: '#ef5350',
-        });
-        candlestickSeries.setData(data);
-        candlestickSeriesRef.current = candlestickSeries;
+            seriesRefs.current.main = chart.addSeries(CandlestickSeries, {
+                upColor: '#26a69a', downColor: '#ef5350', borderVisible: false, wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+            });
+            
+            // SMA Lines
+            seriesRefs.current.sma10 = chart.addSeries(LineSeries, { color: 'yellow', lineWidth: 1, title: 'SMA 10' });
+            seriesRefs.current.sma20 = chart.addSeries(LineSeries, { color: 'orange', lineWidth: 1, title: 'SMA 20' });
+            seriesRefs.current.sma50 = chart.addSeries(LineSeries, { color: 'blue', lineWidth: 1, title: 'SMA 50' });
+            seriesRefs.current.sma100 = chart.addSeries(LineSeries, { color: 'purple', lineWidth: 1, title: 'SMA 100' });
 
-        // SMA Lines
-        const sma10Series = chart.addSeries(LineSeries, { color: 'yellow', lineWidth: 1, title: 'SMA 10' });
-        const sma20Series = chart.addSeries(LineSeries, { color: 'orange', lineWidth: 1, title: 'SMA 20' });
-        const sma50Series = chart.addSeries(LineSeries, { color: 'blue', lineWidth: 1, title: 'SMA 50' });
-        const sma100Series = chart.addSeries(LineSeries, { color: 'purple', lineWidth: 1, title: 'SMA 100' });
+            chart.timeScale().fitContent();
+            chartRef.current = chart;
 
-        if (showSMA10) sma10Series.setData(sma10);
-        if (showSMA20) sma20Series.setData(sma20);
-        if (showSMA50) sma50Series.setData(sma50);
-        if (showSMA100) sma100Series.setData(sma100);
+            const handleResize = () => {
+                if (chartContainerRef.current) {
+                    chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+                }
+            };
 
-        chart.timeScale().fitContent();
-        chartRef.current = chart;
+            window.addEventListener('resize', handleResize);
+        }
 
-        const handleResize = () => {
-            if (chartContainerRef.current) {
-                chart.applyOptions({ width: chartContainerRef.current.clientWidth });
-            }
-        };
+        const s = seriesRefs.current;
+        if (s.main && data.length > 0) {
+            s.main.setData(data);
+        }
 
-        window.addEventListener('resize', handleResize);
+        s.sma10.setData(showSMA10 ? sma10 : []);
+        s.sma20.setData(showSMA20 ? sma20 : []);
+        s.sma50.setData(showSMA50 ? sma50 : []);
+        s.sma100.setData(showSMA100 ? sma100 : []);
 
-        return () => {
-            window.removeEventListener('resize', handleResize);
-            chart.remove();
-        };
-    }, [data, showSMA10, showSMA20, showSMA50, showSMA100, sma10, sma20, sma50, sma100]); // Re-render if toggles change
+    }, [data, showSMA10, showSMA20, showSMA50, showSMA100, sma10, sma20, sma50, sma100]); // Data updates apply safely
 
     // Debounced Price Impact
     useEffect(() => {

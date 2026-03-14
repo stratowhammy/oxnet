@@ -1,5 +1,5 @@
-import prisma from './db';
-import { maintainMarketMakerOrders } from './marketMaker';
+import prisma from './db.js';
+import { maintainMarketMakerOrders } from './marketMaker.js';
 import fs from 'fs';
 import path from 'path';
 

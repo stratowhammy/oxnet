@@ -19,10 +19,19 @@ export async function maintainMarketMakerOrders(assetId) {
             }
         });
 
-        const buyOrders = currentOrders.filter(o => o.type === 'BUY');
-        const sellOrders = currentOrders.filter(o => o.type === 'SELL');
+        // Prune stale MM orders that are > 5% away from base price
+        const staleMmIds = currentOrders.filter(o => 
+            o.userId === MARKET_MAKER_ID && Math.abs(o.price - basePrice) / basePrice > 0.05
+        ).map(o => o.id);
 
         const ops = [];
+        if (staleMmIds.length > 0) {
+            ops.push(prisma.limitOrder.deleteMany({ where: { id: { in: staleMmIds } } }));
+        }
+
+        const validOrders = currentOrders.filter(o => !staleMmIds.includes(o.id));
+        const buyOrders = validOrders.filter(o => o.type === 'BUY');
+        const sellOrders = validOrders.filter(o => o.type === 'SELL');
 
         // If Buy orders fall below target depth, refill to target
         if (buyOrders.length < TARGET_MM_ORDERS) {

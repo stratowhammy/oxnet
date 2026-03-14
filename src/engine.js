@@ -8,6 +8,7 @@ import { initGoalWorker } from './goalWorker.js';
 import { calculatePriceShift } from './lib/marketMath.js';
 import { maintainMarketMakerOrders } from './lib/marketMaker.js';
 import { AutomatedMarketMaker } from './lib/amm.js';
+import { generateDailyNews } from './lib/newsManager.js';
 
 const LLM_URL = process.env.LLM_URL || 'http://127.0.0.1:1234/v1/chat/completions';
 const LLM_MODEL = process.env.LLM_MODEL || 'qwen/qwen3-vl-4b';
@@ -548,14 +549,23 @@ In the 'Story' field, specifically refer to the NPC as "${npcIdentifier}" on fir
 // 3. Trade Simulator (Runs every ~1 minute)
 // Apply simulated buy/sell pressure based on active news (last 2 hours)
 async function simulateTradeImpacts() {
-    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
-
-    // Get active news
+    // Get active news published today between 8am and 4pm (or still active)
+    const eightAM = new Date();
+    eightAM.setHours(8, 0, 0, 0);
+    
     const activeNews = await prisma.newsStory.findMany({
-        where: { publishedAt: { gte: twoHoursAgo } }
+        where: { 
+            publishedAt: { gte: eightAM },
+            isEarningsReport: false
+        }
     });
 
     if (activeNews.length === 0) return;
+
+    if (!isWithinTradingHours()) {
+        console.log(`[${new Date().toISOString()}] Outside 8am-4pm EST, skipping simulated trade executions.`);
+        return;
+    }
 
     const CENTRAL_BANK_USER_ID = '10101010'; // Using the established central bank string id
 
@@ -584,18 +594,29 @@ async function simulateTradeImpacts() {
             competitors = allAssets.filter(a => a.sector === story.targetSector && !targets.some(t => t.id === a.id));
         }
 
-        // Calculate age of story in minutes to model natural market digestion
-        const ageInMinutes = (Date.now() - new Date(story.publishedAt).getTime()) / (1000 * 60);
+        // Determine age in hours (0 to 8)
+        const ageInHours = (Date.now() - new Date(story.publishedAt).getTime()) / (1000 * 60 * 60);
+        
+        // We execute every hour for 8 hours. 
+        // simulateTradeImpacts runs every 30 seconds.
+        // We need to decide if we should execute a trade in THIS tick.
+        // To spread it out, we'll use a probability or check if we've already done enough volume.
+        // The user said: "set up a set of buy or sell orders that execute every hour for the next 8 hours"
+        // This implies 8 distinct execution events.
+        
+        if (ageInHours > 8) continue; // Story is older than 8 hours
 
-        // Linear decay: price action spreads evenly but tapers off strictly over a 2-hour (120 min) window
-        const decayFactor = Math.max(0, 1 - (ageInMinutes / 120));
+        // Simple logic: Once per hour (approximately)
+        // We'll use a more robust tracker in a real system, but for this simulation:
+        // If the current minute is :00, and it's within the 8 hour window, we execute.
+        const currentMins = new Date().getMinutes();
+        const currentSecs = new Date().getSeconds();
+        
+        // Execute once at the start of every hour
+        if (currentMins !== 0 || currentSecs > 30) continue;
 
-        // Inject volume noise (between 0.3x and 1.7x) so volume bars are staggered organically
-        const volumeNoise = 0.3 + (Math.random() * 1.4);
-
-        // Determine synthetic trade magnitude based on Intensity (1-5) and scale by decay/noise
-        // Base volume is significantly smaller per tick since the area under the curve is much wider now.
-        const baseQuantity = 10 * story.intensityWeight * decayFactor * volumeNoise;
+        const volumeNoise = 0.8 + (Math.random() * 0.4);
+        const baseQuantity = 50 * story.intensityWeight * volumeNoise;
 
         // Skip negligible phantom trades once the news has fully faded
         if (baseQuantity < 1) continue;
@@ -1123,40 +1144,21 @@ function isWithinTradingHours() {
 let isPublishingNews = false;
 async function scheduledPublishNewsStory() {
     if (isPublishingNews) return;
+    
+    const now = new Date();
+    const estString = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+    const est = new Date(estString);
+    
+    // Publish at 8:00 AM EST Mon-Fri
+    if (est.getDay() < 1 || est.getDay() > 5) return;
+    if (est.getHours() !== 8 || est.getMinutes() !== 0) return;
+
     isPublishingNews = true;
     try {
-        const setting = await prisma.globalSetting.findUnique({ where: { key: 'NEWS_SCHEDULE_MODE' } });
-        const mode = setting?.value || 'MODE_24_7'; // Default to 24/7 if not set
-
-        const lastStory = await prisma.newsStory.findFirst({
-            orderBy: { publishedAt: 'desc' }
-        });
-
-        const now = new Date();
-        const lastPublishedAt = lastStory ? lastStory.publishedAt : new Date(0);
-        const minsSinceLastPublish = (now.getTime() - lastPublishedAt.getTime()) / (1000 * 60);
-
-        if (mode === 'MODE_M_F_8_4') {
-            if (!isWithinTradingHours()) {
-                console.log(`[${now.toISOString()}] Outside trading hours (8AM-4PM EST Mon-Fri), skipping news publish.`);
-                return;
-            }
-            if (minsSinceLastPublish < 10) {
-                return; // Wait until 10 mins have passed
-            }
-        } else {
-            // MODE_24_7
-            if (minsSinceLastPublish < 30) {
-                return; // Wait until 30 mins have passed
-            }
-        }
-
-        console.log(`[${now.toISOString()}] Publishing news story. Mode: ${mode}`);
-        // Reload context before publishing in case it was refreshed
-        reloadAIContext();
-        await publishNewsStory();
+        console.log(`[${now.toISOString()}] 8:00 AM EST reached. Generating daily news...`);
+        await generateDailyNews();
     } catch (e) {
-        console.error("Error in scheduled news publish:", e);
+        console.error("Error in daily news generation:", e);
     } finally {
         isPublishingNews = false;
     }
@@ -1209,55 +1211,8 @@ async function accrueMarginInterest() {
     }
 }
 
-// 7. Process Closest Buy Limit Order (runs every 11 mins)
-async function processClosestBuyOrder() {
-    console.log(`[${new Date().toISOString()}] Processing closest BUY order across all assets...`);
-    try {
-        const closestBuy = await prisma.limitOrder.findFirst({
-            where: { type: 'BUY', status: 'PENDING' },
-            orderBy: [{ price: 'desc' }, { createdAt: 'asc' }],
-            include: { asset: true }
-        });
-
-        if (closestBuy) {
-            console.log(`[Engine] Executing closest BUY for ${closestBuy.asset.symbol} at ${closestBuy.price}`);
-            await AutomatedMarketMaker.executeTrade({
-                userId: closestBuy.userId,
-                assetId: closestBuy.assetId,
-                type: 'BUY',
-                quantity: closestBuy.quantity,
-                leverage: closestBuy.leverage,
-                isInternal: false // Allow cascade to trigger
-            });
-            await prisma.limitOrder.update({ where: { id: closestBuy.id }, data: { status: 'EXECUTED' } });
-        }
-    } catch (e) { console.error("Error processing closest buy order:", e); }
-}
-
-// 8. Process Closest Sell Limit Order (runs every 13 mins)
-async function processClosestSellOrder() {
-    console.log(`[${new Date().toISOString()}] Processing closest SELL order across all assets...`);
-    try {
-        const closestSell = await prisma.limitOrder.findFirst({
-            where: { type: 'SELL', status: 'PENDING' },
-            orderBy: [{ price: 'asc' }, { createdAt: 'asc' }],
-            include: { asset: true }
-        });
-
-        if (closestSell) {
-            console.log(`[Engine] Executing closest SELL for ${closestSell.asset.symbol} at ${closestSell.price}`);
-            await AutomatedMarketMaker.executeTrade({
-                userId: closestSell.userId,
-                assetId: closestSell.assetId,
-                type: 'SELL',
-                quantity: closestSell.quantity,
-                leverage: closestSell.leverage,
-                isInternal: false // Allow cascade to trigger
-            });
-            await prisma.limitOrder.update({ where: { id: closestSell.id }, data: { status: 'EXECUTED' } });
-        }
-    } catch (e) { console.error("Error processing closest sell order:", e); }
-}
+// 7. Closest Buy/Sell Limit Order Processing removed as per user request.
+// Trading now only occurs via user orders or news-driven hourly executions.
 
 // 9. Close Spread Gap (runs every 3 mins)
 const MARKET_MAKER_ID = '10101010';
@@ -1371,7 +1326,5 @@ setInterval(refreshAIContext, THIRTY_MINS); // Refresh AI context file every 30 
 setInterval(accrueMarginInterest, FIVE_MINS); // Check for interest accrual eligibility frequently (runs if >= 1hr passed)
 setInterval(processEarningsCycles, FIVE_MINS); // Check for overdue earnings reports
 
-// Periodic Processing of Closest Limit Orders
-setInterval(processClosestBuyOrder, ELEVEN_MINS);
-setInterval(processClosestSellOrder, THIRTEEN_MINS);
+// Periodic Processing of Closest Limit Orders removed.
 setInterval(closeSpreadGap, THREE_MINS);

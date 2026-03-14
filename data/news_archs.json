@@ -1,0 +1,49 @@
+{
+  "activeArchs": [
+    {
+      "id": "arch_1773453800476_H",
+      "type": "HEADLINE",
+      "targetAssetId": "cmm8nqgzp000q13t48pirb62i",
+      "symbol": "SILE",
+      "sector": "Energy",
+      "niche": "Silent vertical-axis wind turbines for urban use",
+      "direction": "UP",
+      "intensity": 5,
+      "duration": 5,
+      "currentDay": 1,
+      "history": [
+        "Dr. Harrison Wells Unveils Revolutionary Energy Technology: SILE Set to Transform Power Generation."
+      ]
+    },
+    {
+      "id": "arch_1773453822907_M_1",
+      "type": "MULTIDAY",
+      "targetAssetId": "cmm8nqgza000213t4g8pslirh",
+      "symbol": "AUTO",
+      "sector": "Technology",
+      "niche": "Autonomous cybersecurity defense swarms",
+      "direction": "UP",
+      "intensity": 3,
+      "duration": 3,
+      "currentDay": 1,
+      "history": [
+        "Institute for Advanced Studies Unveils Revolutionary AI Chip: Dr. Wells' Vision Realized!"
+      ]
+    },
+    {
+      "id": "arch_1773453842224_M_2",
+      "type": "MULTIDAY",
+      "targetAssetId": "cmm8nqgzs000w13t47r9h0q4c",
+      "symbol": "JETF",
+      "sector": "Energy",
+      "niche": "Bio-jetfuel from genetically modified algae",
+      "direction": "DOWN",
+      "intensity": 3,
+      "duration": 3,
+      "currentDay": 1,
+      "history": [
+        "Dr. Harrison Wells' Futuristic Energy Vision Crumbles: JETF Downturn Begins."
+      ]
+    }
+  ]
+}
