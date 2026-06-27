@@ -67,18 +67,30 @@ type NewsStory = {
 };
 
 // --- Mock Data Generator (moved from TradingInterface) ---
-function generateData(count: number, currentBasePrice: number): Candle[] {
+function generateData(count: number, currentBasePrice: number, seed: string = 'default'): Candle[] {
     let date = new Date();
     date.setHours(0, 0, 0, 0);
     // Start count days back
     date.setDate(date.getDate() - count);
 
+    // Seedable PRNG (Mulberry32)
+    let h = 0;
+    for (let i = 0; i < seed.length; i++) {
+        h = Math.imul(31, h) + seed.charCodeAt(i) | 0;
+    }
+    const rng = () => {
+        let t = h += 0x6D2B79F5;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+
     // Instead of random walking forward from the start price, we want the *final* price to exactly match currentBasePrice.
     // Meaning we can randomly generate the diffs, and then normalize the whole array.
     const rawWalk = [100]; // Start at arbitrary value
     for (let i = 1; i < count; i++) {
-        // Simple random walk
-        const step = (Math.random() - 0.5) * 5;
+        // Simple random walk using seeded rng
+        const step = (rng() - 0.5) * 5;
         rawWalk.push(rawWalk[i - 1] + step);
     }
 
@@ -102,14 +114,14 @@ function generateData(count: number, currentBasePrice: number): Candle[] {
         let open, close;
         if (i === 0) {
             open = base;
-            close = base + (Math.random() - 0.5) * volatility;
+            close = base + (rng() - 0.5) * volatility;
         } else {
             open = result[i - 1].close;
             close = base;
         }
 
-        const high = Math.max(open, close) + Math.random() * volatility;
-        const low = Math.min(open, close) - Math.random() * volatility;
+        const high = Math.max(open, close) + rng() * volatility;
+        const low = Math.min(open, close) - rng() * volatility;
 
         const time = date.toISOString().split('T')[0];
         result.push({ time, open, high, low, close });
@@ -460,6 +472,7 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
     // --- State: Charting ---
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<any>(null);
+    const prevAssetIdRef = useRef<string>(selectedAssetId);
     const visibleRangeRef = useRef<any>(null);
     const [chartData, setChartData] = useState<Candle[]>([]);
 
@@ -518,7 +531,7 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
                 }
             }
         } else {
-            data = generateData(200, selectedAsset.basePrice);
+            data = generateData(200, selectedAsset.basePrice, selectedAsset.symbol);
         }
 
         setChartData(data);
@@ -578,10 +591,13 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
         const chart = chartRef.current;
         if (!s.main || !chart || chartData.length === 0) return;
 
+        const hasSwitchedAsset = prevAssetIdRef.current !== selectedAssetId;
+        prevAssetIdRef.current = selectedAssetId;
+
         // Determine if we just switched assets (we should fit content) or if we are just updating data
         // If we want to preserve zoom while polling, we don't force setVisibleLogicalRange unless we really want to.
         // But lightweight-charts needs us to retain the view when doing full setData, so we snapshot the range:
-        const currentRange = chart.timeScale().getVisibleLogicalRange();
+        const currentRange = hasSwitchedAsset ? null : chart.timeScale().getVisibleLogicalRange();
 
         s.main.setData(chartData);
         
@@ -608,7 +624,7 @@ export default function Dashboard({ initialUser, initialAssets, initialNews }: {
                 to: lastIndex,
             });
         }
-    }, [chartData, sma10, sma20, sma50, sma100, sma200, bollingerData]);
+    }, [chartData, sma10, sma20, sma50, sma100, sma200, bollingerData, selectedAssetId]);
 
     // Handle Indicator Toggles ONLY
     useEffect(() => {
